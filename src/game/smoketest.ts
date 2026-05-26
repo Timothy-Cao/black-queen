@@ -4,14 +4,14 @@ import { freshGame, applyBid, applyPass, applyDeclare, applyPlay, collectTrick }
 import { aiBidDecision, aiDeclareDecision, aiPlayDecision } from "./ai";
 import { legalPlays } from "./rules";
 
-function runGame(seed: number): { rounds: number; finalScores: number[]; bidsMade: number; bidsFailed: number } {
+function runGame(seed: number, personality: "normal" | "hard" | "random" = "normal"): { rounds: number; finalScores: number[]; bidsMade: number; bidsFailed: number; winningBid: number | undefined; teamPoints: number } {
   Math.random = mulberry32(seed);
   let s = freshGame([
-    { name: "P0", isAI: true },
-    { name: "P1", isAI: true },
-    { name: "P2", isAI: true },
-    { name: "P3", isAI: true },
-    { name: "P4", isAI: true },
+    { name: "P0", isAI: true, aiPersonality: personality },
+    { name: "P1", isAI: true, aiPersonality: personality },
+    { name: "P2", isAI: true, aiPersonality: personality },
+    { name: "P3", isAI: true, aiPersonality: personality },
+    { name: "P4", isAI: true, aiPersonality: personality },
   ], 300);
   let bidsMade = 0;
   let bidsFailed = 0;
@@ -57,11 +57,21 @@ function runGame(seed: number): { rounds: number; finalScores: number[]; bidsMad
     const delta = finalRound.deltaScores[finalRound.bidder] ?? 0;
     if (delta > 0) bidsMade++; else bidsFailed++;
   }
+  // Compute the winning bid and team capture for diagnostic.
+  let winningBid: number | undefined = undefined;
+  let teamPoints = 0;
+  if (finalRound.bidder !== undefined && finalRound.roundPoints) {
+    winningBid = finalRound.winningBid;
+    const team = new Set<number>([finalRound.bidder, ...(finalRound.partners ?? [])]);
+    for (const p of [0,1,2,3,4]) if (team.has(p)) teamPoints += finalRound.roundPoints[p as 0|1|2|3|4] ?? 0;
+  }
   return {
     rounds: 1,
     finalScores: s.players.map((p) => p.scoreTotal),
     bidsMade,
     bidsFailed,
+    winningBid,
+    teamPoints,
   };
 }
 
@@ -76,18 +86,29 @@ function mulberry32(a: number) {
 }
 
 const N = parseInt(process.argv[2] || "5", 10);
-console.log(`Running ${N} games (asserting every AI play is legal)...`);
-let totalRounds = 0;
+const PERSONALITY = (process.argv[3] || "normal") as "normal" | "hard" | "random";
+
+console.log(`Running ${N} games with ${PERSONALITY} AI (asserting every play legal)...`);
 let totalMade = 0;
 let totalFailed = 0;
+const bids: number[] = [];
+const captures: number[] = [];
+
 for (let i = 1; i <= N; i++) {
-  const r = runGame(i * 7919);
-  totalRounds += r.rounds;
+  const r = runGame(i * 7919, PERSONALITY);
   totalMade += r.bidsMade;
   totalFailed += r.bidsFailed;
+  if (r.winningBid !== undefined) {
+    bids.push(r.winningBid);
+    captures.push(r.teamPoints);
+  }
   if (N <= 10) {
-    console.log(`Game ${i}: ${r.rounds} rounds, scores=${r.finalScores.join(",")}, made=${r.bidsMade}, failed=${r.bidsFailed}`);
+    console.log(`Game ${i}: bid=${r.winningBid ?? "—"}, captured=${r.teamPoints}, made=${r.bidsMade}, failed=${r.bidsFailed}`);
   }
 }
+const avg = (arr: number[]) => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : "—";
+const min = (arr: number[]) => arr.length ? Math.min(...arr) : "—";
+const max = (arr: number[]) => arr.length ? Math.max(...arr) : "—";
 console.log(`\nAll ${N} games completed, no illegal AI plays detected.`);
-console.log(`Totals: ${totalRounds} rounds, ${totalMade} bids made, ${totalFailed} bids failed.`);
+console.log(`Bids: avg=${avg(bids)} min=${min(bids)} max=${max(bids)}; Captured: avg=${avg(captures)}`);
+console.log(`Made: ${totalMade}  Failed: ${totalFailed}  (${(totalMade / (totalMade + totalFailed) * 100).toFixed(0)}% success)`);
