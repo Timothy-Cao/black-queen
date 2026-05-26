@@ -33,10 +33,16 @@ export default function App() {
   const [muted, setMutedState] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(typeof window === "undefined" || window.innerWidth >= 1100);
   const [speed, setSpeed] = useState<"slow" | "normal" | "fast">("normal");
-  const speedMul = speed === "slow" ? 1.5 : speed === "fast" ? 0.5 : 1;
+  const speedMul = speed === "slow" ? 1.6 : speed === "fast" ? 0.55 : 1;
   const aiTimerRef = useRef<number | null>(null);
   const lastLogIdRef = useRef<number>(0);
   const lastPhaseRef = useRef<string>("");
+  const [declareHidden, setDeclareHidden] = useState(false);
+  const [roundEndHidden, setRoundEndHidden] = useState(false);
+
+  // Reset hide-state when entering a new round / new declaring phase
+  const declarePhaseKey = `${state?.round.roundNumber}-${state?.phase}`;
+  useEffect(() => { setDeclareHidden(false); setRoundEndHidden(false); }, [declarePhaseKey]);
 
   const seatMap = useMemo(() => {
     const map = {} as Record<PlayerId, SeatPosition>;
@@ -75,7 +81,7 @@ export default function App() {
     if (r.pendingTrickComplete) {
       aiTimerRef.current = window.setTimeout(() => {
         setState((s) => (s ? collectTrick(s) : s));
-      }, 1500 * speedMul);
+      }, 2200 * speedMul);
       return () => {
         if (aiTimerRef.current) window.clearTimeout(aiTimerRef.current);
       };
@@ -89,7 +95,7 @@ export default function App() {
     const targetPlayer = state.players[target];
     if (!targetPlayer.isAI) return;
 
-    const delay = (r.phase === "playing" ? 700 : r.phase === "bidding" ? 500 : 900) * speedMul;
+    const delay = (r.phase === "playing" ? 1100 : r.phase === "bidding" ? 800 : 1300) * speedMul;
     const captured = target;
     aiTimerRef.current = window.setTimeout(() => {
       setState((s) => {
@@ -243,24 +249,42 @@ export default function App() {
           </div>
         )}
 
-        {showDeclarePanel && (
+        {showDeclarePanel && !declareHidden && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-30">
             <DeclarePanel
               state={state}
               me={me}
               onDeclare={(t, pc) => setState((s) => s && applyDeclare(s, t, pc))}
+              onHide={() => setDeclareHidden(true)}
             />
           </div>
         )}
+        {showDeclarePanel && declareHidden && (
+          <button
+            className="absolute bottom-20 right-4 z-30 glass px-3 py-2 rounded-xl text-sm text-gold-400 hover:bg-white/10 shadow-lg animate-floatIn"
+            onClick={() => setDeclareHidden(false)}
+          >
+            ↑ Re-open declare
+          </button>
+        )}
 
-        {showRoundEnd && (
+        {showRoundEnd && !roundEndHidden && (
           <RoundEnd
             state={state}
             onNext={() => {
               if (isGameOver) setState(null);
               else setState((s) => s && startNextRound(s));
             }}
+            onHide={() => setRoundEndHidden(true)}
           />
+        )}
+        {showRoundEnd && roundEndHidden && (
+          <button
+            className="absolute bottom-20 right-4 z-30 glass px-3 py-2 rounded-xl text-sm text-gold-400 hover:bg-white/10 shadow-lg animate-floatIn"
+            onClick={() => setRoundEndHidden(false)}
+          >
+            ↑ Re-open round summary
+          </button>
         )}
 
         {isGameOver && <Confetti />}

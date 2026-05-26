@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { GameState, SUIT_GLYPHS, PlayerId } from "../game/types";
 import { CardView } from "./CardView";
-import { TipChip } from "./TipChip";
 
 interface Props {
   state: GameState;
   onNext: () => void;
+  onHide?: () => void;
 }
 
-export function RoundEnd({ state, onNext }: Props) {
+export function RoundEnd({ state, onNext, onHide }: Props) {
   const [showTricks, setShowTricks] = useState(false);
   const r = state.round;
   const bidder = state.players[r.bidder!];
@@ -23,9 +23,18 @@ export function RoundEnd({ state, onNext }: Props) {
   const teamLabel = [bidder, ...partners].map((p) => p.name).join(" + ");
   return (
     <div className="fixed inset-0 flex items-center justify-center z-30 bg-black/60 backdrop-blur-sm">
-      <div className={`glass rounded-2xl p-8 w-[680px] max-h-[90vh] overflow-auto animate-floatIn ${
+      <div className={`glass rounded-2xl p-8 w-[680px] max-h-[90vh] overflow-auto animate-floatIn relative ${
         isGameOver ? "ring-2 ring-gold-400/60 shadow-[0_0_60px_rgba(245,196,107,0.3)]" : ""
       }`}>
+        {onHide && !isGameOver && (
+          <button
+            className="absolute top-3 right-3 btn btn-ghost text-[11px]"
+            onClick={onHide}
+            title="Peek at the board / log"
+          >
+            Hide
+          </button>
+        )}
         <div className="text-xs uppercase tracking-widest text-gold-400">
           {isGameOver ? "Champion crowned" : `Round ${r.roundNumber} complete`}
         </div>
@@ -114,7 +123,6 @@ export function RoundEnd({ state, onNext }: Props) {
           )}
         </div>
 
-        {!isGameOver && <TipChip className="mt-5" />}
         <button className="btn btn-primary w-full mt-6 text-base" onClick={onNext}>
           {isGameOver ? "New Game" : "Next Round"}
         </button>

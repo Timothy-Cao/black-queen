@@ -5,12 +5,13 @@ interface Props {
   state: GameState;
   me: PlayerId;
   onDeclare: (trump: Suit, partnerCard: Card) => void;
+  onHide?: () => void;
 }
 
 // Ranks present in the deck (no 2/3/4/6, only 7♠ for sevens)
 const ALL_RANKS: Rank[] = [14, 13, 12, 11, 10, 9, 8, 7, 5];
 
-export function DeclarePanel({ state, me, onDeclare }: Props) {
+export function DeclarePanel({ state, me, onDeclare, onHide }: Props) {
   const [trump, setTrump] = useState<Suit | undefined>();
   const [pick, setPick] = useState<{ suit: Suit; rank: Rank } | undefined>();
   const myHand = state.round.hands[me];
@@ -38,7 +39,7 @@ export function DeclarePanel({ state, me, onDeclare }: Props) {
 
   return (
     <div className="glass rounded-2xl p-6 w-[680px] animate-floatIn">
-      <div className="flex items-baseline justify-between mb-2">
+      <div className="flex items-baseline justify-between mb-2 gap-3">
         <div>
           <div className="text-xs uppercase tracking-widest text-gold-400">Declare</div>
           <div className="text-sm text-stone-200 mt-1">
@@ -46,8 +47,15 @@ export function DeclarePanel({ state, me, onDeclare }: Props) {
             Choose trump and call the partner card.
           </div>
         </div>
-        <div className="text-[11px] text-stone-500 max-w-[260px] text-right leading-snug">
-          Whoever holds a copy is your hidden partner. Can't call a card you own all of.
+        <div className="flex flex-col items-end gap-2">
+          {onHide && (
+            <button className="btn btn-ghost text-[11px]" onClick={onHide} title="Peek at the board">
+              Hide
+            </button>
+          )}
+          <div className="text-[11px] text-stone-500 max-w-[240px] text-right leading-snug">
+            Whoever holds a copy is your hidden partner. Can't call a card you own all of.
+          </div>
         </div>
       </div>
 

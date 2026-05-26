@@ -108,13 +108,9 @@ function randomChoice<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function randomBid(state: GameState): { bid: number | "pass" } {
-  if (Math.random() < 0.5) return { bid: "pass" };
-  const r = state.round;
-  const currentHigh = Math.max(0, ...r.bids.map((b) => b.amount));
-  const min = currentHigh === 0 ? MIN_BID : currentHigh + BID_INCREMENT;
-  if (min > 300) return { bid: "pass" };
-  return { bid: min };
+function randomBid(_state: GameState): { bid: number | "pass" } {
+  // Random AI never bids — always passes.
+  return { bid: "pass" };
 }
 
 function randomDeclare(state: GameState, player: PlayerId): { trump: Suit; partnerCard: Card } {
@@ -143,51 +139,35 @@ function randomPlay(state: GameState, player: PlayerId): Card {
 // NORMAL personality — greedy with smear-to-known-ally
 // =============================================================================
 
-function normalBid(state: GameState, player: PlayerId): { bid: number | "pass" } {
-  const hand = state.round.hands[player];
-  const { estimatePoints } = evaluateHand(hand);
-  const currentHigh = Math.max(0, ...state.round.bids.map((b) => b.amount));
+function normalBid(_state: GameState, _player: PlayerId): { bid: number | "pass" } {
+  // Normal AI rule (current iteration): always raise +5 until 200, then stop.
+  const NORMAL_BID_CAP = 200;
+  const r = _state.round;
+  const currentHigh = Math.max(0, ...r.bids.map((b) => b.amount));
   const required = currentHigh === 0 ? MIN_BID : currentHigh + BID_INCREMENT;
-  const aceCount = hand.filter((c) => c.rank === 14).length;
-  const hasBlackQueen = hand.some((c) => c.suit === "S" && c.rank === 12);
-  const obviousPartnerHand = aceCount >= 3 || (aceCount >= 2 && hasBlackQueen);
-  const ceiling = obviousPartnerHand ? 0.55 : 0.78;
-  const willingnessCeiling = Math.round(estimatePoints * ceiling);
-  if (required > willingnessCeiling) return { bid: "pass" };
-  if (Math.random() < 0.08 && currentHigh > 0) return { bid: "pass" };
+  if (required > NORMAL_BID_CAP) return { bid: "pass" };
   return { bid: required };
 }
 
 function normalDeclare(state: GameState, player: PlayerId): { trump: Suit; partnerCard: Card } {
   const hand = state.round.hands[player];
   const { bestTrump } = evaluateHand(hand);
-  const lengthOf = (s: Suit) => hand.filter((c) => c.suit === s).length;
-  const hasRank = (s: Suit, r: Rank) => hand.some((c) => c.suit === s && c.rank === r);
   const countOf = (s: Suit, r: Rank) => hand.filter((c) => c.suit === s && c.rank === r).length;
-  const totalCopies = (s: Suit, r: Rank) => (s === "S" && r === 7 ? 1 : 2);
-  const sideSuits = SUITS.filter((s) => s !== bestTrump);
-  const longestSide = sideSuits.slice().sort((a, b) => lengthOf(b) - lengthOf(a))[0];
 
-  const candidates: { card: Card; score: number }[] = [];
-  for (const s of SUITS) {
-    for (const rank of [14, 13, 12, 11, 10] as Rank[]) {
-      if (countOf(s, rank) >= totalCopies(s, rank)) continue;
-      let score = 0;
-      if (rank === 14) score += 12;
-      else if (rank === 13) score += hasRank(s, 14) ? 9 : 4;
-      else if (rank === 12) score += hasRank(s, 14) && hasRank(s, 13) ? 7 : 2;
-      else score += 1;
-      score += lengthOf(s);
-      if (s === longestSide && rank === 14) score += 10;
-      if (s === "S" && rank === 12 && countOf("S", 12) === 0) score += 8;
-      if (s === bestTrump && rank === 14 && !hasRank(bestTrump, 14)) score += 6;
-      if (countOf(s, rank) === 0) score += 3;
-      score += Math.random() * 1.5;
-      candidates.push({ card: { suit: s, rank, id: `${s}${rank}_0` }, score });
+  // Normal AI rule: partner card = the highest-rank rank+suit the bidder owns ZERO copies of.
+  // Walk ranks high → low; for each rank scan suits and pick the first (rank, suit) we hold none of.
+  const ranks: Rank[] = [14, 13, 12, 11, 10, 9, 8, 7, 5];
+  for (const rank of ranks) {
+    for (const s of SUITS) {
+      if (rank === 7 && s !== "S") continue; // 7♠ is the only 7 in the deck
+      if (countOf(s, rank) === 0) {
+        return { trump: bestTrump, partnerCard: { suit: s, rank, id: `${s}${rank}_0` } };
+      }
     }
   }
-  candidates.sort((a, b) => b.score - a.score);
-  return { trump: bestTrump, partnerCard: candidates[0].card };
+  // Pathological fallback (the bidder somehow holds at least 1 of every rank+suit in the deck —
+  // impossible in a 13-card hand, but be safe).
+  return { trump: bestTrump, partnerCard: { suit: "S", rank: 14, id: "S14_0" } };
 }
 
 /**
