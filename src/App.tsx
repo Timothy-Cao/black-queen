@@ -187,8 +187,11 @@ export default function App() {
         <div className="absolute inset-x-[10%] inset-y-[14%] rounded-[50%] border border-white/5 shadow-inset pointer-events-none" />
 
         {state.players.map((p) => {
-          const pos = seatMap[p.id];
           const isMe = p.id === me;
+          // For the human (bottom seat), the hand strip + sidebar + TurnHint already cover
+          // identity, score, turn highlight, and role. Don't render a redundant pill.
+          if (isMe && !state.players[me].isAI) return null;
+          const pos = seatMap[p.id];
           const myBids = r.bids.filter((b) => b.player === p.id);
           const bidLabel = r.phase === "bidding"
             ? (r.passed.has(p.id) ? "pass" : (myBids.length ? String(myBids[myBids.length - 1].amount) : undefined))
