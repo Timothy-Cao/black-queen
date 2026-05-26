@@ -35,7 +35,7 @@ export function HistoryModal({ state, onClose }: Props) {
 }
 
 function RoundCard({ state, round }: { state: GameState; round: RoundState }) {
-  const bidderName = round.bidder !== undefined ? state.players[round.bidder].name : "—";
+  const callerName = round.bidder !== undefined ? state.players[round.bidder].name : "—";
   const partners = round.partners ?? [];
   const teamIds = new Set<PlayerId>([round.bidder!, ...partners]);
   const teamPts = ([0, 1, 2, 3, 4] as PlayerId[])
@@ -52,7 +52,7 @@ function RoundCard({ state, round }: { state: GameState; round: RoundState }) {
         </div>
       </div>
       <div className="text-xs text-stone-300 mt-1">
-        <span className="text-stone-400">Bidder</span> {bidderName} ★
+        <span className="text-stone-400">Caller</span> {callerName} ★
         {" · "}
         <span className="text-stone-400">Partner card</span>{" "}
         {round.partnerCard ? (

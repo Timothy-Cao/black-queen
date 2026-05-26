@@ -7,6 +7,10 @@ export type SeatPosition = "bottom" | "left" | "topLeft" | "topRight" | "right";
 const AVATAR_COLORS = ["#5b4eb6", "#3a7a8a", "#5a7b3c", "#a14552", "#b87333"];
 function avatarColor(id: number) { return AVATAR_COLORS[id % AVATAR_COLORS.length]; }
 
+// Cute emoji faces per player slot.
+const AVATAR_EMOJI = ["🦊", "🐱", "🐻", "🐼", "🐶"];
+function avatarEmoji(id: number) { return AVATAR_EMOJI[id % AVATAR_EMOJI.length]; }
+
 interface Props {
   player: Player;
   isActive?: boolean;
@@ -47,14 +51,16 @@ export function PlayerSeat({
         >
           <div className="relative">
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-lg leading-none"
               style={{
                 background: player.isAI ? avatarColor(player.id) : "#e0a93a",
-                color: player.isAI ? "#fafafa" : "#1c1917",
+                boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.12)",
               }}
               title={player.isAI ? `AI · ${player.name}` : "Human"}
             >
-              {(player.name[0] || "P").toUpperCase()}
+              <span style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.4))" }}>
+                {avatarEmoji(player.id)}
+              </span>
             </div>
             {isDealer && (
               <div
@@ -68,7 +74,7 @@ export function PlayerSeat({
           <div className="flex flex-col leading-tight">
             <div className="font-semibold text-sm text-stone-100 flex items-center">
               {player.name}
-              {isBidder && <span className="ml-1 text-gold-400" title="Bidder">★</span>}
+              {isBidder && <span className="ml-1 text-gold-400" title="Caller">★</span>}
               {isPartner && <span className="ml-1 text-amber-300" title="Revealed partner">◆</span>}
             </div>
             {/* For other players we still show their cumulative score; the bottom (own) seat

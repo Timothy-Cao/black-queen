@@ -22,7 +22,9 @@ export function freshGame(
     tricksWon: [],
     scoreTotal: 0,
   }));
-  const round = startRound(players, 0, 1, shuffleMode);
+  // Round 1: pick a random dealer; the dealer starts the bidding.
+  const firstDealer = Math.floor(Math.random() * 5) as PlayerId;
+  const round = startRound(players, firstDealer, 1, shuffleMode);
   return {
     players,
     round,
@@ -43,8 +45,7 @@ export function startRound(players: Player[], dealer: PlayerId, roundNumber: num
     players[i].hand = hands[i];
     players[i].tricksWon = [];
   }
-  // Random first bidder
-  const firstBidder = Math.floor(Math.random() * 5) as PlayerId;
+  // Dealer = first bidder. (Game rules: caller of round N becomes dealer of round N+1.)
   return {
     roundNumber,
     dealer,
@@ -54,9 +55,9 @@ export function startRound(players: Player[], dealer: PlayerId, roundNumber: num
     partnerRevealed: false,
     revealedPartners: [],
     tricks: [],
-    toPlay: firstBidder,
+    toPlay: dealer,
     phase: "bidding",
-    bidTurn: firstBidder,
+    bidTurn: dealer,
   };
 }
 
@@ -153,7 +154,7 @@ function redealRound(state: GameState): GameState {
 }
 
 function enterDeclaring(state: GameState, bidder: PlayerId, amount: number): GameState {
-  const log = [...state.log, logEntry("bid", `${state.players[bidder].name} wins the bid at ${amount}. Choosing trump & partner...`)];
+  const log = [...state.log, logEntry("bid", `${state.players[bidder].name} is the caller at ${amount}.`)];
   return {
     ...state,
     phase: "declaring",
@@ -199,7 +200,7 @@ export function applyDeclare(state: GameState, trump: Suit, partnerCard: Card): 
 
   const log = [
     ...state.log,
-    logEntry("reveal", `${state.players[bidder].name} chooses ${SUIT_GLYPHS[trump]} as trump and calls ${cardLabel(partnerCard)} for partner.`),
+    logEntry("reveal", `${state.players[bidder].name} calls ${cardLabel(partnerCard)} on ${SUIT_GLYPHS[trump]}.`),
   ];
   return {
     ...state,
@@ -243,7 +244,7 @@ export function applyPlay(state: GameState, player: PlayerId, card: Card): GameS
   let partnerLog: GameLogEntry[] = [];
   if (r.partnerCard && card.suit === r.partnerCard.suit && card.rank === r.partnerCard.rank) {
     if (player === r.bidder) {
-      partnerLog = [logEntry("reveal", `${state.players[player].name} plays their own ${cardLabel(card)} — partner copy still out there.`)];
+      partnerLog = [logEntry("reveal", `${state.players[player].name} plays own ${cardLabel(card)}.`)];
     } else if (!revealedPartners.includes(player)) {
       revealedPartners = [...revealedPartners, player];
       partnerRevealed = true;
@@ -382,7 +383,8 @@ export function collectTrick(state: GameState): GameState {
 
 export function startNextRound(state: GameState): GameState {
   const history = [...state.history, state.round];
-  const dealer = nextPlayer(state.round.dealer);
+  // The caller of the round that just finished becomes the next dealer.
+  const dealer: PlayerId = state.round.bidder ?? nextPlayer(state.round.dealer);
   const round = startRound(state.players, dealer, state.round.roundNumber + 1, state.shuffleMode);
   return { ...state, history, round, phase: round.phase, log: [...state.log, logEntry("info", `--- Round ${round.roundNumber} ---`)] };
 }

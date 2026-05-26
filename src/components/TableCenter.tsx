@@ -1,4 +1,4 @@
-import { GameState, SUIT_GLYPHS } from "../game/types";
+import { GameState, SUIT_GLYPHS, RANK_LABEL, SUIT_RED } from "../game/types";
 
 interface Props {
   state: GameState;
@@ -39,8 +39,20 @@ export function TableCenter({ state }: Props) {
             <span className="text-gold-400 font-semibold">{state.players[r.bidder!].name}</span>
             <span className="text-stone-500">·</span>
             <span className="font-mono text-stone-200">{r.winningBid}</span>
-            {/* partner count intentionally hidden — that's part of the mystery */}
           </div>
+          {r.partnerCard && (
+            <div
+              className="text-base font-semibold mt-0.5 tabular-nums"
+              style={{
+                color: SUIT_RED[r.partnerCard.suit]
+                  ? r.partnerCard.suit === "H" ? "#fca5a5" : "#fdba74"
+                  : r.partnerCard.suit === "S" ? "#e7e5e4" : "#bef264",
+              }}
+              title="Called card (the secret partner card)"
+            >
+              {RANK_LABEL[r.partnerCard.rank]}{SUIT_GLYPHS[r.partnerCard.suit]}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -126,8 +126,8 @@ export function Lobby({ onStart }: Props) {
             <summary className="cursor-pointer text-gold-400 select-none">Quick rules</summary>
             <div className="mt-2 space-y-1 leading-relaxed">
               <p>Each round, players bid for the right to choose trump and call a hidden partner.</p>
-              <p>The bidder names one card by rank + suit; whoever holds it is the secret ally — no one announces it. They only reveal by playing the card.</p>
-              <p>Bidder + partner together must capture ≥ bid in card points. If they make it, both score the bid; if they fail, both lose it.</p>
+              <p>The Caller names one card by rank + suit; whoever holds it is the secret ally — no one announces it. They only reveal by playing the card.</p>
+              <p>Caller + partner together must capture ≥ bid in card points. If they make it, both score the bid; if they fail, both lose it.</p>
               <p>Card points: <b className="text-gold-400">Q♠ = 30</b>, A = 15, 10 = 10, 5 = 5 — 150 total in the deck.</p>
               <p>Follow suit if possible; trump beats non-trump.</p>
             </div>

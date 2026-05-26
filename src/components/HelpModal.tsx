@@ -45,7 +45,7 @@ export function HelpModal({ onClose }: Props) {
           <section>
             <h3 className="text-xs uppercase tracking-widest text-gold-400 mb-1">Declaring</h3>
             <p>
-              The high bidder names a trump suit, then names a partner card by <b>rank + suit</b> (e.g. "Ace of Spades"). Anyone holding a copy of that card becomes a hidden partner — they don't announce themselves. Since the deck has two copies of most cards, there may be <b>1 or 2 partners</b>.
+              The high bidder becomes the <b>Caller</b>. They name a trump suit, then name a partner card by <b>rank + suit</b> (e.g. "Ace of Spades"). Anyone holding a copy of that card becomes a hidden partner — they don't announce themselves. Since the deck has two copies of most cards, there may be <b>1 or 2 partners</b>.
             </p>
             <p>
               You <b>cannot</b> call a card you own all copies of. You can call a card you own one copy of (then the other copy is your partner).
@@ -54,13 +54,13 @@ export function HelpModal({ onClose }: Props) {
           <section>
             <h3 className="text-xs uppercase tracking-widest text-gold-400 mb-1">Play</h3>
             <p>
-              The bidder leads the first trick. Players must follow the led suit if they have it; otherwise they may play anything, including trump. Highest trump wins the trick; with no trump, the highest card of the led suit wins. Winner leads the next trick. A partner is revealed only by playing their matching card.
+              The Caller leads the first trick. Players must follow the led suit if they have it; otherwise they may play anything, including trump. Highest trump wins the trick; with no trump, the highest card of the led suit wins. Winner leads the next trick. A partner is revealed only by playing their matching card.
             </p>
           </section>
           <section>
             <h3 className="text-xs uppercase tracking-widest text-gold-400 mb-1">Scoring</h3>
             <p>
-              If the bidder + all partners capture <span className="text-emerald-300">≥ bid</span> in trick points, every member of the team scores <span className="text-emerald-300">+bid</span>. If they fall short, every team member scores <span className="text-rose-300">−bid</span>. Opponents need <b>(300 − bid + 1)</b> points to defeat the bid.
+              If the Caller + all partners capture <span className="text-emerald-300">≥ bid</span> in trick points, every member of the team scores <span className="text-emerald-300">+bid</span>. If they fall short, every team member scores <span className="text-rose-300">−bid</span>. Opponents need <b>(300 − bid + 1)</b> points to defeat the bid.
             </p>
           </section>
           <section>

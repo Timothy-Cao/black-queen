@@ -41,7 +41,7 @@ export function PartnerRevealFlash({ state }: Props) {
           {name}
         </div>
         <div className="text-stone-200 mt-2 text-sm">
-          partnered with {state.players[r.bidder!].name}
+          partnered with the Caller, {state.players[r.bidder!].name}
           {partnersLeft > 0 && (
             <span className="ml-2 text-stone-400">· {partnersLeft} partner{partnersLeft === 1 ? "" : "s"} still hidden</span>
           )}

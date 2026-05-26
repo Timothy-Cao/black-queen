@@ -283,7 +283,7 @@ export default function App() {
       </div>
 
       {sidebarOpen && (
-        <div className="w-72 flex-shrink-0 border-l border-white/10 bg-black/30 p-3 overflow-auto animate-floatIn">
+        <div className="w-72 flex-shrink-0 border-l border-white/10 bg-black/30 p-3 flex flex-col animate-floatIn">
           <Sidebar
             state={state}
             onHelp={() => setShowHelp(true)}
