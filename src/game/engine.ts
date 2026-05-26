@@ -1,8 +1,8 @@
 import { buildDeck5p, deal5p, deal5pLight, shuffle, handSort } from "./deck";
 import { isLegalPlay, nextPlayer, trickPoints, trickWinner } from "./rules";
 import {
-  Bid, Card, GameLogEntry, GameState, MIN_BID, Phase, Player, PlayerId,
-  RoundState, ShuffleMode, Suit, Trick, cardPoints, RANK_LABEL, SUIT_GLYPHS,
+  Bid, Card, GameLogEntry, GameState, MIN_BID, Player, PlayerId,
+  RoundState, ShuffleMode, Suit, Trick, RANK_LABEL, SUIT_GLYPHS,
 } from "./types";
 
 // Random offset survives HMR resets so log entry IDs don't collide with stale state.

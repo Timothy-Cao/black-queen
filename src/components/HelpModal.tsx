@@ -1,8 +1,9 @@
 interface Props {
   onClose: () => void;
+  onOpenAIInfo?: () => void;
 }
 
-export function HelpModal({ onClose }: Props) {
+export function HelpModal({ onClose, onOpenAIInfo }: Props) {
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
@@ -69,6 +70,17 @@ export function HelpModal({ onClose }: Props) {
               Every play is a clue. If you smear points to a round someone else is winning, you're telling the table whose side you're on. If you ruff a teammate's round, you've shown your hand. Read bids, voids, and trump plays carefully — the deception is the whole game.
             </p>
           </section>
+          {onOpenAIInfo && (
+            <div className="pt-2 border-t border-white/5 text-[12px] text-stone-400 italic">
+              Curious how the AI works?{" "}
+              <button
+                className="text-gold-400 hover:text-gold-300 underline underline-offset-2 not-italic"
+                onClick={onOpenAIInfo}
+              >
+                Read the mini-paper →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

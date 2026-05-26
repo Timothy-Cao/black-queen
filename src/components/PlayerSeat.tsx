@@ -1,4 +1,4 @@
-import { Player, cardPoints, RANK_LABEL, SUIT_GLYPHS, SUIT_RED, PlayerId } from "../game/types";
+import { Player, cardPoints, RANK_LABEL, SUIT_GLYPHS, SUIT_RED } from "../game/types";
 import { useState } from "react";
 import { CardView } from "./CardView";
 
@@ -263,7 +263,3 @@ function CollectionPopup({ player }: { player: Player }) {
     </div>
   );
 }
-
-// Re-export for App.tsx (kept as a sanity passthrough so existing import sites still work).
-// Note: PlayerId is used only for the type signature of this passthrough.
-export type _PlayerIdMarker = PlayerId;

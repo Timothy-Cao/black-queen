@@ -10,6 +10,7 @@ import { BiddingPanel } from "./components/BiddingPanel";
 import { DeclarePanel } from "./components/DeclarePanel";
 import { RoundEnd } from "./components/RoundEnd";
 import { HelpModal } from "./components/HelpModal";
+import { AIInfoModal } from "./components/AIInfoModal";
 import { PartnerRevealFlash } from "./components/PartnerRevealFlash";
 import { Confetti } from "./components/Confetti";
 import { SettingsBar } from "./components/SettingsBar";
@@ -29,6 +30,7 @@ export default function App() {
   const [me] = useState<PlayerId>(0);
   const [showHands, setShowHands] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showAIInfo, setShowAIInfo] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [muted, setMutedState] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(typeof window === "undefined" || window.innerWidth >= 1100);
@@ -157,7 +159,13 @@ export default function App() {
     return (
       <>
         <Lobby onStart={(cfgs, target, shuffleMode) => setState(freshGame(cfgs, target, shuffleMode))} />
-        {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+        {showHelp && (
+          <HelpModal
+            onClose={() => setShowHelp(false)}
+            onOpenAIInfo={() => { setShowHelp(false); setShowAIInfo(true); }}
+          />
+        )}
+        {showAIInfo && <AIInfoModal onClose={() => setShowAIInfo(false)} />}
         <nav
           aria-label="Legal links"
           className="fixed bottom-4 left-4 z-50 flex gap-2 rounded-lg bg-black/35 px-2 py-1 text-[11px] text-stone-300/75 backdrop-blur-sm"
@@ -316,7 +324,13 @@ export default function App() {
           setSpeed={setSpeed}
         />
 
-        {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+        {showHelp && (
+          <HelpModal
+            onClose={() => setShowHelp(false)}
+            onOpenAIInfo={() => { setShowHelp(false); setShowAIInfo(true); }}
+          />
+        )}
+        {showAIInfo && <AIInfoModal onClose={() => setShowAIInfo(false)} />}
         {showHistory && <HistoryModal state={state} onClose={() => setShowHistory(false)} />}
       </div>
 

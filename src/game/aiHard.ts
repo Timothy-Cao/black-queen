@@ -9,7 +9,7 @@
 
 import { legalPlays, trickWinner } from "./rules";
 import {
-  Card, GameState, MIN_BID, BID_INCREMENT, PlayerId, Rank, RoundState, Suit, SUITS,
+  Card, GameState, MIN_BID, BID_INCREMENT, PlayerId, Rank, Suit, SUITS,
   Trick, cardPoints,
 } from "./types";
 
