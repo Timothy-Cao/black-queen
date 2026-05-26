@@ -96,7 +96,13 @@ export function PlayerSeat({
               {!isMe && (
                 <div className="text-[11px] text-stone-300/90 uppercase tracking-wider">
                   {player.isAI
-                    ? `AI · ${player.aiPersonality === "random" ? "Random" : player.aiPersonality === "hard" ? "Hard" : "Normal"}`
+                    ? `AI · ${
+                        player.aiPersonality === "random" ? "Random"
+                        : player.aiPersonality === "hard" ? "Hard"
+                        : player.aiPersonality === "hard-2" ? "Hard-2"
+                        : player.aiPersonality === "hard-3" ? "Hard-3"
+                        : "Normal"
+                      }`
                     : "Human"}
                 </div>
               )}

@@ -11,8 +11,9 @@ function mulberry32(a: number) { return function () { a |= 0; a = a + 0x6D2B79F5
 let tuned: HardWeights = { ...DEFAULT_HARD_WEIGHTS };
 if (existsSync("./tuned_weights.json")) tuned = { ...DEFAULT_HARD_WEIGHTS, ...JSON.parse(readFileSync("./tuned_weights.json", "utf8")) };
 
-const ENABLE  = { ...tuned, inferSmearStrength: 0.35, inferSmearThreshold: 10, inferAllyThreshold: 0.85 };
-const DISABLE = { ...tuned, inferSmearStrength: 0, inferSmearThreshold: 30, inferAllyThreshold: 1.01 };  // never upgrades
+// Lower ally threshold so propagation-derived priors can actually drive decisions.
+const ENABLE  = { ...tuned, inferSmearStrength: 0.35, inferSmearThreshold: 10, inferAllyThreshold: 0.70, inferPropagationIters: 2, inferPropagationDecay: 0.5 };
+const DISABLE = { ...tuned, inferSmearStrength: 0.35, inferSmearThreshold: 10, inferAllyThreshold: 0.70, inferPropagationIters: 0, inferPropagationDecay: 0.5 };
 
 function runOne(seats: AIPersonality[], seed: number): boolean[] {
   Math.random = mulberry32(seed);
@@ -40,17 +41,17 @@ let enW = 0, enS = 0, disW = 0, disS = 0;
 for (let i = 0; i < N; i++) {
   const rnd = mulberry32(7 + i * 1009);
   const seats: AIPersonality[] = [];
-  for (let k = 0; k < 5; k++) seats.push(rnd() < 0.5 ? "hard-2" : "hard");
-  if (!seats.includes("hard-2")) seats[0] = "hard-2";
+  for (let k = 0; k < 5; k++) seats.push(rnd() < 0.5 ? "hard-3" : "hard");
+  if (!seats.includes("hard-3")) seats[0] = "hard-3";
   if (!seats.includes("hard")) seats[1] = "hard";
 
   setActiveHardWeights(ENABLE);
   const wA = runOne(seats, 12345 + i * 7919);
-  for (let k = 0; k < 5; k++) if (seats[k] === "hard-2") { enS++; if (wA[k]) enW++; }
+  for (let k = 0; k < 5; k++) if (seats[k] === "hard-3") { enS++; if (wA[k]) enW++; }
 
   setActiveHardWeights(DISABLE);
   const wB = runOne(seats, 12345 + i * 7919);
-  for (let k = 0; k < 5; k++) if (seats[k] === "hard-2") { disS++; if (wB[k]) disW++; }
+  for (let k = 0; k < 5; k++) if (seats[k] === "hard-3") { disS++; if (wB[k]) disW++; }
 }
 console.log(`Games: ${N} (each pair same seed)`);
 console.log(`Inference ENABLED  win-rate: ${(enW/enS*100).toFixed(2)}%  (${enW}/${enS})`);

@@ -149,6 +149,10 @@ function mutate(base: HardWeights, sigma: number, seed: number): HardWeights {
       nv = Math.max(0, Math.min(1.0, nv));
     } else if (k === "inferSmearThreshold") {
       nv = Math.max(5, Math.min(30, nv));
+    } else if (k === "inferPropagationIters") {
+      nv = Math.max(0, Math.min(3, Math.round(nv)));
+    } else if (k === "inferPropagationDecay") {
+      nv = Math.max(0.1, Math.min(0.9, nv));
     } else {
       nv = Math.max(0, nv);
     }

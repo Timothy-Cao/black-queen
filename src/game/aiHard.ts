@@ -90,6 +90,8 @@ export interface HardWeights {
   inferSmearStrength: number;        // how much each point-feed update shifts the prior
   inferSmearThreshold: number;       // minimum cardPoints to count as a "smear" signal
   inferAllyThreshold: number;        // posterior probability needed to UPGRADE to inferred ally
+  inferPropagationIters: number;     // iterations of indirect-evidence propagation (smear-to-likely-ally)
+  inferPropagationDecay: number;     // strength multiplier per propagation iter (lower = more conservative)
 }
 
 export const DEFAULT_HARD_WEIGHTS: HardWeights = {
@@ -157,6 +159,10 @@ export const DEFAULT_HARD_WEIGHTS: HardWeights = {
   inferSmearStrength: 0.35,
   inferSmearThreshold: 10,
   inferAllyThreshold: 0.85,
+  // Propagation: tried 2 iters at decay 0.5 → A/B showed +0.06pp, essentially noise.
+  // Code is kept for future exploration but defaults to 0 (off).
+  inferPropagationIters: 0,
+  inferPropagationDecay: 0.5,
 };
 
 // activeHardWeights: weights for the LATEST tuned generation (Hard-3 today).
@@ -285,29 +291,48 @@ function inferAlliancePriors(
     else if (confirmedEnemies.has(p)) out[p] = 0;
     else out[p] = basePrior;
   }
-  // Bayesian-ish update from past plays.
+  // Pre-compute the smear events once: for each play that fed points to a
+  // non-self winner, we'll repeatedly score it against the latest priors.
+  type Smear = { player: PlayerId; winner: PlayerId; pts: number };
+  const smears: Smear[] = [];
   const allTricks: Trick[] = [...r.tricks, ...(r.currentTrick ? [r.currentTrick] : [])];
   for (const t of allTricks) {
     if (t.plays.length === 0) continue;
     for (let i = 1; i < t.plays.length; i++) {
       const play = t.plays[i];
       const player = play.player;
-      // Skip confirmed-affiliation players (no info to gain).
       if (confirmed.has(player) || confirmedEnemies.has(player)) continue;
       const pts = cardPoints(play.card);
       if (pts < w.inferSmearThreshold) continue;
-      // Compute trick-winner after this play.
       const partial: Trick = { ...t, plays: t.plays.slice(0, i + 1) };
       const winnerSoFar = trickWinner(partial, r.trump);
-      if (winnerSoFar === player) continue;  // they're winning their own trick; no smear info
-      // Direction: was the winner-so-far known to be caller team or enemy?
+      if (winnerSoFar === player) continue;
+      smears.push({ player, winner: winnerSoFar, pts });
+    }
+  }
+
+  // Pass 0: only consider smears whose winner has a CONFIRMED affiliation.
+  // Pass N≥1: consider smears whose winner has any non-neutral prior,
+  // scaled by (prior − 0.5) ×2 (signed bias) and decayed per iter.
+  // This bootstraps multi-hop reasoning: P1 smears to caller → P1 likely ally;
+  // then P2 smears to P1 → P2 likely ally.
+  const propIters = Math.max(0, Math.floor(w.inferPropagationIters));
+  for (let iter = 0; iter <= propIters; iter++) {
+    const baseStart = { ...out };
+    for (const s of smears) {
       let dir = 0;
-      if (confirmed.has(winnerSoFar)) dir = +1;
-      else if (confirmedEnemies.has(winnerSoFar)) dir = -1;
-      if (dir === 0) continue;  // winner is unknown; skip propagation for now
-      // Update strength scaled by point value (more points = stronger signal).
-      const delta = dir * w.inferSmearStrength * (pts / 30);
-      out[player] = Math.max(0.02, Math.min(0.98, out[player] + delta));
+      if (iter === 0) {
+        if (confirmed.has(s.winner)) dir = +1;
+        else if (confirmedEnemies.has(s.winner)) dir = -1;
+      } else {
+        const winnerBias = (baseStart[s.winner] - 0.5) * 2;  // -1..+1
+        if (Math.abs(winnerBias) < 0.1) continue;            // too weak to bother
+        dir = winnerBias;
+      }
+      if (dir === 0) continue;
+      const decay = iter === 0 ? 1 : Math.pow(w.inferPropagationDecay, iter);
+      const delta = dir * w.inferSmearStrength * (s.pts / 30) * decay;
+      out[s.player] = Math.max(0.02, Math.min(0.98, out[s.player] + delta));
     }
   }
   // Re-normalize unknowns so they sum to partnersLeft (preserve count invariant).

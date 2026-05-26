@@ -1,7 +1,7 @@
 // Round-robin tournament: NEW tuned vs prior gens & baselines.
 // Each match: mixed seats. Per-personality win-rate from each player's POV.
 //
-//   "hard-2" → loads ./tuned_weights.json (current candidate)
+//   "hard-3" → loads ./tuned_weights.json (current candidate)
 //   "hard-v1"    → loads ./tuned_weights_v1.json   (prior generation)
 //   "hard"       → DEFAULT_HARD_WEIGHTS
 //   "normal", "random" → other personalities
@@ -32,8 +32,8 @@ if (!W_V1) console.warn("Missing tuned_weights_v1.json; v1 contests will skip");
 
 // Map each contestant to (personality used in dispatcher, weights to install).
 const CONTESTANT: Record<ContestantKey, { p: AIPersonality; w?: HardWeights }> = {
-  v2:     { p: "hard-2", w: W_V2 },
-  v1:     { p: "hard-2", w: W_V1 ?? undefined },
+  v2:     { p: "hard-3", w: W_V2 },
+  v1:     { p: "hard-3", w: W_V1 ?? undefined },
   hard:   { p: "hard" },
   normal: { p: "normal" },
   random: { p: "random" },
