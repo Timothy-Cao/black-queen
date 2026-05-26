@@ -85,6 +85,11 @@ export interface HardWeights {
   voidCreateSingletonBonus: number;  // played card was the LAST of its (non-trump) suit
   voidCreateDoubletonBonus: number;  // bringing suit count from 2 → 1
   voidCreateTrumpGate: number;       // multiplier when we still hold ≥1 mid+ trump
+
+  // Alliance inference from observed play
+  inferSmearStrength: number;        // how much each point-feed update shifts the prior
+  inferSmearThreshold: number;       // minimum cardPoints to count as a "smear" signal
+  inferAllyThreshold: number;        // posterior probability needed to UPGRADE to inferred ally
 }
 
 export const DEFAULT_HARD_WEIGHTS: HardWeights = {
@@ -148,6 +153,10 @@ export const DEFAULT_HARD_WEIGHTS: HardWeights = {
   voidCreateSingletonBonus: 15,
   voidCreateDoubletonBonus: 5,
   voidCreateTrumpGate: 1.5,
+
+  inferSmearStrength: 0.35,
+  inferSmearThreshold: 10,
+  inferAllyThreshold: 0.85,
 };
 
 let activeHardWeights: HardWeights = DEFAULT_HARD_WEIGHTS;
@@ -241,9 +250,76 @@ interface TeamKnowledge {
   confirmedCallerTeam: Set<PlayerId>;
   fullyResolved: boolean;
   confirmedEnemies: Set<PlayerId>;
+  /** P(player ∈ caller team) for each seat. 1 = confirmed ally, 0 = confirmed enemy, in-between = inferred. */
+  alliancePrior: Record<PlayerId, number>;
 }
 
-function computeTeam(state: GameState, me: PlayerId): TeamKnowledge {
+/**
+ * Infer per-player probability of being on the caller team by walking trick
+ * history. Strongest signal: a player voluntarily fed points to a trick that
+ * a KNOWN-affiliation player won. Updates are clamped to [0.02, 0.98].
+ */
+function inferAlliancePriors(
+  state: GameState, me: PlayerId, confirmed: Set<PlayerId>, confirmedEnemies: Set<PlayerId>, w: HardWeights,
+): Record<PlayerId, number> {
+  const r = state.round;
+  const out: Record<PlayerId, number> = { 0: 0.5, 1: 0.5, 2: 0.5, 3: 0.5, 4: 0.5 };
+  const callerId = r.bidder;
+  if (callerId === undefined) return out;
+  // Base prior: among unknown players, P(in caller team) = partnersLeft / unknownsCount.
+  const totalPartners = r.partners?.length ?? 0;
+  const unknowns: PlayerId[] = ([0, 1, 2, 3, 4] as PlayerId[]).filter(
+    (p) => !confirmed.has(p) && !confirmedEnemies.has(p),
+  );
+  const partnersLeft = Math.max(0, totalPartners - r.revealedPartners.length);
+  const basePrior = unknowns.length > 0 ? partnersLeft / unknowns.length : 0;
+  for (const p of [0, 1, 2, 3, 4] as PlayerId[]) {
+    if (confirmed.has(p)) out[p] = 1;
+    else if (confirmedEnemies.has(p)) out[p] = 0;
+    else out[p] = basePrior;
+  }
+  // Bayesian-ish update from past plays.
+  const allTricks: Trick[] = [...r.tricks, ...(r.currentTrick ? [r.currentTrick] : [])];
+  for (const t of allTricks) {
+    if (t.plays.length === 0) continue;
+    for (let i = 1; i < t.plays.length; i++) {
+      const play = t.plays[i];
+      const player = play.player;
+      // Skip confirmed-affiliation players (no info to gain).
+      if (confirmed.has(player) || confirmedEnemies.has(player)) continue;
+      const pts = cardPoints(play.card);
+      if (pts < w.inferSmearThreshold) continue;
+      // Compute trick-winner after this play.
+      const partial: Trick = { ...t, plays: t.plays.slice(0, i + 1) };
+      const winnerSoFar = trickWinner(partial, r.trump);
+      if (winnerSoFar === player) continue;  // they're winning their own trick; no smear info
+      // Direction: was the winner-so-far known to be caller team or enemy?
+      let dir = 0;
+      if (confirmed.has(winnerSoFar)) dir = +1;
+      else if (confirmedEnemies.has(winnerSoFar)) dir = -1;
+      if (dir === 0) continue;  // winner is unknown; skip propagation for now
+      // Update strength scaled by point value (more points = stronger signal).
+      const delta = dir * w.inferSmearStrength * (pts / 30);
+      out[player] = Math.max(0.02, Math.min(0.98, out[player] + delta));
+    }
+  }
+  // Re-normalize unknowns so they sum to partnersLeft (preserve count invariant).
+  if (unknowns.length > 0 && partnersLeft > 0) {
+    const sum = unknowns.reduce<number>((s, p) => s + out[p], 0);
+    if (sum > 0) {
+      const scale = partnersLeft / sum;
+      for (const p of unknowns) out[p] = Math.max(0.02, Math.min(0.98, out[p] * scale));
+    }
+  }
+  // Re-confirm pinned values (renorm may have nudged them; restore).
+  for (const p of [0, 1, 2, 3, 4] as PlayerId[]) {
+    if (confirmed.has(p)) out[p] = 1;
+    else if (confirmedEnemies.has(p)) out[p] = 0;
+  }
+  return out;
+}
+
+function computeTeam(state: GameState, me: PlayerId, w: HardWeights): TeamKnowledge {
   const r = state.round;
   const callerId = r.bidder;
   const confirmed = new Set<PlayerId>();
@@ -267,7 +343,8 @@ function computeTeam(state: GameState, me: PlayerId): TeamKnowledge {
   if (fullyResolved) {
     for (const p of [0, 1, 2, 3, 4] as PlayerId[]) if (!confirmed.has(p)) confirmedEnemies.add(p);
   }
-  return { iAmCaller, iAmPartner, onCallerTeam, confirmedCallerTeam: confirmed, fullyResolved, confirmedEnemies };
+  const alliancePrior = inferAlliancePriors(state, me, confirmed, confirmedEnemies, w);
+  return { iAmCaller, iAmPartner, onCallerTeam, confirmedCallerTeam: confirmed, fullyResolved, confirmedEnemies, alliancePrior };
 }
 
 // -----------------------------------------------------------------------------
@@ -439,7 +516,7 @@ function buildContext(state: GameState, player: PlayerId, w: HardWeights): PlayC
   const hand = r.hands[player];
   const trick = r.currentTrick ?? { leader: player, plays: [] };
   const legal = legalPlays(hand, trick);
-  const team = computeTeam(state, player);
+  const team = computeTeam(state, player, w);
   const view = buildPlayedView(state, player);
   const trickPointsSoFar = trick.plays.reduce((s, p) => s + cardPoints(p.card), 0);
   const currentWinner = trick.plays.length > 0 ? trickWinner(trick, r.trump) : undefined;
@@ -478,14 +555,8 @@ function playerLikelyOnMyTeam(p: PlayerId, ctx: PlayContext): number {
   const { team } = ctx;
   if (team.confirmedCallerTeam.has(p)) return team.onCallerTeam ? 1 : 0;
   if (team.confirmedEnemies.has(p)) return team.onCallerTeam ? 0 : 1;
-  const r = ctx.state.round;
-  const totalPartners = r.partners?.length ?? 0;
-  const partnersLeft = Math.max(0, totalPartners - r.revealedPartners.length);
-  const opponentsUnknown = ([0, 1, 2, 3, 4] as PlayerId[]).filter(
-    (x) => !team.confirmedCallerTeam.has(x) && !team.confirmedEnemies.has(x),
-  ).length;
-  if (opponentsUnknown === 0) return team.onCallerTeam ? 0 : 1;
-  const callerTeamProb = partnersLeft / opponentsUnknown;
+  // Use the inferred per-player caller-team probability; flip if I'm an opponent.
+  const callerTeamProb = team.alliancePrior[p];
   return team.onCallerTeam ? callerTeamProb : 1 - callerTeamProb;
 }
 
@@ -566,9 +637,16 @@ function scoreMove(card: Card, ctx: PlayContext): number {
   }
   score -= cardSpendCost(card, ctx);
   if (ctx.currentWinner !== undefined) {
-    const allyWinning = ctx.team.confirmedCallerTeam.has(ctx.currentWinner) && ctx.team.onCallerTeam;
+    // Inferred ally/enemy if prior is strongly skewed past the threshold.
+    const winnerCallerProb = ctx.team.alliancePrior[ctx.currentWinner];
+    const inferredAlly = ctx.team.onCallerTeam ? winnerCallerProb >= w.inferAllyThreshold
+                                                : winnerCallerProb <= 1 - w.inferAllyThreshold;
+    const inferredEnemy = ctx.team.onCallerTeam ? winnerCallerProb <= 1 - w.inferAllyThreshold
+                                                : winnerCallerProb >= w.inferAllyThreshold;
+    const allyWinning = (ctx.team.confirmedCallerTeam.has(ctx.currentWinner) && ctx.team.onCallerTeam) || inferredAlly;
     const enemyWinning = ctx.team.confirmedEnemies.has(ctx.currentWinner)
-      || (ctx.team.onCallerTeam && !ctx.team.confirmedCallerTeam.has(ctx.currentWinner) && ctx.team.fullyResolved);
+      || (ctx.team.onCallerTeam && !ctx.team.confirmedCallerTeam.has(ctx.currentWinner) && ctx.team.fullyResolved)
+      || inferredEnemy;
     if (allyWinning && cardPoints(card) > 0) {
       score += cardPoints(card) * w.smearBonusMul - cardSpendCost(card, ctx);
     }

@@ -145,6 +145,10 @@ function mutate(base: HardWeights, sigma: number, seed: number): HardWeights {
       nv = Math.max(0, Math.min(1.5, nv));
     } else if (k === "voidCreateTrumpGate") {
       nv = Math.max(0.5, Math.min(3.0, nv));
+    } else if (k === "inferSmearStrength") {
+      nv = Math.max(0, Math.min(1.0, nv));
+    } else if (k === "inferSmearThreshold") {
+      nv = Math.max(5, Math.min(30, nv));
     } else {
       nv = Math.max(0, nv);
     }
