@@ -20,5 +20,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["src/game/smoketest.ts"]
+  "exclude": ["src/game/smoketest.ts", "src/game/arena.ts", "src/game/tune.ts"]
 }

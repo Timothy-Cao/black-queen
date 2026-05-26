@@ -12,10 +12,23 @@
 //      npx tsx src/game/arena.ts 5000 hard,normal,hard,normal,hard   (fixed seat layout)
 // =============================================================================
 
+import { existsSync, readFileSync } from "fs";
 import { freshGame, applyBid, applyPass, applyDeclare, applyPlay, collectTrick } from "./engine";
 import { aiBidDecision, aiDeclareDecision, aiPlayDecision } from "./ai";
 import { legalPlays } from "./rules";
 import { AIPersonality, GameState, PlayerId } from "./types";
+import { DEFAULT_HARD_WEIGHTS, setActiveHardWeights, HardWeights } from "./aiHard";
+
+// Load tuned weights for "hard-tuned" personality if available.
+const TUNED_PATH = "./tuned_weights.json";
+if (existsSync(TUNED_PATH)) {
+  try {
+    const j = JSON.parse(readFileSync(TUNED_PATH, "utf8"));
+    const w: HardWeights = { ...DEFAULT_HARD_WEIGHTS, ...j };
+    setActiveHardWeights(w);
+    console.log(`Loaded tuned weights from ${TUNED_PATH}`);
+  } catch (e) { console.error("Failed to load tuned weights:", (e as Error).message); }
+}
 
 type Personality = AIPersonality;
 
@@ -109,7 +122,7 @@ function summarize(perSeat: Record<Personality, SeatStats>, totalGames: number) 
   console.log(`\nArena summary (${totalGames} games):`);
   console.log("personality   |  played  |  called  | call-made% | avg-bid | avg-cap | team-win%");
   console.log("-".repeat(86));
-  for (const key of ["hard", "normal", "random"] as Personality[]) {
+  for (const key of ["hard", "hard-tuned", "normal", "random"] as Personality[]) {
     const s = perSeat[key];
     if (!s || s.games === 0) continue;
     console.log(
@@ -124,7 +137,7 @@ const tokens = arg.split(",").map((t) => t.trim()) as Personality[];
 const fixedLayout = tokens.length === 5;
 
 const perSeat: Record<Personality, SeatStats> = {
-  hard: newStats(), normal: newStats(), random: newStats(),
+  hard: newStats(), normal: newStats(), random: newStats(), "hard-tuned": newStats(),
 };
 
 const t0 = Date.now();
