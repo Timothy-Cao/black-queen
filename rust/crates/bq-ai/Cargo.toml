@@ -1,0 +1,10 @@
+[package]
+name = "bq-ai"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bq-engine = { path = "../bq-engine" }
+serde = { workspace = true }
+rand = { workspace = true }
+rand_xoshiro = { workspace = true }

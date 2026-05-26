@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Rust
+rust/target/
+**/*.rs.bk
+rust/Cargo.lock
