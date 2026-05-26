@@ -3,7 +3,7 @@
 //
 //  (1+λ)-ES with self-adaptive sigma (1/5-success rule). Each generation:
 //    1. Sample λ offspring around the current best.
-//    2. Each offspring plays N games as "hard-tuned" against locked-in "hard"
+//    2. Each offspring plays N games as "hard-2" against locked-in "hard"
 //       baselines. Half the time seated at random positions, half the time at
 //       a mirrored layout to reduce seat bias.
 //    3. Track the best-performing offspring. If it beats the current best,
@@ -101,7 +101,7 @@ function mulberry32(a: number) {
 
 /**
  * Mixed-population fitness. Each game picks each seat independently as either
- * "hard-tuned" or "hard" with p=0.5 (uniform). Fitness = the difference
+ * "hard-2" or "hard" with p=0.5 (uniform). Fitness = the difference
  * tuned_seat_win_rate − hard_seat_win_rate. This rewards weights that make an
  * INDIVIDUAL seat play stronger, not weights that exploit team layouts.
  *
@@ -117,21 +117,21 @@ function evaluate(weights: HardWeights, n: number, seedBase: number): number {
     // Build a random layout with at least one of each personality.
     const rnd = mulberry32(seedBase + i * 1009);
     const seats: AIPersonality[] = [];
-    for (let k = 0; k < 5; k++) seats.push(rnd() < 0.5 ? "hard-tuned" : "hard");
+    for (let k = 0; k < 5; k++) seats.push(rnd() < 0.5 ? "hard-2" : "hard");
     // Ensure mixed:
-    if (!seats.includes("hard-tuned")) seats[Math.floor(rnd() * 5)] = "hard-tuned";
+    if (!seats.includes("hard-2")) seats[Math.floor(rnd() * 5)] = "hard-2";
     if (!seats.includes("hard")) seats[Math.floor(rnd() * 5)] = "hard";
     try {
       const wins = playOne(seats, seedBase + i * 7919);
       for (let k = 0; k < 5; k++) {
-        if (seats[k] === "hard-tuned") { tunedSeats++; if (wins[k]) tunedWins++; }
+        if (seats[k] === "hard-2") { tunedSeats++; if (wins[k]) tunedWins++; }
         else { hardSeats++; if (wins[k]) hardWins++; }
       }
       // Mirror: swap personalities at every seat and replay same shuffle.
-      const mirror: AIPersonality[] = seats.map((p) => p === "hard-tuned" ? "hard" : "hard-tuned");
+      const mirror: AIPersonality[] = seats.map((p) => p === "hard-2" ? "hard" : "hard-2");
       const winsM = playOne(mirror, seedBase + i * 7919);
       for (let k = 0; k < 5; k++) {
-        if (mirror[k] === "hard-tuned") { tunedSeats++; if (winsM[k]) tunedWins++; }
+        if (mirror[k] === "hard-2") { tunedSeats++; if (winsM[k]) tunedWins++; }
         else { hardSeats++; if (winsM[k]) hardWins++; }
       }
     } catch (e) { /* illegal play — skip */ }
@@ -171,6 +171,8 @@ function mutate(base: HardWeights, sigma: number, seed: number): HardWeights {
     else if (k === "bidCapExtraordinary") nv = Math.max(220, Math.min(310, nv));
     else if (k.startsWith("trumpProtected") || k.startsWith("trumpUnprotected") || k === "partnerPointHalfWeight" || k === "bidSelfCaptureFromPoints" || k === "bidSelfCaptureFromTrump" || k === "bidSelfCaptureFromTrumpScore" || k === "trumpSpendCostFactor" || k === "qSpadesCommitThreshold") {
       nv = Math.max(0, Math.min(1.5, nv));
+    } else if (k === "voidCreateTrumpGate") {
+      nv = Math.max(0.5, Math.min(3.0, nv));
     } else {
       nv = Math.max(0, nv);
     }

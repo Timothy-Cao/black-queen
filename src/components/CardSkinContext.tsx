@@ -3,10 +3,10 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 export type CardSkin = "classic" | "svg-classic" | "jorel" | "poker-qr";
 
 export const CARD_SKINS: { value: CardSkin; label: string; description: string }[] = [
-  { value: "classic",     label: "Hand-Drawn",  description: "The original tabletop look — distinct red/orange suit shades." },
-  { value: "svg-classic", label: "Classic SVG", description: "19th-century Goodall court designs (htdebeer/SVG-cards)." },
-  { value: "jorel",       label: "Pixel-Soft",  description: "Jorel's hand-drawn pixel deck — soft cartoon court figures." },
-  { value: "poker-qr",    label: "Modern SVG",  description: "me.uk customised SVG deck — bold geometric court art." },
+  { value: "classic",     label: "Hand-Drawn",  description: "Original tabletop look." },
+  { value: "svg-classic", label: "Classic SVG", description: "19th-century Goodall court art." },
+  { value: "jorel",       label: "Pixel-Soft",  description: "Soft cartoon pixel deck." },
+  { value: "poker-qr",    label: "Modern SVG",  description: "Bold geometric court art." },
 ];
 
 interface Ctx {

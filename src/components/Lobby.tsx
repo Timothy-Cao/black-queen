@@ -88,7 +88,7 @@ export function Lobby({ onStart }: Props) {
                 </label>
                 {p.isAI ? (
                   <select
-                    className="text-xs bg-white/5 rounded px-2 py-1.5 text-stone-200 border border-white/10 outline-none focus:border-gold-500 w-24"
+                    className="text-xs bg-white/5 rounded px-2 py-1.5 text-stone-100 border border-white/10 outline-none focus:border-gold-500 w-24"
                     value={p.aiPersonality ?? "normal"}
                     onChange={(e) => {
                       const a = players.slice();
@@ -96,9 +96,10 @@ export function Lobby({ onStart }: Props) {
                       setPlayers(a);
                     }}
                   >
-                    <option value="hard">Hard</option>
-                    <option value="normal">Normal</option>
-                    <option value="random">Random</option>
+                    <option value="hard-2" className="text-black">Hard-2</option>
+                    <option value="hard" className="text-black">Hard</option>
+                    <option value="normal" className="text-black">Normal</option>
+                    <option value="random" className="text-black">Random</option>
                   </select>
                 ) : (
                   <div className="w-24" />
@@ -106,7 +107,7 @@ export function Lobby({ onStart }: Props) {
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-2">
             <label className="text-sm text-stone-300">Shuffle</label>
             <div className="flex gap-1">
               {(["light", "full"] as ShuffleMode[]).map((m) => (
@@ -122,22 +123,18 @@ export function Lobby({ onStart }: Props) {
               ))}
             </div>
           </div>
+          {shuffleMode === "full" && (
+            <div className="text-xs text-amber-300/90 mb-6 italic">
+              Beware: full shuffle is kinda lame.
+            </div>
+          )}
+          {shuffleMode !== "full" && <div className="mb-6" />}
           <button
             className="btn btn-primary w-full text-lg py-3"
             onClick={() => onStart(players, TARGET_SCORE, shuffleMode)}
           >
             Deal &amp; Begin
           </button>
-          <details className="mt-4 text-sm text-stone-300">
-            <summary className="cursor-pointer text-gold-400 select-none">Quick rules</summary>
-            <div className="mt-2 space-y-1 leading-relaxed">
-              <p>Each round, players bid for the right to choose trump and call a hidden partner.</p>
-              <p>The Caller names one card by rank + suit; whoever holds it is the secret ally — no one announces it. They only reveal by playing the card.</p>
-              <p>Caller + partner together must capture ≥ bid in card points. If they make it, both score the bid; if they fail, both lose it.</p>
-              <p>Card points: <b className="text-gold-400">Q♠ = 30</b>, A = 15, 10 = 10, 5 = 5 — 300 total in the deck.</p>
-              <p>Follow suit if possible; trump beats non-trump.</p>
-            </div>
-          </details>
         </div>
       </div>
     </div>

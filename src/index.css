@@ -47,17 +47,10 @@ html, body, #root {
 }
 
 .card-face {
-  background: linear-gradient(160deg, #ffffff 0%, #f4ecd8 80%, #ddd1b4 100%);
+  background: #f6efdc;
   border-radius: 10px;
   border: 1px solid rgba(0,0,0,0.15);
   position: relative;
-}
-.card-face::after {
-  content: "";
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.6), transparent 30%);
-  border-radius: 10px;
-  pointer-events: none;
 }
 .card-back {
   background:

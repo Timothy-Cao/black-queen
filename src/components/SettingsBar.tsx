@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { CARD_SKINS, useCardSkin } from "./CardSkinContext";
+import { CARD_SKINS, useCardSkin, CardSkin } from "./CardSkinContext";
 
 interface Props {
   showHands: boolean;
@@ -70,24 +70,22 @@ export function SettingsBar(p: Props) {
               {p.sidebarOpen ? "Open" : "Closed"}
             </button>
           </Row>
-          <div>
-            <div className="text-sm text-stone-200 mb-1">Card design</div>
-            <div className="flex flex-col gap-1">
+          <Row>
+            <span>Card design</span>
+            <select
+              className="text-xs bg-white/5 rounded px-2 py-1 text-stone-100 border border-white/10 outline-none focus:border-gold-500"
+              value={skin}
+              onChange={(e) => setSkin(e.target.value as CardSkin)}
+            >
               {CARD_SKINS.map((s) => (
-                <button
-                  key={s.value}
-                  className={`text-left text-xs px-2 py-1 rounded ${
-                    skin === s.value
-                      ? "bg-gold-500/20 text-gold-400 ring-1 ring-gold-400/50"
-                      : "text-stone-300 hover:bg-white/5"
-                  }`}
-                  onClick={() => setSkin(s.value)}
-                >
-                  <div className="font-semibold">{s.label}</div>
-                  <div className="text-[10px] text-stone-500 leading-tight">{s.description}</div>
-                </button>
+                <option key={s.value} value={s.value} className="text-black">
+                  {s.label}
+                </option>
               ))}
-            </div>
+            </select>
+          </Row>
+          <div className="text-[10px] text-stone-500 leading-tight -mt-1 px-0.5">
+            {CARD_SKINS.find((s) => s.value === skin)?.description}
           </div>
           <div className="h-px bg-white/10 my-1" />
           <Row>

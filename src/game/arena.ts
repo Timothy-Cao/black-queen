@@ -19,7 +19,7 @@ import { legalPlays } from "./rules";
 import { AIPersonality, GameState, PlayerId } from "./types";
 import { DEFAULT_HARD_WEIGHTS, setActiveHardWeights, HardWeights } from "./aiHard";
 
-// Load tuned weights for "hard-tuned" personality if available.
+// Load tuned weights for "hard-2" personality if available.
 const TUNED_PATH = "./tuned_weights.json";
 if (existsSync(TUNED_PATH)) {
   try {
@@ -122,7 +122,7 @@ function summarize(perSeat: Record<Personality, SeatStats>, totalGames: number) 
   console.log(`\nArena summary (${totalGames} games):`);
   console.log("personality   |  played  |  called  | call-made% | avg-bid | avg-cap | team-win%");
   console.log("-".repeat(86));
-  for (const key of ["hard", "hard-tuned", "normal", "random"] as Personality[]) {
+  for (const key of ["hard", "hard-2", "normal", "random"] as Personality[]) {
     const s = perSeat[key];
     if (!s || s.games === 0) continue;
     console.log(
@@ -137,7 +137,7 @@ const tokens = arg.split(",").map((t) => t.trim()) as Personality[];
 const fixedLayout = tokens.length === 5;
 
 const perSeat: Record<Personality, SeatStats> = {
-  hard: newStats(), normal: newStats(), random: newStats(), "hard-tuned": newStats(),
+  hard: newStats(), normal: newStats(), random: newStats(), "hard-2": newStats(),
 };
 
 const t0 = Date.now();

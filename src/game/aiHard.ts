@@ -4,7 +4,7 @@
 //  Every magic number lives in HardWeights. DEFAULT_HARD_WEIGHTS is the
 //  hand-crafted baseline. Two personalities consume this module:
 //      "hard"        — fixed DEFAULT_HARD_WEIGHTS, untouched by tuning
-//      "hard-tuned"  — reads activeHardWeights, set by the evolutionary tuner
+//      "hard-2"  — reads activeHardWeights, set by the evolutionary tuner
 // =============================================================================
 
 import { legalPlays, trickWinner } from "./rules";
@@ -80,6 +80,11 @@ export interface HardWeights {
   smearBonusMul: number;
   enemyFeedPenaltyMul: number;
   cheapestWinnerPenaltyFactor: number;
+
+  // Void creation (offensive shedding while discarding)
+  voidCreateSingletonBonus: number;  // played card was the LAST of its (non-trump) suit
+  voidCreateDoubletonBonus: number;  // bringing suit count from 2 → 1
+  voidCreateTrumpGate: number;       // multiplier when we still hold ≥1 mid+ trump
 }
 
 export const DEFAULT_HARD_WEIGHTS: HardWeights = {
@@ -139,6 +144,10 @@ export const DEFAULT_HARD_WEIGHTS: HardWeights = {
   smearBonusMul: 1.4,
   enemyFeedPenaltyMul: 1.5,
   cheapestWinnerPenaltyFactor: 1.5,
+
+  voidCreateSingletonBonus: 15,
+  voidCreateDoubletonBonus: 5,
+  voidCreateTrumpGate: 1.5,
 };
 
 let activeHardWeights: HardWeights = DEFAULT_HARD_WEIGHTS;
@@ -519,6 +528,32 @@ function averageRemainingPointAddition(ctx: PlayContext): number {
   return Math.max(0, avgPpc * remainingPlayers);
 }
 
+/**
+ * Bonus for discards that shorten a side suit toward void.
+ * Only applies when we're throwing away (not following, not trumping).
+ * Gated by holding mid+ trump (otherwise the new void is worthless),
+ * and scaled by tricks remaining (less time to exploit = less value).
+ */
+function voidCreationBonus(card: Card, ctx: PlayContext): number {
+  const w = ctx.w;
+  if (!ctx.trump) return 0;
+  if (card.suit === ctx.trump) return 0;
+  const led = ctx.trick.plays[0]?.card.suit;
+  const isFollowing = led !== undefined && card.suit === led;
+  if (isFollowing) return 0;
+  const myCountInSuit = ctx.hand.filter((c) => c.suit === card.suit).length;
+  let base = 0;
+  if (myCountInSuit === 1) base = w.voidCreateSingletonBonus;
+  else if (myCountInSuit === 2) base = w.voidCreateDoubletonBonus;
+  if (base === 0) return 0;
+  const myTrumpCount = ctx.hand.filter((c) => c.suit === ctx.trump).length;
+  if (myTrumpCount === 0) return 0;
+  const hasMidPlusTrump = ctx.hand.some((c) => c.suit === ctx.trump && c.rank >= 9);
+  const mult = hasMidPlusTrump ? w.voidCreateTrumpGate : 1.0;
+  const fractionLeft = ctx.tricksRemaining / 13;
+  return base * mult * fractionLeft;
+}
+
 function scoreMove(card: Card, ctx: PlayContext): number {
   const w = ctx.w;
   const teamWinProb = probabilityWinnerIsOurTeam(card, ctx);
@@ -541,6 +576,7 @@ function scoreMove(card: Card, ctx: PlayContext): number {
       score -= cardPoints(card) * w.enemyFeedPenaltyMul;
     }
   }
+  score += voidCreationBonus(card, ctx);
   if (wouldTakeTrickIfTopSoFar(card, ctx)) {
     const cheaper = ctx.legal.filter(
       (c) => c !== card && wouldTakeTrickIfTopSoFar(c, ctx) && c.rank < card.rank && c.suit === card.suit,
