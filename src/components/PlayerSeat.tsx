@@ -85,14 +85,7 @@ export function PlayerSeat({
                   {avatarEmoji(player.id)}
                 </span>
               </div>
-              {isDealer && (
-                <div
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-stone-100 text-stone-900 text-[10px] font-bold flex items-center justify-center shadow"
-                  title="Dealer"
-                >
-                  D
-                </div>
-              )}
+              {/* Dealer is signaled by the amber accent on the name pill. */}
             </div>
             <div className="flex flex-col leading-tight">
               <div className="font-semibold text-base text-stone-100 flex items-center">

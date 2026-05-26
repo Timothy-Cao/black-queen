@@ -47,10 +47,18 @@ export function Sidebar({ state, onHelp, onHistory }: Props) {
     claimed[p.id] = p.tricksWon.reduce((s, c) => s + cardPoints(c), 0);
   }
 
-  // Caller pinned to top; everyone else in id order.
-  const ordered = callerId !== undefined
-    ? [state.players[callerId], ...state.players.filter((p) => p.id !== callerId)]
-    : state.players.slice();
+  // Order: caller first, then revealed partners (reveal order, dedup), then remaining
+  // players in id order. The caller + revealed partners get visually grouped (boxed) so
+  // the confirmed team reads as a single unit.
+  const teamOrdered: PlayerId[] = [];
+  if (callerId !== undefined) teamOrdered.push(callerId);
+  for (const id of r.revealedPartners) {
+    if (!teamOrdered.includes(id)) teamOrdered.push(id);
+  }
+  const ordered = [
+    ...teamOrdered.map((id) => state.players[id]),
+    ...state.players.filter((p) => !teamOrdered.includes(p.id)),
+  ];
 
   return (
     <div className="text-stone-100 h-full flex flex-col min-h-0">
@@ -99,41 +107,71 @@ export function Sidebar({ state, onHelp, onHistory }: Props) {
       {/* Claimed points — this game only */}
       <div className="mt-5">
         <div className="text-xs uppercase tracking-widest text-gold-400 mb-1">Claimed points</div>
-        <table className="w-full text-sm">
-          <tbody>
-            {ordered.map((p) => {
-              const isCaller = p.id === callerId;
-              const isRevealedPartner = r.revealedPartners.includes(p.id);
-              const onTeam = teamIds.has(p.id);
-              const plays = partnerCardPlays(state, p.id);
-              const isDouble = !isCaller && plays >= 2;
-              const rowColor = onTeam ? "text-gold-400" : "text-stone-200";
-              return (
-                <tr key={p.id} className="border-b border-white/5 last:border-0">
-                  <td className={`py-1 ${rowColor}`}>
-                    <span className="mr-1.5">{emojiOf(p.id)}</span>
-                    <span>{p.name}</span>
-                    {p.isAI && <span className="ml-1 text-[10px] text-stone-500">AI</span>}
-                    {isCaller && <span className="ml-1" title="Caller">★</span>}
-                    {isRevealedPartner && <span className="ml-1" title="Revealed partner">◆</span>}
-                    {isDouble && (
-                      <span
-                        className="ml-1 text-[10px] px-1 rounded bg-amber-400/25 text-amber-300 font-bold align-middle"
-                        title="Played the partner card twice"
-                      >
-                        ×2
-                      </span>
-                    )}
-                    {/* Dealer is shown in the round-info grid above + highlighted on the seat — no duplicate badge here. */}
-                  </td>
-                  <td className="text-right font-mono">
-                    <ScoreCell value={claimed[p.id]} className={onTeam ? "text-gold-400" : ""} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {(() => {
+          // Render the caller + revealed partners as a single bordered group, then
+          // each remaining player as a plain row. Inside the team group, only the
+          // caller gets the ★ — partners are confirmed by being in the box.
+          const renderRow = (p: typeof state.players[number], opts?: { dim?: boolean }) => {
+            const isCaller = p.id === callerId;
+            const onTeam = teamIds.has(p.id);
+            const plays = partnerCardPlays(state, p.id);
+            const isDouble = !isCaller && plays >= 2;
+            const rowColor = onTeam ? "text-gold-400" : opts?.dim ? "text-stone-300" : "text-stone-200";
+            return (
+              <div key={p.id} className={`flex items-center py-1 ${rowColor}`}>
+                <span className="mr-1.5">{emojiOf(p.id)}</span>
+                <span className="flex-1 truncate">
+                  {p.name}
+                  {p.isAI && <span className="ml-1 text-[10px] text-stone-500">AI</span>}
+                  {isCaller && <span className="ml-1" title="Caller">★</span>}
+                  {isDouble && (
+                    <span
+                      className="ml-1 text-[10px] px-1 rounded bg-amber-400/25 text-amber-300 font-bold align-middle"
+                      title="Played the partner card twice"
+                    >
+                      ×2
+                    </span>
+                  )}
+                </span>
+                <span className="font-mono text-right">
+                  <ScoreCell value={claimed[p.id]} className={onTeam ? "text-gold-400" : ""} />
+                </span>
+              </div>
+            );
+          };
+          const teamPlayers = teamOrdered.map((id) => state.players[id]);
+          const others = state.players.filter((p) => !teamOrdered.includes(p.id));
+          return (
+            <div className="text-sm">
+              {teamPlayers.length > 0 && (
+                <div
+                  className="rounded-lg border border-gold-400/45 px-2 py-0.5 mb-2"
+                  style={{ background: "linear-gradient(180deg, rgba(245,196,107,0.10), rgba(245,196,107,0.03))" }}
+                  title="Confirmed caller team"
+                >
+                  {teamPlayers.map((p, i) => (
+                    <div
+                      key={`team-${p.id}`}
+                      className={i < teamPlayers.length - 1 ? "border-b border-gold-400/15" : ""}
+                    >
+                      {renderRow(p)}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div>
+                {others.map((p, i) => (
+                  <div
+                    key={`other-${p.id}`}
+                    className={i < others.length - 1 ? "border-b border-white/5" : ""}
+                  >
+                    {renderRow(p)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Spacer pushes log to the bottom */}
