@@ -12,8 +12,6 @@
 // AI calls are sync (driven from a React setState reducer); if WASM isn't yet
 // loaded, we transparently fall back so gameplay never blocks.
 
-import init, * as bq from "./wasm/bq_wasm.js";
-import wasmUrl from "./wasm/bq_wasm_bg.wasm?url";
 import type {
   Bid,
   Card,
@@ -25,27 +23,66 @@ import type {
 } from "./types";
 import { hardTunedBid, hardTunedDeclare, hardTunedPlay } from "./aiHard";
 
-let wasmLoaded = false;
+// In Node (arena.ts, tune.ts), use the nodejs-target WASM build which loads
+// synchronously via require-style import. In the browser, use the web target
+// loaded by async init(). We pick at module load by sniffing for `window`.
+//
+// Vite tree-shakes the unused branch in the browser bundle because the dynamic
+// import + condition are both static-analyzable.
+
+interface BqApi {
+  hard4_bid_json(state_json: string, self_id: number): string;
+  hard4_declare_json(state_json: string, self_id: number): string;
+  hard4_play_json(state_json: string, self_id: number, time_ms: number, seed: bigint): string;
+}
+
+let bq: BqApi | null = null;
 let wasmReady: Promise<void> | null = null;
+
+const isBrowser = typeof window !== "undefined";
 
 /** Kick off WASM loading. Idempotent. Safe to call from main.tsx at app boot. */
 export function warmWasm(): Promise<void> {
-  if (!wasmReady) {
-    wasmReady = init(wasmUrl)
-      .then(() => {
-        wasmLoaded = true;
-      })
-      .catch((err) => {
-        // Log but don't throw — failures fall through to Hard-3 fallback.
-        // eslint-disable-next-line no-console
-        console.warn("[hard-4] WASM init failed:", err);
-      });
-  }
+  if (wasmReady) return wasmReady;
+  wasmReady = (async () => {
+    try {
+      if (isBrowser) {
+        const mod = await import("./wasm/bq_wasm.js");
+        const wasmUrl = (await import("./wasm/bq_wasm_bg.wasm?url")).default;
+        await mod.default(wasmUrl);
+        bq = mod as unknown as BqApi;
+      } else {
+        // Node target: synchronous load.
+        const mod = await import("./wasm-node/bq_wasm.js");
+        bq = mod as unknown as BqApi;
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[hard-4] WASM init failed:", err);
+    }
+  })();
   return wasmReady;
 }
 
+// In Node, load synchronously at module init via createRequire — the nodejs
+// target is CommonJS under the hood and finalizes WASM during `require()`.
+// This way arena.ts and tune.ts work without an explicit await.
+if (!isBrowser) {
+  try {
+    // @ts-ignore — runtime-only Node path
+    const { createRequire } = await import("module");
+    // @ts-ignore — meta.url is fine in tsx/ESM
+    const req = createRequire(import.meta.url);
+    bq = req("./wasm-node/bq_wasm.js") as BqApi;
+    wasmReady = Promise.resolve();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[hard-4] Node WASM sync load failed:", err);
+  }
+}
+
 export function isWasmReady(): boolean {
-  return wasmLoaded;
+  return bq !== null;
 }
 
 // ---------- TS → Rust state projection ----------
@@ -79,6 +116,11 @@ function toRustState(state: GameState): unknown {
     amount: b.amount === 0 ? null : b.amount,
   }));
 
+  // During bidding the TS engine doesn't set winningBid on RoundState — that
+  // only happens at enterDeclaring. The Rust side reads winning_bid to compute
+  // the next legal bid, so derive it from the bids array.
+  const highestBid = bids.reduce((mx, b) => (b.amount !== null && b.amount > mx ? b.amount : mx), 0);
+
   // passed: TS Set → Rust Vec<bool>.
   const passed = [0, 1, 2, 3, 4].map((i) => r.passed.has(i as PlayerId));
 
@@ -94,7 +136,7 @@ function toRustState(state: GameState): unknown {
     hands,
     bids,
     caller: r.bidder ?? null,
-    winning_bid: r.winningBid ?? null,
+    winning_bid: r.winningBid ?? (highestBid > 0 ? highestBid : null),
     trump: r.trump ?? null,
     partner_card: r.partnerCard ? stripCardId(r.partnerCard) : null,
     tricks: r.tricks.map(toRustTrick),
@@ -152,15 +194,22 @@ function reattachCardId(
 // ---------- Public dispatch entry points ----------
 
 export function hard4Bid(state: GameState, selfId: PlayerId): { bid: number | "pass" } {
-  if (!wasmLoaded) return hardTunedBid(state, selfId);
-  const result = JSON.parse(
-    bq.hard4_bid_json(JSON.stringify(toRustState(state)), selfId),
-  ) as { bid: number | null };
-  return { bid: result.bid === null ? "pass" : result.bid };
+  if (!bq) return hardTunedBid(state, selfId);
+  const rustState = toRustState(state);
+  try {
+    const result = JSON.parse(
+      bq.hard4_bid_json(JSON.stringify(rustState), selfId),
+    ) as { bid: number | null };
+    return { bid: result.bid === null ? "pass" : result.bid };
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[hard-4] bid failed for state:", JSON.stringify(rustState).slice(0, 500), e);
+    throw e;
+  }
 }
 
 export function hard4Declare(state: GameState, selfId: PlayerId): { trump: Suit; partnerCard: Card } {
-  if (!wasmLoaded) return hardTunedDeclare(state, selfId);
+  if (!bq) return hardTunedDeclare(state, selfId);
   const result = JSON.parse(
     bq.hard4_declare_json(JSON.stringify(toRustState(state)), selfId),
   ) as { trump: Suit; partner_card: { suit: Suit; rank: number } };
@@ -177,7 +226,7 @@ export function hard4Declare(state: GameState, selfId: PlayerId): { trump: Suit;
 const HARD4_TIME_MS = 300;
 
 export function hard4Play(state: GameState, selfId: PlayerId): Card {
-  if (!wasmLoaded) return hardTunedPlay(state, selfId);
+  if (!bq) return hardTunedPlay(state, selfId);
   const seed = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
   const result = JSON.parse(
     bq.hard4_play_json(JSON.stringify(toRustState(state)), selfId, HARD4_TIME_MS, seed),

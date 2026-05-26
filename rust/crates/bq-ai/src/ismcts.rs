@@ -17,7 +17,21 @@ use bq_engine::rng::GameRng;
 use bq_engine::rules::legal_play_indices;
 use bq_engine::types::{Card, GameState, Phase, PlayerId};
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+// std::time::Instant panics on wasm32-unknown-unknown. We need a portable
+// monotonic clock or fall back to iteration-only budgeting.
+#[cfg(not(target_arch = "wasm32"))]
+fn now() -> std::time::Instant { std::time::Instant::now() }
+
+#[cfg(target_arch = "wasm32")]
+struct WasmInstant;
+#[cfg(target_arch = "wasm32")]
+impl WasmInstant {
+    fn elapsed(&self) -> Duration { Duration::from_millis(0) }
+}
+#[cfg(target_arch = "wasm32")]
+fn now() -> WasmInstant { WasmInstant }
 
 #[derive(Default, Debug, Clone)]
 struct ActionStats {
@@ -67,11 +81,19 @@ pub fn ismcts_play(
     let mut stats: HashMap<Card, ActionStats> = HashMap::new();
     for &c in &candidates { stats.insert(c, ActionStats::default()); }
 
-    let deadline = Instant::now() + params.time_budget;
+    // On wasm32 we have no monotonic clock; time_budget is interpreted as
+    // (min_iterations..max_iterations) effective range. Native paths use the
+    // real deadline.
+    #[cfg(not(target_arch = "wasm32"))]
+    let deadline = now() + params.time_budget;
     let mut iters: u64 = 0;
     loop {
         if iters >= params.max_iterations { break; }
-        if iters >= params.min_iterations && Instant::now() >= deadline { break; }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if iters >= params.min_iterations && now() >= deadline { break; }
+        }
+        // wasm32: rely on iteration caps alone (set via max_iterations from JS).
         iters += 1;
 
         // 1. Determinize.
@@ -110,11 +132,13 @@ pub fn ismcts_play(
         s.total_value += value;
     }
 
-    // Robust child: most-visited action.
+    // Robust child: most-visited action. If sampling consistently failed and
+    // no iteration completed, every candidate has 0 visits and max_by_key picks
+    // arbitrarily — but any of them is a legal card, so we still return a legal play.
     *stats.iter()
         .max_by_key(|(_, s)| s.visits)
         .map(|(c, _)| c)
-        .expect("at least one candidate visited")
+        .unwrap_or(&candidates[0])
 }
 
 fn pick_ucb1(

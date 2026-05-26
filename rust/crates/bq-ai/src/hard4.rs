@@ -103,10 +103,18 @@ pub fn hard4_play(
         }
     }
 
+    // On wasm32 we cannot use a wall-clock deadline (no monotonic clock).
+    // Approximate by capping iterations proportional to time_ms: ~3 iterations
+    // per ms on a typical laptop in release mode. Native paths use real time.
+    #[cfg(target_arch = "wasm32")]
+    let max_iters = (time_ms.saturating_mul(3)).max(64);
+    #[cfg(not(target_arch = "wasm32"))]
+    let max_iters = 100_000u64;
+
     let params = SearchParams {
         time_budget: Duration::from_millis(time_ms),
         min_iterations: 64,
-        max_iterations: 100_000,
+        max_iterations: max_iters,
         self_id,
         value_players: vec![self_id],
         ..Default::default()
