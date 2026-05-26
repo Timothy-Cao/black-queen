@@ -61,12 +61,16 @@ export function PlayerSeat({
             width={DECK_W}
             height={DECK_H}
           />
-          {/* Name pill — height matched to the collection deck so they look attached */}
+          {/* Name pill — height matched to the collection deck so they look attached.
+              When this player is the round's dealer (and thus starts the round) we
+              tint the pill with a warm amber accent so it's instantly readable. */}
           <div
             className={`glass rounded-r-xl ${capturedPts === 0 && player.tricksWon.length === 0 ? "rounded-l-xl" : ""} px-3 flex items-center gap-2.5 whitespace-nowrap ${
               isActive ? "ring-2 ring-gold-400 animate-pulseGlow" : ""
+            } ${
+              isDealer && !isActive ? "ring-1 ring-amber-300/45 shadow-[0_0_18px_rgba(245,196,107,0.18)]" : ""
             }`}
-            style={{ height: NAME_HEIGHT }}
+            style={{ height: NAME_HEIGHT, ...(isDealer && !isActive ? { background: "linear-gradient(180deg, rgba(245,196,107,0.10), rgba(10,30,22,0.65))" } : {}) }}
           >
             <div className="relative">
               <div

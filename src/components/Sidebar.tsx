@@ -124,7 +124,7 @@ export function Sidebar({ state, onHelp, onHistory }: Props) {
                         ×2
                       </span>
                     )}
-                    {p.id === r.dealer && !isCaller && <span className="ml-1 text-stone-400 text-xs" title="Dealer">D</span>}
+                    {/* Dealer is shown in the round-info grid above + highlighted on the seat — no duplicate badge here. */}
                   </td>
                   <td className="text-right font-mono">
                     <ScoreCell value={claimed[p.id]} className={onTeam ? "text-gold-400" : ""} />

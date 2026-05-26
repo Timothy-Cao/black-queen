@@ -158,6 +158,13 @@ export default function App() {
       <>
         <Lobby onStart={(cfgs, target, shuffleMode) => setState(freshGame(cfgs, target, shuffleMode))} />
         {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+        <nav
+          aria-label="Legal links"
+          className="fixed bottom-4 left-4 z-50 flex gap-2 rounded-lg bg-black/35 px-2 py-1 text-[11px] text-stone-300/75 backdrop-blur-sm"
+        >
+          <a className="hover:text-stone-100" href="/privacy.html">Privacy</a>
+          <a className="hover:text-stone-100" href="mailto:timcao.support@gmail.com">Contact</a>
+        </nav>
         <button
           className="fixed bottom-4 right-4 w-9 h-9 rounded-full glass text-stone-200 hover:bg-white/20"
           onClick={() => setShowHelp(true)}
@@ -184,6 +191,13 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden flex">
+      <nav
+        aria-label="Legal links"
+        className="fixed bottom-4 left-4 z-50 flex gap-2 rounded-lg bg-black/35 px-2 py-1 text-[11px] text-stone-300/75 backdrop-blur-sm"
+      >
+        <a className="hover:text-stone-100" href="/privacy.html">Privacy</a>
+        <a className="hover:text-stone-100" href="mailto:timcao.support@gmail.com">Contact</a>
+      </nav>
       <div className="relative flex-1 felt overflow-hidden min-w-0">
         <div className="absolute inset-x-[10%] inset-y-[14%] rounded-[50%] border border-white/5 shadow-inset pointer-events-none" style={{ zIndex: 0 }} />
 
