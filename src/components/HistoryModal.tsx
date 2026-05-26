@@ -40,7 +40,7 @@ function RoundCard({ state, round }: { state: GameState; round: RoundState }) {
   const teamIds = new Set<PlayerId>([round.bidder!, ...partners]);
   const teamPts = ([0, 1, 2, 3, 4] as PlayerId[])
     .filter((p) => teamIds.has(p))
-    .reduce((s, p) => s + (round.roundPoints?.[p] ?? 0), 0);
+    .reduce<number>((s, p) => s + (round.roundPoints?.[p] ?? 0), 0);
   const made = teamPts >= (round.winningBid ?? 0);
   const partnerNames = partners.map((id) => state.players[id].name).join(" + ") || "(no partners)";
   return (

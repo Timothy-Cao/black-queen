@@ -16,7 +16,7 @@ export function RoundEnd({ state, onNext }: Props) {
   const teamIds = new Set<PlayerId>([r.bidder!, ...(r.partners ?? [])]);
   const teamPts = ([0, 1, 2, 3, 4] as PlayerId[])
     .filter((p) => teamIds.has(p))
-    .reduce((s, p) => s + (r.roundPoints?.[p] ?? 0), 0);
+    .reduce<number>((s, p) => s + (r.roundPoints?.[p] ?? 0), 0);
   const made = teamPts >= (r.winningBid ?? 0);
   const isGameOver = state.phase === "game_end";
   const champion = isGameOver ? state.players.slice().sort((a, b) => b.scoreTotal - a.scoreTotal)[0] : undefined;

@@ -308,7 +308,7 @@ function finishRound(state: GameState): GameState {
   const team = new Set<PlayerId>([bidder, ...partners]);
   const teamPoints = ([0,1,2,3,4] as PlayerId[])
     .filter((p) => team.has(p))
-    .reduce((s, p) => s + roundPoints[p], 0);
+    .reduce<number>((s, p) => s + roundPoints[p], 0);
   const made = teamPoints >= winBid;
   const delta: Record<PlayerId, number> = {0:0,1:0,2:0,3:0,4:0};
   const sign = made ? 1 : -1;
