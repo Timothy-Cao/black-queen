@@ -1,20 +1,21 @@
 import { useState } from "react";
 import { CardView } from "./CardView";
-import { Card, ShuffleMode } from "../game/types";
+import { Card, ShuffleMode, AIPersonality } from "../game/types";
+
+type Cfg = { name: string; isAI: boolean; aiPersonality?: AIPersonality };
 
 interface Props {
-  onStart: (configs: { name: string; isAI: boolean }[], target: number, shuffleMode: ShuffleMode) => void;
+  onStart: (configs: Cfg[], target: number, shuffleMode: ShuffleMode) => void;
 }
 
-const DEFAULTS = [
+const DEFAULTS: Cfg[] = [
   { name: "You", isAI: false },
-  { name: "Alex", isAI: true },
-  { name: "Bri", isAI: true },
-  { name: "Cam", isAI: true },
-  { name: "Dee", isAI: true },
+  { name: "Alex", isAI: true, aiPersonality: "normal" },
+  { name: "Bri", isAI: true, aiPersonality: "normal" },
+  { name: "Cam", isAI: true, aiPersonality: "normal" },
+  { name: "Dee", isAI: true, aiPersonality: "normal" },
 ];
 
-// Decorative fan
 const HERO_CARDS: Card[] = [
   { suit: "S", rank: 12, id: "S12" },
   { suit: "H", rank: 14, id: "H14" },
@@ -23,14 +24,14 @@ const HERO_CARDS: Card[] = [
   { suit: "S", rank: 5, id: "S5" },
 ];
 
+const TARGET_SCORE = 300; // Always 300 — matches total points in the 65-card deck.
+
 export function Lobby({ onStart }: Props) {
-  const [players, setPlayers] = useState(DEFAULTS);
-  const [target, setTarget] = useState(300);
+  const [players, setPlayers] = useState<Cfg[]>(DEFAULTS);
   const [shuffleMode, setShuffleMode] = useState<ShuffleMode>("light");
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-6">
       <div className="glass rounded-2xl p-8 w-[640px] animate-floatIn relative overflow-visible">
-        {/* Decorative card fan */}
         <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex pointer-events-none">
           {HERO_CARDS.map((c, i) => (
             <div
@@ -68,35 +69,41 @@ export function Lobby({ onStart }: Props) {
                   }}
                   placeholder="Name"
                 />
-                <label className="flex items-center gap-1.5 text-xs text-stone-300 select-none cursor-pointer w-16 justify-end">
+                <label className="flex items-center gap-1.5 text-xs text-stone-300 select-none cursor-pointer w-12 justify-end">
                   <input
                     type="checkbox"
                     checked={p.isAI}
                     onChange={(e) => {
                       const a = players.slice();
-                      a[i] = { ...a[i], isAI: e.target.checked };
+                      a[i] = {
+                        ...a[i],
+                        isAI: e.target.checked,
+                        aiPersonality: e.target.checked ? (a[i].aiPersonality ?? "normal") : undefined,
+                      };
                       setPlayers(a);
                     }}
                     className="accent-gold-500"
                   />
                   AI
                 </label>
+                {p.isAI ? (
+                  <select
+                    className="text-xs bg-white/5 rounded px-2 py-1.5 text-stone-200 border border-white/10 outline-none focus:border-gold-500 w-24"
+                    value={p.aiPersonality ?? "normal"}
+                    onChange={(e) => {
+                      const a = players.slice();
+                      a[i] = { ...a[i], aiPersonality: e.target.value as AIPersonality };
+                      setPlayers(a);
+                    }}
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="random">Random</option>
+                  </select>
+                ) : (
+                  <div className="w-24" />
+                )}
               </div>
             ))}
-          </div>
-          <div className="flex items-center gap-3 mb-3">
-            <label className="text-sm text-stone-300">First to</label>
-            <input
-              type="number"
-              min={150}
-              max={1000}
-              step={50}
-              value={target}
-              onChange={(e) => setTarget(parseInt(e.target.value) || 300)}
-              className="w-24 bg-white/5 rounded-lg px-3 py-2 text-stone-100 border border-white/10"
-            />
-            <span className="text-sm text-stone-300">points wins</span>
-            <div className="ml-auto text-xs text-stone-500">≈ {Math.max(2, Math.ceil(target / 100))}–{Math.max(4, Math.ceil(target / 75))} rounds</div>
           </div>
           <div className="flex items-center gap-3 mb-6">
             <label className="text-sm text-stone-300">Shuffle</label>
@@ -113,13 +120,11 @@ export function Lobby({ onStart }: Props) {
                 </button>
               ))}
             </div>
-            <div className="ml-auto text-xs text-stone-500 max-w-[200px] text-right leading-tight">
-              {shuffleMode === "light"
-                ? "Hands biased toward a dominant suit — more dramatic bidding."
-                : "Pure random shuffle — uniform suit spreads."}
-            </div>
           </div>
-          <button className="btn btn-primary w-full text-lg py-3" onClick={() => onStart(players, target, shuffleMode)}>
+          <button
+            className="btn btn-primary w-full text-lg py-3"
+            onClick={() => onStart(players, TARGET_SCORE, shuffleMode)}
+          >
             Deal &amp; Begin
           </button>
           <details className="mt-4 text-sm text-stone-300">
@@ -128,7 +133,7 @@ export function Lobby({ onStart }: Props) {
               <p>Each round, players bid for the right to choose trump and call a hidden partner.</p>
               <p>The Caller names one card by rank + suit; whoever holds it is the secret ally — no one announces it. They only reveal by playing the card.</p>
               <p>Caller + partner together must capture ≥ bid in card points. If they make it, both score the bid; if they fail, both lose it.</p>
-              <p>Card points: <b className="text-gold-400">Q♠ = 30</b>, A = 15, 10 = 10, 5 = 5 — 150 total in the deck.</p>
+              <p>Card points: <b className="text-gold-400">Q♠ = 30</b>, A = 15, 10 = 10, 5 = 5 — 300 total in the deck.</p>
               <p>Follow suit if possible; trump beats non-trump.</p>
             </div>
           </details>

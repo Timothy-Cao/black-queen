@@ -20,10 +20,13 @@ export const RANK_LABEL: Record<Rank, string> = {
 export type PlayerId = 0 | 1 | 2 | 3 | 4;
 export const PLAYER_IDS: PlayerId[] = [0, 1, 2, 3, 4];
 
+export type AIPersonality = "normal" | "random";
+
 export interface Player {
   id: PlayerId;
   name: string;
   isAI: boolean;
+  aiPersonality?: AIPersonality;
   hand: Card[];
   tricksWon: Card[]; // flat list of all captured cards this round
   scoreTotal: number; // cumulative across rounds

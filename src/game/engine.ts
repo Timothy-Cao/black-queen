@@ -9,7 +9,7 @@ import {
 let logCounter = Math.floor(Math.random() * 1_000_000_000);
 
 export function freshGame(
-  playerConfigs: { name: string; isAI: boolean }[],
+  playerConfigs: { name: string; isAI: boolean; aiPersonality?: "normal" | "random" }[],
   targetScore = 300,
   shuffleMode: ShuffleMode = "light",
 ): GameState {
@@ -18,6 +18,7 @@ export function freshGame(
     id: i as PlayerId,
     name: p.name,
     isAI: p.isAI,
+    aiPersonality: p.aiPersonality,
     hand: [],
     tricksWon: [],
     scoreTotal: 0,
