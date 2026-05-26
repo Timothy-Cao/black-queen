@@ -91,10 +91,11 @@ export function Sidebar({ state, onHelp, onHistory }: Props) {
               <span className="text-stone-500"> / {opponentGoal}</span>
             </span>
           </div>
-          <div className="text-[10px] text-stone-500 mt-1 italic">
-            300 pts in the deck. Opponents need {opponentGoal} to defeat the bid.
-            {!r.partnerRevealed && " Bidder team total counts known team only until reveal."}
-          </div>
+          {!r.partnerRevealed && (
+            <div className="text-[10px] text-stone-500 mt-1 italic">
+              Team total counts known team only until reveal.
+            </div>
+          )}
         </div>
       )}
 

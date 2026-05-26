@@ -14,13 +14,15 @@ const POS: Record<Props["position"], React.CSSProperties> = {
   right:    { right: "calc(1.5% + 110px)", top: "42%", transform: "translateY(-50%)" },
 };
 
+const W = 44;
+const H = 60;
+
 export function CollectionDeck({ player, position }: Props) {
   const [hover, setHover] = useState(false);
   const captured = player.tricksWon;
   if (captured.length === 0) return null;
   const pts = captured.reduce((s, c) => s + cardPoints(c), 0);
   const topCard = captured[captured.length - 1];
-  const stack = Math.min(4, Math.ceil(captured.length / 5));
 
   return (
     <div
@@ -29,24 +31,20 @@ export function CollectionDeck({ player, position }: Props) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div className="relative" style={{ width: 44, height: 60 }}>
-        {Array.from({ length: stack }).map((_, i) => (
-          <div
-            key={`stack-${player.id}-${i}`}
-            className="absolute card-face shadow-card"
-            style={{
-              width: 44, height: 60,
-              top: -i * 2, left: -i * 2,
-              opacity: 0.5 + (i / stack) * 0.5,
-            }}
-          />
-        ))}
-        {/* top card preview */}
+      {/* Two thin slivers behind to indicate it's a stack, then the top card on top */}
+      <div className="relative" style={{ width: W, height: H }}>
+        <div
+          className="absolute rounded-md bg-stone-200/80 border border-stone-400/60"
+          style={{ width: W, height: H, top: 3, left: 3 }}
+        />
+        <div
+          className="absolute rounded-md bg-stone-100/95 border border-stone-400/70"
+          style={{ width: W, height: H, top: 1.5, left: 1.5 }}
+        />
         <div
           className="absolute card-face shadow-card flex items-center justify-center text-sm font-bold"
           style={{
-            width: 44, height: 60,
-            top: -(stack - 1) * 2, left: -(stack - 1) * 2,
+            width: W, height: H, top: 0, left: 0,
             color: SUIT_RED[topCard.suit]
               ? topCard.suit === "H" ? "#c4222e" : "#e5701a"
               : topCard.suit === "S" ? "#1a1714" : "#2a3b22",
@@ -57,18 +55,15 @@ export function CollectionDeck({ player, position }: Props) {
             <span className="text-base mt-0.5">{SUIT_GLYPHS[topCard.suit]}</span>
           </div>
         </div>
-        {/* points badge */}
         {pts > 0 && (
           <div
-            className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] px-1.5 py-0.5 rounded-full bg-gold-500/90 text-stone-900 font-bold whitespace-nowrap"
+            className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] px-1.5 py-0.5 rounded-full bg-gold-500/90 text-stone-900 font-bold whitespace-nowrap shadow"
           >
             {pts}
           </div>
         )}
       </div>
-      {hover && (
-        <CollectionPopup player={player} position={position} />
-      )}
+      {hover && <CollectionPopup player={player} position={position} />}
     </div>
   );
 }
@@ -84,7 +79,6 @@ function CollectionPopup({ player, position }: { player: Player; position: Props
     rank === 14 || rank === 10 || rank === 5 || (rank === 12 && suit === "S");
   const tricksCount = Math.floor(cards.length / 5);
 
-  // Position popup so it doesn't go off-screen
   const popupAnchor: React.CSSProperties = position === "left"
     ? { left: 50, top: 0 }
     : position === "right"
