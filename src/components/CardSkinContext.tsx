@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-export type CardSkin = "classic" | "svg-classic";
+export type CardSkin = "classic" | "svg-classic" | "jorel" | "poker-qr";
 
 export const CARD_SKINS: { value: CardSkin; label: string; description: string }[] = [
-  { value: "classic", label: "Hand-Drawn", description: "The original tabletop look — distinct red/orange suit shades." },
+  { value: "classic",     label: "Hand-Drawn",  description: "The original tabletop look — distinct red/orange suit shades." },
   { value: "svg-classic", label: "Classic SVG", description: "19th-century Goodall court designs (htdebeer/SVG-cards)." },
+  { value: "jorel",       label: "Pixel-Soft",  description: "Jorel's hand-drawn pixel deck — soft cartoon court figures." },
+  { value: "poker-qr",    label: "Modern SVG",  description: "me.uk customised SVG deck — bold geometric court art." },
 ];
 
 interface Ctx {
@@ -20,7 +22,7 @@ export function CardSkinProvider({ children }: { children: ReactNode }) {
   const [skin, setSkinState] = useState<CardSkin>(() => {
     if (typeof window === "undefined") return "classic";
     const v = window.localStorage.getItem(STORAGE_KEY);
-    return (v === "svg-classic" || v === "classic") ? v : "classic";
+    return (v === "svg-classic" || v === "classic" || v === "jorel" || v === "poker-qr") ? v : "classic";
   });
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, skin); } catch { /* ignore */ }

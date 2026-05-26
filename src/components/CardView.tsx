@@ -86,6 +86,66 @@ export function CardView({
     );
   }
 
+  if (skin === "jorel") {
+    // Jorel files are PNGs in Suit-folder + suit-prefix + 4-digit index.
+    // Ace = 0001, 2..10 = 0002..0010, J = 0011, Q = 0012, K = 0013.
+    const folderBySuit: Record<string, string> = { S: "Spades/spade", H: "Hearts/heart", D: "Diamonds/diamond", C: "Clubs/club" };
+    const idx = card.rank === 14 ? 1 : card.rank;
+    const file = `${folderBySuit[card.suit]}_${String(idx).padStart(4, "0")}.png`;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`card-face overflow-hidden ${baseClass}`}
+        style={{ ...sizeStyle, ...style, padding: 0 }}
+        aria-label={`${RANK_LABEL[card.rank]} of ${card.suit}`}
+      >
+        <img
+          src={`/cards/jorel/${file}`}
+          alt=""
+          draggable={false}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: "block",
+            // Jorel art is small pixel/illustration; keep edges crisp when scaled up.
+            imageRendering: "pixelated",
+          }}
+        />
+      </button>
+    );
+  }
+
+  if (skin === "poker-qr") {
+    // me.uk "Modern SVG" pack — files named {rank}{suit}.svg, with T = 10.
+    const rankCh = card.rank === 10 ? "T"
+      : card.rank === 11 ? "J"
+      : card.rank === 12 ? "Q"
+      : card.rank === 13 ? "K"
+      : card.rank === 14 ? "A"
+      : String(card.rank);
+    const file = `${rankCh}${card.suit}.svg`;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`card-face overflow-hidden ${baseClass}`}
+        style={{ ...sizeStyle, ...style, padding: 0 }}
+        aria-label={`${RANK_LABEL[card.rank]} of ${card.suit}`}
+      >
+        <img
+          src={`/cards/poker-qr/${file}`}
+          alt=""
+          draggable={false}
+          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+        />
+      </button>
+    );
+  }
+
   // Classic hand-drawn
   const color = SUIT_COLOR[card.suit];
   const isFace = card.rank >= 11;
