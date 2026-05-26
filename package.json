@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:wasm": "cd rust/crates/bq-wasm && wasm-pack build --target web --release --out-dir ../../../src/game/wasm && rm -f ../../../src/game/wasm/.gitignore",
     "lint": "eslint .",
     "preview": "vite preview"
   },
