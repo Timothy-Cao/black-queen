@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GameState, SUIT_GLYPHS, PlayerId } from "../game/types";
+import { GameState, SUIT_GLYPHS, PlayerId, cardPoints } from "../game/types";
 import { CardView } from "./CardView";
 
 interface Props {
@@ -11,22 +11,31 @@ interface Props {
 export function RoundEnd({ state, onNext, onHide }: Props) {
   const [showTricks, setShowTricks] = useState(false);
   const r = state.round;
-  const bidder = state.players[r.bidder!];
+  const caller = state.players[r.bidder!];
   const partners = (r.partners ?? []).map((id) => state.players[id]);
   const teamIds = new Set<PlayerId>([r.bidder!, ...(r.partners ?? [])]);
   const teamPts = ([0, 1, 2, 3, 4] as PlayerId[])
     .filter((p) => teamIds.has(p))
     .reduce<number>((s, p) => s + (r.roundPoints?.[p] ?? 0), 0);
   const made = teamPts >= (r.winningBid ?? 0);
-  const isGameOver = state.phase === "game_end";
-  const champion = isGameOver ? state.players.slice().sort((a, b) => b.scoreTotal - a.scoreTotal)[0] : undefined;
-  const teamLabel = [bidder, ...partners].map((p) => p.name).join(" + ");
+  const teamLabel = [caller, ...partners].map((p) => p.name).join(" + ");
+
+  // Did any partner play their card twice (held both copies)?
+  const partnerPlayCounts = new Map<PlayerId, number>();
+  if (r.partnerCard) {
+    for (const t of r.tricks) {
+      for (const p of t.plays) {
+        if (p.card.suit === r.partnerCard.suit && p.card.rank === r.partnerCard.rank) {
+          partnerPlayCounts.set(p.player, (partnerPlayCounts.get(p.player) ?? 0) + 1);
+        }
+      }
+    }
+  }
+
   return (
     <div className="fixed inset-0 flex items-center justify-center z-30 bg-black/60 backdrop-blur-sm">
-      <div className={`glass rounded-2xl p-8 w-[680px] max-h-[90vh] overflow-auto animate-floatIn relative ${
-        isGameOver ? "ring-2 ring-gold-400/60 shadow-[0_0_60px_rgba(245,196,107,0.3)]" : ""
-      }`}>
-        {onHide && !isGameOver && (
+      <div className="glass rounded-2xl p-8 w-[680px] max-h-[90vh] overflow-auto animate-floatIn relative ring-2 ring-gold-400/60 shadow-[0_0_60px_rgba(245,196,107,0.3)]">
+        {onHide && (
           <button
             className="absolute top-3 right-3 btn btn-ghost text-[11px]"
             onClick={onHide}
@@ -35,55 +44,51 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
             Hide
           </button>
         )}
-        <div className="text-xs uppercase tracking-widest text-gold-400">
-          {isGameOver ? "Champion crowned" : `Round ${r.roundNumber} complete`}
-        </div>
-        {isGameOver ? (
-          <>
-            <h2 className="font-display text-5xl mt-1 text-gold-400 drop-shadow-[0_0_18px_rgba(245,196,107,0.5)]">
-              {champion?.name} wins!
-            </h2>
-            <div className="text-sm text-stone-300 mt-1">
-              Final score <span className="font-mono text-gold-400">{champion?.scoreTotal}</span>
-            </div>
-          </>
-        ) : (
-          <h2 className="font-display text-2xl mt-1">
-            <span className={made ? "text-emerald-300" : "text-rose-300"}>
-              {teamLabel}
-            </span>
-            {" "}{made ? "made the bid." : "fell short."}
-          </h2>
-        )}
+        <div className="text-xs uppercase tracking-widest text-gold-400">Game complete</div>
+        <h2 className="font-display text-3xl mt-1">
+          <span className={made ? "text-emerald-300" : "text-rose-300"}>
+            {teamLabel}
+          </span>
+          {" "}{made ? "made the bid." : "fell short."}
+        </h2>
         <div className="mt-3 text-sm text-stone-300">
           Bid <span className="font-semibold">{r.winningBid}</span>
           {" · "}Trump <span className={r.trump==="H"||r.trump==="D"?"text-rose-400":"text-stone-100"}>{r.trump && SUIT_GLYPHS[r.trump]}</span>
           {" · "}Captured <span className={made ? "text-emerald-300" : "text-rose-300"}>{teamPts}</span>
-          {partners.length === 2 && <span className="ml-2 text-amber-300">· dual partner</span>}
         </div>
         <table className="w-full mt-4 text-sm">
           <thead><tr className="text-stone-400 text-xs uppercase border-b border-white/10">
             <th className="text-left py-1">Player</th>
-            <th className="text-right">Captured</th>
+            <th className="text-right">Claimed</th>
             <th className="text-right">Δ</th>
-            <th className="text-right">Total</th>
           </tr></thead>
           <tbody>
-            {state.players.map((p) => {
-              const onBidderTeam = teamIds.has(p.id);
+            {/* Caller first, then partners, then opponents */}
+            {[
+              ...state.players.filter(p => p.id === r.bidder),
+              ...state.players.filter(p => p.id !== r.bidder && (r.partners ?? []).includes(p.id)),
+              ...state.players.filter(p => p.id !== r.bidder && !(r.partners ?? []).includes(p.id)),
+            ].map((p) => {
+              const onTeam = teamIds.has(p.id);
+              const isCaller = p.id === r.bidder;
+              const isPartner = (r.partners ?? []).includes(p.id);
+              const playCount = partnerPlayCounts.get(p.id) ?? 0;
+              const isDouble = isPartner && playCount >= 2;
+              const captured = p.tricksWon.reduce((s, c) => s + cardPoints(c), 0);
+              const delta = r.deltaScores?.[p.id] ?? 0;
               return (
-                <tr key={p.id} className={`border-b border-white/5 last:border-0 ${onBidderTeam ? "text-gold-400" : ""}`}>
+                <tr key={p.id} className={`border-b border-white/5 last:border-0 ${onTeam ? "text-gold-400" : ""}`}>
                   <td className="py-1">
                     {p.name}
-                    {p.id === r.bidder && " ★"}
-                    {(r.partners ?? []).includes(p.id) && " ◆"}
+                    {isCaller && <span className="ml-1" title="Caller">★</span>}
+                    {isPartner && <span className="ml-1" title="Revealed partner">◆</span>}
+                    {isDouble && (
+                      <span className="ml-1 text-[10px] px-1 rounded bg-amber-400/25 text-amber-300 font-bold align-middle">×2</span>
+                    )}
                   </td>
-                  <td className="text-right font-mono">{r.roundPoints?.[p.id] ?? 0}</td>
-                  <td className={`text-right font-mono ${(r.deltaScores?.[p.id] ?? 0) > 0 ? "text-emerald-300" : (r.deltaScores?.[p.id] ?? 0) < 0 ? "text-rose-400" : ""}`}>
-                    {(r.deltaScores?.[p.id] ?? 0) >= 0 ? "+" : ""}{r.deltaScores?.[p.id] ?? 0}
-                  </td>
-                  <td className="text-right font-mono">
-                    <span className={p.scoreTotal < 0 ? "text-rose-400" : ""}>{p.scoreTotal}</span>
+                  <td className="text-right font-mono">{captured}</td>
+                  <td className={`text-right font-mono ${delta > 0 ? "text-emerald-300" : delta < 0 ? "text-rose-400" : ""}`}>
+                    {delta >= 0 ? "+" : ""}{delta}
                   </td>
                 </tr>
               );
@@ -124,7 +129,7 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
         </div>
 
         <button className="btn btn-primary w-full mt-6 text-base" onClick={onNext}>
-          {isGameOver ? "New Game" : "Next Round"}
+          Play Again
         </button>
       </div>
     </div>

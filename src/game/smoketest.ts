@@ -1,6 +1,6 @@
 // Standalone smoke test: simulate full games with all-AI players to ensure engine completes.
 // Run with: npx tsx src/game/smoketest.ts
-import { freshGame, applyBid, applyPass, applyDeclare, applyPlay, collectTrick, startNextRound } from "./engine";
+import { freshGame, applyBid, applyPass, applyDeclare, applyPlay, collectTrick } from "./engine";
 import { aiBidDecision, aiDeclareDecision, aiPlayDecision } from "./ai";
 import { legalPlays } from "./rules";
 
@@ -47,17 +47,18 @@ function runGame(seed: number): { rounds: number; finalScores: number[]; bidsMad
         }
         s = applyPlay(s, r.toPlay, card);
       }
-    } else if (s.phase === "round_end") {
-      // tally
-      const delta = r.deltaScores![r.bidder!];
-      if (delta > 0) bidsMade++; else bidsFailed++;
-      s = startNextRound(s);
     } else {
       throw new Error("Unhandled phase: " + r.phase);
     }
   }
+  // Single-game model: one round only. Tally based on the final round's delta.
+  const finalRound = s.round;
+  if (finalRound.bidder !== undefined && finalRound.deltaScores) {
+    const delta = finalRound.deltaScores[finalRound.bidder] ?? 0;
+    if (delta > 0) bidsMade++; else bidsFailed++;
+  }
   return {
-    rounds: s.history.length + 1,
+    rounds: 1,
     finalScores: s.players.map((p) => p.scoreTotal),
     bidsMade,
     bidsFailed,

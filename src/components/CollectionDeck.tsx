@@ -6,12 +6,14 @@ interface Props {
   position: "bottom" | "left" | "topLeft" | "topRight" | "right";
 }
 
+// Each collection pile sits just inside (toward center) of its seat.
+// Seats: bottom 50%/90%, left 10%/65%, topLeft 25%/15%, topRight 75%/15%, right 90%/65%.
 const POS: Record<Props["position"], React.CSSProperties> = {
-  bottom:   { right: "30%", bottom: "12px" },
-  left:     { left: "calc(1.5% + 110px)", top: "42%", transform: "translateY(-50%)" },
-  topLeft:  { left: "calc(18% + 110px)", top: "14px" },
-  topRight: { right: "calc(18% + 110px)", top: "14px" },
-  right:    { right: "calc(1.5% + 110px)", top: "42%", transform: "translateY(-50%)" },
+  bottom:   { right: "26%", bottom: "12px" },
+  left:     { left: "calc(10% + 70px)", top: "65%", transform: "translateY(-50%)" },
+  topLeft:  { left: "calc(25% + 70px)", top: "15%", transform: "translateY(-50%)" },
+  topRight: { right: "calc(25% + 70px)", top: "15%", transform: "translateY(-50%)" },
+  right:    { right: "calc(10% + 70px)", top: "65%", transform: "translateY(-50%)" },
 };
 
 const W = 44;

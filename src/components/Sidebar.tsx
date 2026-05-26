@@ -1,4 +1,4 @@
-import { GameState, SUIT_GLYPHS, RANK_LABEL } from "../game/types";
+import { GameState, SUIT_GLYPHS, RANK_LABEL, PlayerId, cardPoints } from "../game/types";
 import { ScoreCell } from "./ScoreCell";
 
 interface Props {
@@ -7,19 +7,61 @@ interface Props {
   onHistory?: () => void;
 }
 
+// Cute emoji faces per player slot — mirrors PlayerSeat.
+const AVATAR_EMOJI = ["🦊", "🐱", "🐻", "🐼", "🐶"];
+function emojiOf(id: number) { return AVATAR_EMOJI[id % AVATAR_EMOJI.length]; }
+
+/** How many times this player has played the partner card so far (0, 1 or 2). */
+function partnerCardPlays(state: GameState, playerId: PlayerId): number {
+  const r = state.round;
+  if (!r.partnerCard) return 0;
+  let count = 0;
+  const matches = (suit: string, rank: number) =>
+    suit === r.partnerCard!.suit && rank === r.partnerCard!.rank;
+  for (const t of r.tricks) {
+    for (const p of t.plays) {
+      if (p.player === playerId && matches(p.card.suit, p.card.rank)) count++;
+    }
+  }
+  const cur = r.currentTrick;
+  if (cur) {
+    for (const p of cur.plays) {
+      if (p.player === playerId && matches(p.card.suit, p.card.rank)) count++;
+    }
+  }
+  return count;
+}
+
 export function Sidebar({ state, onHelp, onHistory }: Props) {
   const r = state.round;
-  const callerName = r.bidder !== undefined ? state.players[r.bidder].name : "—";
+  const callerId = r.bidder;
+  const callerName = callerId !== undefined ? state.players[callerId].name : "—";
+  // Revealed teammates (caller + every revealed partner) share a team color.
+  const teamIds = new Set<PlayerId>();
+  if (callerId !== undefined) teamIds.add(callerId);
+  for (const id of r.revealedPartners) teamIds.add(id);
+
+  // Captured points per player this game (= this round, since 1 game = 1 round).
+  const claimed: Record<PlayerId, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+  for (const p of state.players) {
+    claimed[p.id] = p.tricksWon.reduce((s, c) => s + cardPoints(c), 0);
+  }
+
+  // Caller pinned to top; everyone else in id order.
+  const ordered = callerId !== undefined
+    ? [state.players[callerId], ...state.players.filter((p) => p.id !== callerId)]
+    : state.players.slice();
+
   return (
     <div className="text-stone-100 h-full flex flex-col min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="text-xs uppercase tracking-widest text-gold-400">Round {r.roundNumber}</div>
+        <div className="text-xs uppercase tracking-widest text-gold-400">Game</div>
         <div className="flex gap-1">
           {onHistory && state.history.length > 0 && (
             <button
               className="w-6 h-6 rounded-full border border-white/20 text-stone-300 text-xs hover:bg-white/10"
-              title="Past rounds"
+              title="Past games"
               onClick={onHistory}
             >
               ⟲
@@ -54,24 +96,42 @@ export function Sidebar({ state, onHelp, onHistory }: Props) {
         </div>
       </div>
 
-      {/* Claimed points (cumulative game scores) */}
+      {/* Claimed points — this game only */}
       <div className="mt-5">
         <div className="text-xs uppercase tracking-widest text-gold-400 mb-1">Claimed points</div>
         <table className="w-full text-sm">
           <tbody>
-            {state.players.map((p) => (
-              <tr key={p.id} className="border-b border-white/5 last:border-0">
-                <td className="py-1">
-                  <span className={p.id === r.bidder ? "text-gold-400" : ""}>{p.name}</span>
-                  {p.isAI && <span className="ml-1 text-[10px] text-stone-500">AI</span>}
-                  {p.id === r.bidder && <span className="ml-1 text-gold-400" title="Caller">★</span>}
-                  {p.id === r.dealer && <span className="ml-1 text-stone-300" title="Dealer">D</span>}
-                </td>
-                <td className="text-right font-mono">
-                  <ScoreCell value={p.scoreTotal} className={p.scoreTotal < 0 ? "text-rose-400" : ""} />
-                </td>
-              </tr>
-            ))}
+            {ordered.map((p) => {
+              const isCaller = p.id === callerId;
+              const isRevealedPartner = r.revealedPartners.includes(p.id);
+              const onTeam = teamIds.has(p.id);
+              const plays = partnerCardPlays(state, p.id);
+              const isDouble = !isCaller && plays >= 2;
+              const rowColor = onTeam ? "text-gold-400" : "text-stone-200";
+              return (
+                <tr key={p.id} className="border-b border-white/5 last:border-0">
+                  <td className={`py-1 ${rowColor}`}>
+                    <span className="mr-1.5">{emojiOf(p.id)}</span>
+                    <span>{p.name}</span>
+                    {p.isAI && <span className="ml-1 text-[10px] text-stone-500">AI</span>}
+                    {isCaller && <span className="ml-1" title="Caller">★</span>}
+                    {isRevealedPartner && <span className="ml-1" title="Revealed partner">◆</span>}
+                    {isDouble && (
+                      <span
+                        className="ml-1 text-[10px] px-1 rounded bg-amber-400/25 text-amber-300 font-bold align-middle"
+                        title="Played the partner card twice"
+                      >
+                        ×2
+                      </span>
+                    )}
+                    {p.id === r.dealer && !isCaller && <span className="ml-1 text-stone-400 text-xs" title="Dealer">D</span>}
+                  </td>
+                  <td className="text-right font-mono">
+                    <ScoreCell value={claimed[p.id]} className={onTeam ? "text-gold-400" : ""} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

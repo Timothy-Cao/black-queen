@@ -330,16 +330,13 @@ function finishRound(state: GameState): GameState {
     ),
   ];
 
-  // Game end?
-  const gameWinners = players.filter((p) => p.scoreTotal >= state.targetScore);
-  let phase: Phase = "round_end";
-  if (gameWinners.length > 0) phase = "game_end";
-
+  // Single-game model: every finished round is the end of the game.
+  // "Play Again" returns to the lobby for a fresh deal.
   return {
     ...state,
     players,
     round: { ...r, roundPoints, deltaScores: delta, phase: "round_end" },
-    phase,
+    phase: "game_end",
     log,
   };
 }

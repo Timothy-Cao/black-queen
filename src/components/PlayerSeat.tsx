@@ -23,12 +23,15 @@ interface Props {
   bidLabel?: string;
 }
 
+// Equidistant around a circle (72° apart). Each seat is centered on its anchor
+// via translate(-50%, -50%). Computed from angles measured clockwise from north:
+//   bottom (me) 180°, bottom-left 252°, top-left 324°, top-right 36°, bottom-right 108°.
 const POS_STYLE: Record<SeatPosition, React.CSSProperties> = {
-  bottom: { left: "50%", bottom: "8px", transform: "translateX(-50%)" },
-  left: { left: "1.5%", top: "42%", transform: "translateY(-50%)" },
-  topLeft: { left: "18%", top: "10px" },
-  topRight: { right: "18%", top: "10px" },
-  right: { right: "1.5%", top: "42%", transform: "translateY(-50%)" },
+  bottom:   { left: "50%", top: "90%", transform: "translate(-50%, -50%)" },
+  left:     { left: "10%", top: "65%", transform: "translate(-50%, -50%)" },
+  topLeft:  { left: "25%", top: "15%", transform: "translate(-50%, -50%)" },
+  topRight: { right: "25%", top: "15%", transform: "translate(50%, -50%)" },
+  right:    { right: "10%", top: "65%", transform: "translate(50%, -50%)" },
 };
 
 const MAX_VISIBLE_BACKS = 5;
