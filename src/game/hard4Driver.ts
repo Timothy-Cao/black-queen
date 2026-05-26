@@ -193,37 +193,25 @@ function reattachCardId(
 
 // ---------- Public dispatch entry points ----------
 
+// Hard-4 defers bid + declare to Hard-3's tuned logic for now. This isolates
+// the search contribution: Hard-4's only divergence from Hard-3 is play-phase
+// ISMCTS. When Hard-4 bid/declare improvements ship (search-based, A/B-tested),
+// flip these back to call into WASM.
 export function hard4Bid(state: GameState, selfId: PlayerId): { bid: number | "pass" } {
-  if (!bq) return hardTunedBid(state, selfId);
-  const rustState = toRustState(state);
-  try {
-    const result = JSON.parse(
-      bq.hard4_bid_json(JSON.stringify(rustState), selfId),
-    ) as { bid: number | null };
-    return { bid: result.bid === null ? "pass" : result.bid };
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[hard-4] bid failed for state:", JSON.stringify(rustState).slice(0, 500), e);
-    throw e;
-  }
+  return hardTunedBid(state, selfId);
 }
 
 export function hard4Declare(state: GameState, selfId: PlayerId): { trump: Suit; partnerCard: Card } {
-  if (!bq) return hardTunedDeclare(state, selfId);
-  const result = JSON.parse(
-    bq.hard4_declare_json(JSON.stringify(toRustState(state)), selfId),
-  ) as { trump: Suit; partner_card: { suit: Suit; rank: number } };
-  return {
-    trump: result.trump,
-    partnerCard: {
-      suit: result.partner_card.suit,
-      rank: result.partner_card.rank as Card["rank"],
-      id: `${result.partner_card.suit}${result.partner_card.rank}_0`,
-    },
-  };
+  return hardTunedDeclare(state, selfId);
 }
 
-const HARD4_TIME_MS = 300;
+// Per-move time budget in ms. Drives both the native deadline and the wasm
+// iteration cap. 300ms is the browser default (UI-friendly); arena.ts can
+// override via HARD4_TIME_MS env var for higher-quality but slower runs.
+// @ts-ignore — process is Node-only; arena.ts runs in Node.
+const HARD4_TIME_MS = !isBrowser && typeof (globalThis as any).process !== "undefined"
+  ? parseInt((globalThis as any).process.env?.HARD4_TIME_MS ?? "300", 10)
+  : 300;
 
 export function hard4Play(state: GameState, selfId: PlayerId): Card {
   if (!bq) return hardTunedPlay(state, selfId);

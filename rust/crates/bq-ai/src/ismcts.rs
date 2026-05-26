@@ -11,7 +11,7 @@
 //! Tree-structured ISMCTS is a future Session 2 upgrade.
 
 use crate::belief::BeliefState;
-use crate::rollout::rollout_random;
+use crate::rollout::rollout_greedy;
 use bq_engine::engine::apply_play;
 use bq_engine::rng::GameRng;
 use bq_engine::rules::legal_play_indices;
@@ -119,7 +119,7 @@ pub fn ismcts_play(
             .expect("chosen card must be in hand");
         apply_play(&mut sim, my_id, card_idx);
         if sim.phase == Phase::Playing {
-            rollout_random(&mut sim, rng);
+            rollout_greedy(&mut sim, rng);
         }
 
         // 4. Backprop. Value = sum of value-player captured points / 300.

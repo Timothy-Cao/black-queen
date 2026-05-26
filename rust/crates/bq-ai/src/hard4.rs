@@ -8,6 +8,7 @@
 //! Bid and declare upgrade to ISMCTS evaluation in Session 2.
 
 use crate::belief::BeliefState;
+use crate::handeval::{evaluate_hand, estimate_bid_capacity};
 use crate::ismcts::{ismcts_play, SearchParams};
 use bq_engine::deck::build_deck;
 use bq_engine::rng::GameRng;
@@ -15,52 +16,59 @@ use bq_engine::types::{Card, GameState, PlayerId, Suit};
 use std::time::Duration;
 
 /// Returns the bid amount to make, or None to pass.
-/// Greedy heuristic: bid up while hand has ≥ 2 aces, or holds Q♠, or has a 6+ suit.
-/// Cap at 200.
+///
+/// Bid up while the next legal bid is within our hand's capacity estimate
+/// minus a safety margin. Capacity = evaluate_hand(self).estimate_capture.
+/// Safety margin reflects partner contribution uncertainty: we expect ~30-60
+/// points of help from whoever holds the partner card, but it's noisy.
 pub fn hard4_bid(state: &GameState, self_id: PlayerId) -> Option<u16> {
     let hand = &state.hands[self_id as usize];
-    let aces = hand.iter().filter(|c| c.rank == 14).count();
-    let has_q_spades = hand.iter().any(|c| c.suit == Suit::S && c.rank == 12);
-    let max_suit_len = Suit::ALL.iter()
-        .map(|&s| hand.iter().filter(|c| c.suit == s).count())
-        .max().unwrap_or(0);
+    let capacity = estimate_bid_capacity(hand);
+    let current = state.winning_bid.unwrap_or(0);
+    let required: u16 = if current < 150 { 150 } else { current + 5 };
 
-    let strong = aces >= 2 || has_q_spades || max_suit_len >= 6;
-    if !strong { return None; }
+    // Target = floor(capacity / 5) * 5, capped at 240 unless capacity > 280.
+    let mut target = (capacity / 5) * 5;
+    if target > 240 && capacity < 280 { target = 240; }
+    if target > 300 { target = 300; }
 
-    let current = state.winning_bid.unwrap_or(145);
-    let next = if current < 150 { 150 } else { current + 5 };
-    if next > 200 { return None; }
-    Some(next)
+    if required > target { return None; }
+    Some(required)
 }
 
 /// Decide trump suit and partner card.
-/// v0: trump = longest suit; partner_card = highest-value card we don't already
-/// hold both copies of (prefer A, then Q♠, then K, then any).
+///
+/// Trump: the suit our hand evaluator picks as strongest (not just longest).
+/// Partner card: highest-rank rank+suit we own ZERO copies of, walking ranks
+/// high → low. This mirrors the Hard-3/Normal partner-call rule: by calling a
+/// high card we don't hold, we maximize the chance our partner has the trump-
+/// suit equivalent or a top side card.
 pub fn hard4_declare(state: &GameState, self_id: PlayerId) -> (Suit, Card) {
     let hand = &state.hands[self_id as usize];
-    let trump = Suit::ALL.iter().copied()
-        .max_by_key(|&s| hand.iter().filter(|c| c.suit == s).count())
-        .unwrap_or(Suit::S);
+    let eval = evaluate_hand(hand);
+    let trump = eval.best_trump;
 
-    // Count copies of each (suit, rank) in our hand.
     let mut owned = std::collections::HashMap::<(Suit, u8), usize>::new();
     for c in hand { *owned.entry((c.suit, c.rank)).or_insert(0) += 1; }
+    let count_of = |s: Suit, r: u8| owned.get(&(s, r)).copied().unwrap_or(0);
 
-    let total_copies = |c: &Card| -> usize {
-        if c.suit == Suit::S && c.rank == 7 { 1 } else { 2 }
-    };
-    let available = |c: &Card| -> bool {
-        owned.get(&(c.suit, c.rank)).copied().unwrap_or(0) < total_copies(c)
-    };
-
+    // Walk ranks high → low; pick the first (rank, suit) we hold ZERO of.
+    // Skip 7-of-non-spades (only 7♠ exists in the deck).
+    let ranks: [u8; 9] = [14, 13, 12, 11, 10, 9, 8, 7, 5];
+    for rank in ranks {
+        for &suit in &Suit::ALL {
+            if rank == 7 && suit != Suit::S { continue; }
+            if count_of(suit, rank) == 0 {
+                return (trump, Card { suit, rank });
+            }
+        }
+    }
+    // Fallback: should be unreachable in a 13-card hand from a 65-card deck.
     let all = build_deck();
-    // Prefer: Aces first, then Q♠, then Kings, then any available.
-    let preferred = all.iter().find(|c| c.rank == 14 && available(c))
-        .or_else(|| all.iter().find(|c| c.suit == Suit::S && c.rank == 12 && available(c)))
-        .or_else(|| all.iter().find(|c| c.rank == 13 && available(c)))
-        .or_else(|| all.iter().find(|c| available(c)));
-    let pc = *preferred.expect("at least one available partner card must exist");
+    let pc = *all.iter().find(|c| {
+        let total = if c.suit == Suit::S && c.rank == 7 { 1 } else { 2 };
+        count_of(c.suit, c.rank) < total
+    }).expect("at least one available partner card");
     (trump, pc)
 }
 
