@@ -1,4 +1,4 @@
-import { Player, cardPoints, RANK_LABEL, SUIT_GLYPHS, SUIT_RED, GameState, PlayerId } from "../game/types";
+import { Player, cardPoints, RANK_LABEL, SUIT_GLYPHS, SUIT_RED, PlayerId } from "../game/types";
 import { useState } from "react";
 import { CardView } from "./CardView";
 
@@ -14,7 +14,6 @@ function avatarEmoji(id: number) { return AVATAR_EMOJI[id % AVATAR_EMOJI.length]
 
 interface Props {
   player: Player;
-  state: GameState;
   isActive?: boolean;
   isBidder?: boolean;
   isPartner?: boolean;
@@ -39,7 +38,7 @@ const DECK_W = 40;
 const DECK_H = NAME_HEIGHT;
 
 export function PlayerSeat({
-  player, state, isActive, isBidder, isPartner, isDealer, showHand, isMe, position, bidLabel,
+  player, isActive, isBidder, isPartner, isDealer, showHand, isMe, position, bidLabel,
 }: Props) {
   const isBottom = position === "bottom";
   const cardCount = player.hand.length;
@@ -47,19 +46,20 @@ export function PlayerSeat({
   const overflow = cardCount - visibleBacks;
   const capturedPts = player.tricksWon.reduce((s, c) => s + cardPoints(c), 0);
   const topCard = player.tricksWon.length > 0 ? player.tricksWon[player.tricksWon.length - 1] : undefined;
+  const [collectionHover, setCollectionHover] = useState(false);
 
   return (
-    <div className="absolute z-20" style={POS_STYLE[position]}>
+    <div className={`absolute ${collectionHover ? "z-50" : "z-20"}`} style={POS_STYLE[position]}>
       <div className={`flex ${isBottom ? "flex-col-reverse items-center" : "flex-col items-center"} gap-2`}>
         <div className="flex items-stretch gap-0">
           {/* Collection deck attached to the LEFT of the name pill */}
           <SeatCollection
             player={player}
-            state={state}
             topCard={topCard}
             capturedPts={capturedPts}
             width={DECK_W}
             height={DECK_H}
+            onHoverChange={setCollectionHover}
           />
           {/* Name pill — height matched to the collection deck so they look attached.
               When this player is the round's dealer (and thus starts the round) we
@@ -151,15 +151,16 @@ export function PlayerSeat({
 
 interface SeatCollectionProps {
   player: Player;
-  state: GameState;
   topCard?: { suit: string; rank: number };
   capturedPts: number;
   width: number;
   height: number;
+  onHoverChange?: (h: boolean) => void;
 }
 
-function SeatCollection({ player, state, topCard, capturedPts, width, height }: SeatCollectionProps) {
-  const [hover, setHover] = useState(false);
+function SeatCollection({ player, topCard, capturedPts, width, height, onHoverChange }: SeatCollectionProps) {
+  const [hover, _setHover] = useState(false);
+  const setHover = (h: boolean) => { _setHover(h); onHoverChange?.(h); };
   // If nothing captured yet, render a placeholder slot so the name pill stays
   // attached to a consistent left edge.
   if (!topCard) {
@@ -207,12 +208,12 @@ function SeatCollection({ player, state, topCard, capturedPts, width, height }: 
           {capturedPts}
         </div>
       )}
-      {hover && <CollectionPopup player={player} state={state} />}
+      {hover && <CollectionPopup player={player} />}
     </div>
   );
 }
 
-function CollectionPopup({ player, state: _state }: { player: Player; state: GameState }) {
+function CollectionPopup({ player }: { player: Player }) {
   const cards = player.tricksWon.slice().sort((a, b) => {
     const order: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
     if (a.suit !== b.suit) return order[a.suit] - order[b.suit];
@@ -229,7 +230,7 @@ function CollectionPopup({ player, state: _state }: { player: Player; state: Gam
         {player.name}'s collection
       </div>
       <div className="text-[11px] text-stone-400 mb-2">
-        {tricksCount} trick{tricksCount === 1 ? "" : "s"} · {cards.length} cards · {totalPts} pts
+        {tricksCount} round{tricksCount === 1 ? "" : "s"} · {cards.length} cards · {totalPts} pts
       </div>
       <div className="flex flex-wrap gap-1">
         {cards.map((c, i) => {

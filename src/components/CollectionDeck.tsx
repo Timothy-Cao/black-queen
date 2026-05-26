@@ -28,7 +28,7 @@ export function CollectionDeck({ player, position }: Props) {
 
   return (
     <div
-      className="absolute z-20"
+      className={`absolute ${hover ? "z-50" : "z-20"}`}
       style={POS[position]}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -98,7 +98,7 @@ function CollectionPopup({ player, position }: { player: Player; position: Props
         {player.name}'s collection
       </div>
       <div className="text-[11px] text-stone-400 mb-2">
-        {tricksCount} trick{tricksCount === 1 ? "" : "s"} · {cards.length} cards · {totalPts} pts
+        {tricksCount} round{tricksCount === 1 ? "" : "s"} · {cards.length} cards · {totalPts} pts
       </div>
       <div className="flex flex-wrap gap-1">
         {cards.map((c, i) => {

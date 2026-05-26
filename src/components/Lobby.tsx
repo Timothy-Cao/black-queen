@@ -52,7 +52,7 @@ export function Lobby({ onStart }: Props) {
             Black Queen
           </h1>
           <p className="text-sm text-stone-300 mt-1 mb-6">
-            A 5-player trick-taking game of hidden partnerships and bidding.
+            A 5-player game of hidden partnerships and bidding.
           </p>
           <div className="text-[11px] uppercase tracking-widest text-gold-400/80 mb-2">Players</div>
           <div className="space-y-2 mb-5">

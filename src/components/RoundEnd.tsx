@@ -101,19 +101,19 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
             className="text-xs uppercase tracking-wider text-gold-400 hover:text-gold-500"
             onClick={() => setShowTricks((v) => !v)}
           >
-            {showTricks ? "▼" : "▶"} Review {r.tricks.length} tricks
+            {showTricks ? "▼" : "▶"} Review {r.tricks.length} rounds
           </button>
           {showTricks && (
             <div className="mt-2 space-y-2 max-h-72 overflow-auto pr-1">
               {r.tricks.map((t, i) => {
                 const winner = t.winner !== undefined ? state.players[t.winner] : undefined;
                 return (
-                  <div key={`trick-${i}`} className="flex items-center gap-2 text-xs">
+                  <div key={`round-${i}`} className="flex items-center gap-2 text-xs">
                     <div className="text-stone-500 w-8">#{i + 1}</div>
                     <div className="flex gap-0.5">
                       {t.plays.map((tp) => (
-                        <div key={`t${i}-${tp.player}-${tp.card.id}`} className={tp.player === t.winner ? "ring-1 ring-gold-400 rounded-md" : ""}>
-                          <CardView card={tp.card} small />
+                        <div key={`r${i}-${tp.player}-${tp.card.id}`} className={tp.player === t.winner ? "ring-1 ring-gold-400 rounded-md" : ""}>
+                          <CardView card={tp.card} small staticView />
                         </div>
                       ))}
                     </div>

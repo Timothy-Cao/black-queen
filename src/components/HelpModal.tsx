@@ -20,7 +20,7 @@ export function HelpModal({ onClose }: Props) {
           <section>
             <h3 className="text-xs uppercase tracking-widest text-gold-400 mb-1">Goal</h3>
             <p>
-              Be the first player to reach the target score. Each round, one player wins a bid for the right to choose trump and call a hidden partner — but they must capture enough card points in tricks to make their bid.
+              One player wins a bid for the right to choose trump and call a hidden partner — but they must capture enough card points across 13 rounds to make their bid.
             </p>
           </section>
           <section>
@@ -54,19 +54,19 @@ export function HelpModal({ onClose }: Props) {
           <section>
             <h3 className="text-xs uppercase tracking-widest text-gold-400 mb-1">Play</h3>
             <p>
-              The Caller leads the first trick. Players must follow the led suit if they have it; otherwise they may play anything, including trump. Highest trump wins the trick; with no trump, the highest card of the led suit wins. Winner leads the next trick. A partner is revealed only by playing their matching card.
+              The Caller leads the first round. Players must follow the led suit if they have it; otherwise they may play anything, including trump. Highest trump wins the round; with no trump, the highest card of the led suit wins. Winner leads the next round. A partner is revealed only by playing their matching card.
             </p>
           </section>
           <section>
             <h3 className="text-xs uppercase tracking-widest text-gold-400 mb-1">Scoring</h3>
             <p>
-              If the Caller + all partners capture <span className="text-emerald-300">≥ bid</span> in trick points, every member of the team scores <span className="text-emerald-300">+bid</span>. If they fall short, every team member scores <span className="text-rose-300">−bid</span>. Opponents need <b>(300 − bid + 1)</b> points to defeat the bid.
+              If the Caller + all partners capture <span className="text-emerald-300">≥ bid</span> in round points, every member of the team scores <span className="text-emerald-300">+bid</span>. If they fall short, every team member scores <span className="text-rose-300">−bid</span>. Opponents need <b>(300 − bid + 1)</b> points to defeat the bid.
             </p>
           </section>
           <section>
             <h3 className="text-xs uppercase tracking-widest text-gold-400 mb-1">Strategy</h3>
             <p>
-              Every play is a clue. If you smear points to a trick someone else is winning, you're telling the table whose side you're on. If you ruff a teammate's trick, you've shown your hand. Read bids, voids, and trump plays carefully — the deception is the whole game.
+              Every play is a clue. If you smear points to a round someone else is winning, you're telling the table whose side you're on. If you ruff a teammate's round, you've shown your hand. Read bids, voids, and trump plays carefully — the deception is the whole game.
             </p>
           </section>
         </div>

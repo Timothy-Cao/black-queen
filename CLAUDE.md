@@ -1,0 +1,217 @@
+# Claude harness — Black Queen
+
+A 5-player Black Queen card game. Local browser only (Vite + React + TS + Tailwind v3). No backend, no API calls.
+
+This file is for Claude. It documents conventions, tooling, and the most common operations so any future session can pick up cold.
+
+---
+
+## Project layout
+
+```
+src/
+  App.tsx                       # top-level state machine + AI driver
+  main.tsx                      # boots app; loads tuned weight JSONs into AI slots
+  index.css                     # global styles + .card-face / .card-back
+
+  components/                   # all React UI
+    Lobby.tsx                   # pre-game setup; AI personality dropdown
+    PlayerSeat.tsx              # one of 5 seats; collection pile + popup
+    CollectionDeck.tsx          # human's own collection pile (separate from PlayerSeat)
+    HandStrip.tsx               # human's 13 cards along bottom
+    TrickArea.tsx               # 5 played cards in the table center
+    BiddingPanel.tsx            # human bid UI
+    DeclarePanel.tsx            # human trump+partner pick UI
+    RoundEnd.tsx                # game-complete modal (round review here)
+    Sidebar.tsx                 # score panel
+    SettingsBar.tsx             # gear menu
+    CardView.tsx                # single card render (memoized, supports 4 skins)
+    CardSkinContext.tsx         # skin enum + provider
+    HelpModal.tsx               # rules
+    HistoryModal.tsx            # log
+    PartnerRevealFlash.tsx, TurnHint.tsx, TableCenter.tsx, Confetti.tsx, ScoreCell.tsx
+
+  game/
+    types.ts                    # all shared types incl. AIPersonality
+    engine.ts                   # pure reducer (applyBid/applyPass/applyDeclare/applyPlay/collectTrick)
+    rules.ts                    # legalPlays, trickWinner
+    deck.ts                     # 65-card deck builder + light/full shuffle
+    ai.ts                       # dispatcher: routes personality → impl
+    aiHard.ts                   # rule-based + scored AI; HardWeights interface; gen2/gen3 slots
+    sfx.ts                      # web-audio SFX (no external assets)
+
+    tuned_weights_gen2.json     # imported by main.tsx → setGen2HardWeights
+    tuned_weights_gen3.json     # imported by main.tsx → setActiveHardWeights
+
+    # CLI-only simulation tools (excluded from tsc-build via tsconfig.app.json):
+    arena.ts                    # headless N-game benchmark by personality mix
+    tune.ts                     # (1+λ)-ES single-opponent tuner
+    tune2.ts                    # (1+λ)-ES multi-opponent tuner (vs hard + v1)
+    smoketest.ts                # asserts every AI play is legal
+    _tournament.ts              # head-to-head matrix across gens + baselines
+    _ab_void.ts                 # void-creation feature A/B harness
+    _ab_infer.ts                # alliance-inference feature A/B harness
+    _verify_personalities.ts    # confirms each AI personality routes correctly
+
+# repo root
+tuned_weights.json              # working copy = current latest gen (read by CLI tools)
+tuned_weights_v1.json           # archive: gen-2 weights
+tuned_weights_v2.json           # archive: gen-3 weights (= current latest)
+```
+
+---
+
+## Game rules (terminology)
+
+- **Game** = one full play sequence: bid → declare → 13 plays → score. Single-game model: no multi-round games.
+- **Round** (UI terminology) = one of the 13 sub-plays. Each player plays exactly one card per round.
+- **Trick** (internal terminology) = same concept as Round. Code uses `trick`; user-facing text says "round".
+- **Caller** = the player who won the bid. Picks trump + a partner card.
+- **Dealer** = whoever starts the next game's play. In our model: previous Caller (or random for game 1).
+- **Partner** = anyone holding a copy of the called card. Identity hidden until they play that card.
+
+Deck (65 cards): two standard decks with 2s/3s/4s/6s removed AND all 7s removed except one 7♠.
+
+Point cards (300 total): Q♠ = 30 · A = 15 · 10 = 10 · 5 = 5
+
+Bid: 150–300 in +5 steps. Random first bidder. Pass = out of bidding.
+
+---
+
+## AI personalities (production)
+
+All in `aiHard.ts` (except normal/random in `ai.ts`).
+
+| ID | Lobby label | Weights slot | Description |
+|---|---|---|---|
+| `random` | Random | — | Always passes; plays random legal card |
+| `normal` | Normal | — | Greedy +5 bidding (cap 200); greedy play with smear-to-known-ally |
+| `hard` | Hard | `DEFAULT_HARD_WEIGHTS` | Locked rule-based baseline (gen 1) |
+| `hard-2` | Hard-2 | `gen2HardWeights` from `tuned_weights_gen2.json` | First evolutionary tuning (gen 2) |
+| `hard-3` | Hard-3 | `activeHardWeights` from `tuned_weights_gen3.json` | Tuned + alliance inference + void-creation (gen 3) |
+
+Current strength ordering (verified, +pp = per-seat win-rate edge):
+- Hard-3 vs Normal: +15.65pp
+- Hard-3 vs Hard: +4.55–6pp
+- Hard-2 vs Hard: +2.2–3.85pp
+- Hard-3 vs Hard-2: ~0pp (tied head-to-head; Hard-3 is better at exploiting weaker opponents)
+
+---
+
+## HardWeights — the tunable scoring function
+
+`HardWeights` (`aiHard.ts`) is the tunable surface. ~55 scalar weights covering:
+
+- **Trump scoring** (`trumpLengthFactor`, `trumpTopFactor`, void bonuses, Q♠ bonus, …)
+- **Partner-card scoring** (`partnerAceScore`, `partnerQSpadesScore`, trump bonus, …)
+- **Bid capacity** (`bidSelfCaptureFromPoints`, `bidVoidBonusFull`, `bidCap`, risk penalties, …)
+- **Move scoring** (`smearBonusMul`, `enemyFeedPenaltyMul`, `cheapestWinnerPenaltyFactor`, …)
+- **Q♠ commit/dump** (`qSpadesCommitBonus`, `qSpadesDumpPenalty`, `qSpadesCommitThreshold`)
+- **Void creation** — discard-side: `voidCreateSingletonBonus`, `voidCreateDoubletonBonus`, `voidCreateTrumpGate`
+- **Alliance inference** — point-feed deduction: `inferSmearStrength`, `inferSmearThreshold`, `inferAllyThreshold`
+
+When adding a new weight: also add a clip range to `mutate()` in BOTH `tune.ts` and `tune2.ts`.
+
+`DEFAULT_HARD_WEIGHTS` is the locked baseline for personality `hard`. Don't mutate it casually — it's the standard against which all gens are measured.
+
+---
+
+## Common operations
+
+### Run the app locally
+```bash
+npm run dev          # starts Vite dev server (already managed by preview_start)
+```
+
+### Headless arena benchmark (CLI)
+```bash
+npx tsx src/game/arena.ts 2000 hard-3,hard          # 2000 games, mix of personalities
+npx tsx src/game/arena.ts 2000 hard-3,hard,normal   # 3-way mix
+npx tsx src/game/arena.ts 2000 hard-3,hard-3,hard,hard,normal   # fixed seat layout (5 tokens)
+```
+
+### Tournament: head-to-head across gens
+```bash
+npx tsx src/game/_tournament.ts 3000     # matrix: v2 vs v1, vs hard, vs normal
+```
+
+### Tune a new generation
+```bash
+# Single-opponent (vs Hard only) — prone to opponent-overfit:
+npx tsx src/game/tune.ts 80 12 80          # gens × lambda × games-per-eval
+
+# Multi-opponent (vs Hard + v1) — recommended:
+npx tsx src/game/tune2.ts 80 12 120
+```
+Output → `tuned_weights.json`. After verifying with `_tournament.ts`, archive as
+`tuned_weights_v{N}.json` and copy into `src/game/tuned_weights_gen{N}.json` so the
+browser picks it up via `main.tsx` imports.
+
+### Smoketest (catch illegal plays after any AI change)
+```bash
+npx tsx src/game/smoketest.ts
+```
+
+### A/B a new feature (gated by a weight)
+Template lives in `_ab_void.ts` and `_ab_infer.ts`. Pattern: same seed pair,
+toggle the weight set ENABLE vs DISABLE, measure per-seat win-rate delta.
+
+### Smoke a new personality / route
+```bash
+npx tsx src/game/_verify_personalities.ts    # confirms hard / hard-2 / hard-3 produce distinct behavior
+```
+
+---
+
+## Adding a new AI generation (Hard-N)
+
+1. Add or modify weights in `HardWeights` + `DEFAULT_HARD_WEIGHTS`.
+2. If behavior changes, add a clip range in BOTH `tune.ts` and `tune2.ts` `mutate()`.
+3. Smoketest. Should report 0 illegal plays.
+4. A/B test the feature at defaults (see `_ab_void.ts` as template). If it's not directionally positive, reconsider before tuning.
+5. Tune with `tune2.ts` (multi-opponent). Watch for noise: if generations don't beat v1 in independent tournament, it's overfit to eval seeds — don't ship.
+6. Once a tuned set wins in independent tournament:
+   - `cp tuned_weights.json tuned_weights_v{N}.json`
+   - `cp tuned_weights.json src/game/tuned_weights_gen{N}.json`
+   - In `aiHard.ts`: add a new slot (e.g., `gen3HardWeights`) and `hardNBid/Declare/Play` entry points.
+   - In `ai.ts`: route the new personality.
+   - In `types.ts`: extend `AIPersonality`.
+   - In `main.tsx`: install the new gen weights at startup.
+   - In `Lobby.tsx`: add the option.
+
+---
+
+## What we tried that didn't work
+
+Avoid re-spending budget on these:
+
+- **Single-opponent ES tuner** (`tune.ts`) tends to opponent-overfit: candidates beat Hard on training seeds but lose to prior tuned generations on fresh seeds. Use `tune2.ts` (multi-opponent) instead, and ALWAYS verify with `_tournament.ts` before shipping.
+- **Soft alliance probability** in `scoreMove` (smear/feed scaled by `allyProb`) regressed Hard-2 by ~1pp because the existing weights were calibrated for a binary gate. Use threshold-upgrade gating (`inferAllyThreshold = 0.85`) instead — it preserves binary behavior on uncertain cases.
+- **Void creation at high default values**: the feature is only weakly positive (+0.24pp at defaults). Don't put it on a critical path; let the tuner decide weight values.
+- **Renaming "trick" → "round" in code internals**: would collide with the existing "round" concept (= the full game in our single-game model). UI-only rename is the right scope.
+
+---
+
+## Conventions
+
+- **Reducer purity**: `engine.ts` functions must be pure (no `Math.random()` outside `dealHands`, no globals). They're called from the ES tuner under seeded RNG.
+- **AI weights flow**: AI decisions take `HardWeights` as a parameter; the dispatcher in `ai.ts` selects the right slot. NEVER read `tuned_weights.json` directly from a non-CLI file.
+- **Browser ≠ Node**: anything under `src/` runs in the browser, no `fs`/`process`/etc. CLI sim tools (`arena.ts`, `tune.ts`, etc.) live under `src/game/` but are excluded from the app build via `tsconfig.app.json`.
+- **Tailwind v3**: arbitrary values via `[ ]`; classnames stay readable, no `clsx`/`tailwind-merge` dependency.
+- **Card pack assets**: served from `public/cards/` (htdebeer.svg, jorel/*.png, poker-qr/*.svg). Never inline binary art into components.
+- **Component memoization**: `CardView` is memoized (custom comparator) because it renders up to 65 times in round review. When adding heavy children that render N>5 times, consider memo.
+- **Z-index stacking**: HandStrip is `z-30`. Popups originating from `z-20` containers (PlayerSeat, CollectionDeck) bump their container to `z-50` on hover so the popup escapes the parent stacking context.
+
+---
+
+## Files Claude is allowed to create freely
+
+- New `src/game/_*.ts` files for one-off harnesses (A/B tests, verification scripts). Add them to `tsconfig.app.json` exclude.
+- New tuned weight archives `tuned_weights_v{N}.json` and `src/game/tuned_weights_gen{N}.json`.
+- New `HardWeights` fields (with `mutate()` clip range updates).
+
+## Files Claude should NOT modify without asking
+
+- `DEFAULT_HARD_WEIGHTS` numeric values — this is the locked Hard baseline.
+- `src/game/engine.ts` reducer signatures — they're used by the tuner.
+- `public/cards/*` binary assets — verified safe; re-fetching/replacing requires a security pass.

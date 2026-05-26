@@ -215,7 +215,6 @@ export default function App() {
             <PlayerSeat
               key={p.id}
               player={p}
-              state={state}
               position={pos}
               isActive={
                 (r.phase === "bidding" && r.bidTurn === p.id) ||

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Card, RANK_LABEL, SUIT_GLYPHS } from "../game/types";
 import { useCardSkin } from "./CardSkinContext";
 
@@ -12,6 +13,8 @@ interface Props {
   style?: React.CSSProperties;
   className?: string;
   dim?: boolean;
+  /** Strip hover/transition/cursor effects (for static round review). */
+  staticView?: boolean;
 }
 
 const SUIT_COLOR: Record<string, string> = {
@@ -39,8 +42,8 @@ const SVG_RANK: Record<number, string> = {
 };
 const SVG_SUIT: Record<string, string> = { S: "spade", H: "heart", D: "diamond", C: "club" };
 
-export function CardView({
-  card, faceDown, small, disabled, selected, highlight, onClick, style, className = "", dim,
+function CardViewImpl({
+  card, faceDown, small, disabled, selected, highlight, onClick, style, className = "", dim, staticView,
 }: Props) {
   const { skin } = useCardSkin();
   const w = small ? 56 : 84;
@@ -56,8 +59,12 @@ export function CardView({
     );
   }
 
-  const baseClass = `relative shadow-card transition-all select-none ${
-    disabled ? "card-dim cursor-not-allowed" : "hover:-translate-y-2 hover:shadow-card-hover cursor-pointer"
+  const baseClass = `relative shadow-card select-none ${
+    staticView ? "cursor-default" : "transition-all"
+  } ${
+    staticView
+      ? ""
+      : disabled ? "card-dim cursor-not-allowed" : "hover:-translate-y-2 hover:shadow-card-hover cursor-pointer"
   } ${selected ? "-translate-y-3 ring-2 ring-gold-400" : ""} ${
     highlight ? "ring-2 ring-amber-300 animate-pulseGlow" : ""
   } ${dim ? "card-dim" : ""} ${className}`;
@@ -197,3 +204,20 @@ export function CardView({
     </button>
   );
 }
+
+// Memoized export. Card identity is the strongest signal; the rest are scalar/boolean.
+// Skip style/onClick from comparison — onClick changes identity often but rerendering the
+// wrapper button is fine; style is rarely-changing per call site.
+export const CardView = memo(CardViewImpl, (a, b) =>
+  a.card?.id === b.card?.id &&
+  a.faceDown === b.faceDown &&
+  a.small === b.small &&
+  a.disabled === b.disabled &&
+  a.selected === b.selected &&
+  a.highlight === b.highlight &&
+  a.dim === b.dim &&
+  a.staticView === b.staticView &&
+  a.className === b.className &&
+  a.style === b.style &&
+  a.onClick === b.onClick
+);
