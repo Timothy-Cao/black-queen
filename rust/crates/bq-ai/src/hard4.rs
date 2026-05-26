@@ -85,6 +85,23 @@ pub fn hard4_play(
     let all = build_deck();
     let mut belief = BeliefState::new(self_id, &mine, &all);
 
+    // Bid-strength prior: in mirror-replay A/B at 300 pairs, ENABLING this cost
+    // ~3pp of strength (+3.53pp baseline → +0.60pp). Likely because the prior
+    // weights aren't well-calibrated and bias samples wrong. Kept in code for
+    // a future tuned version; OFF by default. Enable for experiments with
+    // BQ_BIDPRIOR=1.
+    #[cfg(not(target_arch = "wasm32"))]
+    let bidprior_enabled = std::env::var("BQ_BIDPRIOR")
+        .ok().filter(|s| !s.is_empty()).is_some();
+    #[cfg(target_arch = "wasm32")]
+    let bidprior_enabled = false;
+    if bidprior_enabled {
+        for bid in &state.bids {
+            if let Some(amount) = bid.amount {
+                belief.apply_bid_strength_prior(bid.player, amount);
+            }
+        }
+    }
     // Replay declare event.
     if let (Some(caller), Some(pc)) = (state.caller, state.partner_card) {
         belief.on_declare(caller, pc);

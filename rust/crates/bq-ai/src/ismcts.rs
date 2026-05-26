@@ -11,7 +11,9 @@
 //! Tree-structured ISMCTS is a future Session 2 upgrade.
 
 use crate::belief::BeliefState;
+use crate::endgame::{should_solve_endgame, solve_endgame};
 use crate::rollout::rollout_tactical;
+use std::collections::HashSet;
 use bq_engine::engine::apply_play;
 use bq_engine::rng::GameRng;
 use bq_engine::rules::legal_play_indices;
@@ -78,6 +80,12 @@ pub fn ismcts_play(
     let candidates: Vec<Card> = legal.iter().map(|&i| state.hands[my_id as usize][i]).collect();
     if candidates.len() == 1 { return candidates[0]; }
 
+    // Endgame escape hatch: when ≤3 tricks remain, every determinization can be
+    // solved exactly via minimax. Vote across samples to pick the consensus best.
+    if should_solve_endgame(state) {
+        return ismcts_endgame(state, belief, rng, params, &candidates);
+    }
+
     let mut stats: HashMap<Card, ActionStats> = HashMap::new();
     for &c in &candidates { stats.insert(c, ActionStats::default()); }
 
@@ -139,6 +147,52 @@ pub fn ismcts_play(
         .max_by_key(|(_, s)| s.visits)
         .map(|(c, _)| c)
         .unwrap_or(&candidates[0])
+}
+
+/// Endgame: enumerate exact best move per sampled determinization,
+/// then vote across samples. Same time budget as ISMCTS, but each
+/// iteration produces a guaranteed-optimal recommendation under its
+/// determinization rather than an approximate one.
+fn ismcts_endgame(
+    state: &GameState,
+    belief: &BeliefState,
+    rng: &mut GameRng,
+    params: &SearchParams,
+    candidates: &[Card],
+) -> Card {
+    let value_set: HashSet<PlayerId> = params.value_players.iter().copied().collect();
+    let mut votes: HashMap<Card, u64> = HashMap::new();
+    for &c in candidates { votes.insert(c, 0); }
+
+    // Endgame minimax can be slow (5–30ms per determinization at 3 tricks).
+    // Cap aggressively so it doesn't blow the time budget.
+    let endgame_max_iters = params.max_iterations.min(30);
+    #[cfg(not(target_arch = "wasm32"))]
+    let deadline = now() + params.time_budget;
+
+    let mut iters: u64 = 0;
+    while iters < endgame_max_iters {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if iters >= 8 && now() >= deadline { break; }
+        }
+        iters += 1;
+
+        let opp_hands = match belief.sample_determinization(rng) {
+            Some(h) => h,
+            None => continue,
+        };
+        let mut sim = state.clone();
+        for p in 0..5 {
+            if p as PlayerId != params.self_id {
+                sim.hands[p] = opp_hands[p].clone();
+            }
+        }
+        let (best_card, _) = solve_endgame(&sim, params.self_id, &value_set);
+        *votes.entry(best_card).or_insert(0) += 1;
+    }
+
+    *votes.iter().max_by_key(|(_, &v)| v).map(|(c, _)| c).unwrap_or(&candidates[0])
 }
 
 fn pick_ucb1(

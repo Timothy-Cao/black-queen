@@ -25,6 +25,10 @@ pub struct BeliefState {
     pub cannot_hold: Vec<HashSet<Card>>,
     /// Remaining hand size per player.
     pub hand_sizes: Vec<usize>,
+    /// Soft prior: per-player multiplicative weight for each card (default 1.0).
+    /// Higher weights bias the sampler toward assigning that card to that player.
+    /// Hard constraints (cannot_hold, capacity) ALWAYS dominate.
+    pub soft_prior: Vec<HashMap<Card, f64>>,
 }
 
 /// Counts copies of each card in a slice.
@@ -49,11 +53,39 @@ impl BeliefState {
         let mut cannot_hold = vec![HashSet::new(); 5];
         // Self can't "hold" any unseen card — they're, by definition, not in our hand.
         cannot_hold[self_id as usize] = unseen.keys().copied().collect();
+        let soft_prior = vec![HashMap::new(); 5];
         BeliefState {
             self_id,
             unseen,
             cannot_hold,
             hand_sizes: vec![13; 5],
+            soft_prior,
+        }
+    }
+
+    /// Apply a bid-strength prior: a player who bid `bid_amount` is more likely
+    /// to hold high cards (aces, Q♠, kings) and a long suit. We bump their
+    /// per-card weights proportional to bid strength above MIN_BID.
+    ///
+    /// Soft signal — sampler will still respect hard constraints absolutely;
+    /// these only break ties between otherwise-feasible assignments.
+    pub fn apply_bid_strength_prior(&mut self, player: PlayerId, bid_amount: u16) {
+        if player == self.self_id { return; }
+        let above_min = bid_amount.saturating_sub(150) as f64;
+        if above_min <= 0.0 { return; }
+        // Scale: at bid 150 → 1.0× (no bump). At bid 250 → 2.0× on top cards.
+        let strength = 1.0 + above_min / 100.0;
+        let entry = &mut self.soft_prior[player as usize];
+        for card in self.unseen.keys() {
+            let bump = match (card.suit, card.rank) {
+                (Suit::S, 12) => strength * 1.5,    // Q♠
+                (_, 14) => strength * 1.3,           // Ace
+                (_, 13) => strength * 1.15,          // King
+                _ => 1.0,
+            };
+            if bump > 1.0 {
+                *entry.entry(*card).or_insert(1.0) *= bump;
+            }
         }
     }
 
@@ -153,7 +185,20 @@ impl BeliefState {
                 .filter(|&p| remaining_cap[p as usize] > 0)
                 .collect();
             if eligible.is_empty() { return None; }
-            let chosen = eligible[rng.gen_range(0..eligible.len())];
+
+            // Weighted sample using soft_prior (default weight = 1.0).
+            let weights: Vec<f64> = eligible.iter()
+                .map(|&p| self.soft_prior[p as usize].get(card).copied().unwrap_or(1.0))
+                .collect();
+            let total: f64 = weights.iter().sum();
+            let r: f64 = rng.gen_range(0.0..total);
+            let mut acc = 0.0;
+            let mut chosen = eligible[0];
+            for (i, &w) in weights.iter().enumerate() {
+                acc += w;
+                if r < acc { chosen = eligible[i]; break; }
+            }
+
             hands[chosen as usize].push(*card);
             remaining_cap[chosen as usize] -= 1;
         }
