@@ -78,14 +78,9 @@ export default function App() {
     if (state.phase === "game_end" || state.phase === "round_end") return;
     const r = state.round;
 
-    if (r.pendingTrickComplete) {
-      aiTimerRef.current = window.setTimeout(() => {
-        setState((s) => (s ? collectTrick(s) : s));
-      }, 2200 * speedMul);
-      return () => {
-        if (aiTimerRef.current) window.clearTimeout(aiTimerRef.current);
-      };
-    }
+    // Trick-completion is no longer auto-resolved by a timer. The player
+    // clicks "Continue" (rendered inside TrickArea) to advance.
+    if (r.pendingTrickComplete) return;
 
     let target: PlayerId | undefined;
     if (r.phase === "bidding") target = r.bidTurn;
@@ -190,7 +185,7 @@ export default function App() {
   return (
     <div className="w-screen h-screen overflow-hidden flex">
       <div className="relative flex-1 felt overflow-hidden min-w-0">
-        <div className="absolute inset-x-[10%] inset-y-[14%] rounded-[50%] border border-white/5 shadow-inset pointer-events-none" />
+        <div className="absolute inset-x-[10%] inset-y-[14%] rounded-[50%] border border-white/5 shadow-inset pointer-events-none" style={{ zIndex: 0 }} />
 
         {state.players.map((p) => {
           const isMe = p.id === me;
@@ -206,6 +201,7 @@ export default function App() {
             <PlayerSeat
               key={p.id}
               player={p}
+              state={state}
               position={pos}
               isActive={
                 (r.phase === "bidding" && r.bidTurn === p.id) ||
@@ -224,11 +220,16 @@ export default function App() {
 
         <TurnHint state={state} me={me} />
         <TableCenter state={state} />
-        <TrickArea state={state} seatPosition={seatMap} />
+        <TrickArea
+          state={state}
+          seatPosition={seatMap}
+          onContinue={() => setState((s) => (s ? collectTrick(s) : s))}
+        />
         <PartnerRevealFlash state={state} />
-        {state.players.map((p) => (
-          <CollectionDeck key={`coll-${p.id}`} player={p} position={seatMap[p.id]} />
-        ))}
+        {/* The human (bottom seat) hides their own seat, so show their pile separately. */}
+        {!meIsAI && state.players[me].tricksWon.length > 0 && (
+          <CollectionDeck player={state.players[me]} position="bottom" />
+        )}
 
         {!showRoundEnd && !meIsAI && (
           <HandStrip

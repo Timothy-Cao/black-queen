@@ -43,8 +43,8 @@ export function CardView({
   card, faceDown, small, disabled, selected, highlight, onClick, style, className = "", dim,
 }: Props) {
   const { skin } = useCardSkin();
-  const w = small ? 48 : 72;
-  const h = small ? 68 : 100;
+  const w = small ? 56 : 84;
+  const h = small ? 80 : 118;
   const sizeStyle: React.CSSProperties = { width: w, height: h };
 
   if (faceDown || !card) {

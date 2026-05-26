@@ -4,6 +4,7 @@ import { CardView } from "./CardView";
 interface Props {
   state: GameState;
   seatPosition: Record<PlayerId, "bottom" | "left" | "topLeft" | "topRight" | "right">;
+  onContinue?: () => void;
 }
 
 // Cards sit in a tight ring around the felt center, well clear of seats, collection decks,
@@ -26,7 +27,7 @@ const SLIDE_FROM: Record<string, { x: number; y: number }> = {
   right:    { x:  240, y:    0 },
 };
 
-export function TrickArea({ state, seatPosition }: Props) {
+export function TrickArea({ state, seatPosition, onContinue }: Props) {
   const trick = state.round.currentTrick;
   const r = state.round;
   if (!trick || trick.plays.length === 0) return null;
@@ -48,7 +49,7 @@ export function TrickArea({ state, seatPosition }: Props) {
               transform: `translate(calc(-50% + ${p.dx}px), calc(-50% + ${p.dy}px)) rotate(${p.rot}deg)`,
               transition: "filter 0.3s",
               filter: r.pendingTrickComplete && !isWinner ? "brightness(0.55)" : "none",
-              zIndex: isWinner ? 5 : 2,
+              zIndex: isWinner ? 25 : 22,
             }}
           >
             <div
@@ -65,10 +66,20 @@ export function TrickArea({ state, seatPosition }: Props) {
       })}
       {r.pendingTrickComplete && trick.winner !== undefined && (
         <div
-          className="absolute left-1/2 top-1/2 text-sm font-semibold text-gold-400 bg-black/75 px-3 py-1.5 rounded-full animate-floatIn whitespace-nowrap shadow-lg border border-gold-400/30 z-10 pointer-events-none"
-          style={{ transform: "translate(-50%, calc(-50% + 250px))" }}
+          className="absolute left-1/2 top-1/2 flex flex-col items-center gap-2 z-30 animate-floatIn"
+          style={{ transform: "translate(-50%, calc(-50% + 240px))" }}
         >
-          {state.players[trick.winner].name} wins · +{trick.points}
+          <div className="text-sm font-semibold text-gold-400 bg-black/75 px-3 py-1.5 rounded-full whitespace-nowrap shadow-lg border border-gold-400/30 pointer-events-none">
+            {state.players[trick.winner].name} wins · +{trick.points}
+          </div>
+          {onContinue && (
+            <button
+              className="btn btn-primary text-sm px-4 py-1.5 pointer-events-auto shadow-lg"
+              onClick={onContinue}
+            >
+              Continue ▸
+            </button>
+          )}
         </div>
       )}
     </>

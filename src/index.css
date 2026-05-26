@@ -32,6 +32,7 @@ html, body, #root {
   background-size: auto, auto, 3px 3px;
   pointer-events: none;
   opacity: 0.85;
+  z-index: 0;
 }
 .felt::after {
   content: "";
@@ -42,6 +43,7 @@ html, body, #root {
     inset 0 0 0 6px rgba(245, 196, 107, 0.025),
     inset 0 0 80px rgba(0, 0, 0, 0.35);
   pointer-events: none;
+  z-index: 0;
 }
 
 .card-face {

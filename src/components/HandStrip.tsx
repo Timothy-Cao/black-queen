@@ -39,7 +39,7 @@ export function HandStrip({ state, me, onPlay }: Props) {
   // For up to ~13 cards, choose an overlap that lets the rank/suit corner stay readable.
   const overlap = sorted.length >= 12 ? 36 : sorted.length >= 10 ? 32 : 28;
   return (
-    <div className="absolute left-1/2 -translate-x-1/2 bottom-3 flex flex-col items-center pointer-events-auto">
+    <div className="absolute left-1/2 -translate-x-1/2 bottom-3 flex flex-col items-center pointer-events-auto z-30">
       <div className="flex">
         {sorted.map((c, i) => {
           const isLegal = legalIds.has(c.id);
