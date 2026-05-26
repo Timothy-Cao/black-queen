@@ -2,6 +2,7 @@
 // Run with: npx tsx src/game/smoketest.ts
 import { freshGame, applyBid, applyPass, applyDeclare, applyPlay, collectTrick, startNextRound } from "./engine";
 import { aiBidDecision, aiDeclareDecision, aiPlayDecision } from "./ai";
+import { legalPlays } from "./rules";
 
 function runGame(seed: number): { rounds: number; finalScores: number[]; bidsMade: number; bidsFailed: number } {
   Math.random = mulberry32(seed);
@@ -34,6 +35,16 @@ function runGame(seed: number): { rounds: number; finalScores: number[]; bidsMad
         s = collectTrick(s);
       } else {
         const card = aiPlayDecision(s, r.toPlay);
+        // ASSERT: AI must only return a card that is legal under the follow-suit rule.
+        const hand = s.round.hands[s.round.toPlay];
+        const legal = legalPlays(hand, s.round.currentTrick);
+        if (!legal.some((c) => c.id === card.id)) {
+          throw new Error(
+            `AI returned illegal play: ${card.id} (suit ${card.suit}, rank ${card.rank}). ` +
+            `Trick leader led ${s.round.currentTrick?.plays[0]?.card.suit}. ` +
+            `Legal options were: ${legal.map((c) => c.id).join(",")}.`
+          );
+        }
         s = applyPlay(s, r.toPlay, card);
       }
     } else if (s.phase === "round_end") {
@@ -63,9 +74,19 @@ function mulberry32(a: number) {
   };
 }
 
-console.log("Running 5 games...");
-for (let i = 1; i <= 5; i++) {
+const N = parseInt(process.argv[2] || "5", 10);
+console.log(`Running ${N} games (asserting every AI play is legal)...`);
+let totalRounds = 0;
+let totalMade = 0;
+let totalFailed = 0;
+for (let i = 1; i <= N; i++) {
   const r = runGame(i * 7919);
-  console.log(`Game ${i}: ${r.rounds} rounds, scores=${r.finalScores.join(",")}, made=${r.bidsMade}, failed=${r.bidsFailed}`);
+  totalRounds += r.rounds;
+  totalMade += r.bidsMade;
+  totalFailed += r.bidsFailed;
+  if (N <= 10) {
+    console.log(`Game ${i}: ${r.rounds} rounds, scores=${r.finalScores.join(",")}, made=${r.bidsMade}, failed=${r.bidsFailed}`);
+  }
 }
-console.log("All games completed without errors.");
+console.log(`\nAll ${N} games completed, no illegal AI plays detected.`);
+console.log(`Totals: ${totalRounds} rounds, ${totalMade} bids made, ${totalFailed} bids failed.`);
