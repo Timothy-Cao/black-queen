@@ -119,15 +119,62 @@ pub fn hard4_play(
     #[cfg(not(target_arch = "wasm32"))]
     let max_iters = 100_000u64;
 
+    // Value reflects the captured points of OUR TEAM, not just our own pile.
+    // For the caller and known partners, we can identify teammates exactly from
+    // the partner card. For an opponent, we maximize OUR team (= everyone NOT on
+    // caller's team that we can confirm).
+    let value_players = compute_value_players(state, self_id);
+
     let params = SearchParams {
         time_budget: Duration::from_millis(time_ms),
         min_iterations: 64,
         max_iterations: max_iters,
         self_id,
-        value_players: vec![self_id],
+        value_players,
         ..Default::default()
     };
     ismcts_play(state, &belief, rng, &params)
+}
+
+/// Determine whose captured-points we sum when scoring a rollout's outcome.
+/// For now we use: caller team if self is caller or holds partner card; else
+/// opposing team (everyone NOT on caller team that we can verify).
+/// Anonymous opponents fall back to a self-only value.
+fn compute_value_players(state: &GameState, self_id: PlayerId) -> Vec<PlayerId> {
+    let Some(caller) = state.caller else { return vec![self_id] };
+    let Some(pc) = state.partner_card else { return vec![self_id] };
+    let my_hand = &state.hands[self_id as usize];
+    let i_hold_pc = my_hand.iter().any(|c| c.suit == pc.suit && c.rank == pc.rank);
+    let i_am_caller_team = self_id == caller || i_hold_pc;
+
+    // Also recognize partners who have already played the partner card.
+    let mut revealed_partners: std::collections::HashSet<PlayerId> = std::collections::HashSet::new();
+    revealed_partners.insert(caller);
+    if i_hold_pc { revealed_partners.insert(self_id); }
+    for trick in &state.tricks {
+        for tp in &trick.plays {
+            if tp.card.suit == pc.suit && tp.card.rank == pc.rank {
+                revealed_partners.insert(tp.player);
+            }
+        }
+    }
+    if let Some(cur) = &state.current_trick {
+        for tp in &cur.plays {
+            if tp.card.suit == pc.suit && tp.card.rank == pc.rank {
+                revealed_partners.insert(tp.player);
+            }
+        }
+    }
+
+    if i_am_caller_team {
+        revealed_partners.insert(self_id);
+        revealed_partners.into_iter().collect()
+    } else {
+        // I'm on the opposing team. Sum captured points for everyone not in
+        // revealed_partners. (Unrevealed partners may sneak into the sum, but
+        // until they reveal we cannot distinguish them.)
+        (0..5u8).filter(|p| !revealed_partners.contains(p)).collect()
+    }
 }
 
 #[cfg(test)]
