@@ -159,10 +159,17 @@ export const DEFAULT_HARD_WEIGHTS: HardWeights = {
   inferAllyThreshold: 0.85,
 };
 
+// activeHardWeights: weights for the LATEST tuned generation (Hard-3 today).
 let activeHardWeights: HardWeights = DEFAULT_HARD_WEIGHTS;
 export function setActiveHardWeights(w: HardWeights): void { activeHardWeights = w; }
 export function getActiveHardWeights(): HardWeights { return activeHardWeights; }
 export function resetActiveHardWeights(): void { activeHardWeights = DEFAULT_HARD_WEIGHTS; }
+
+// gen2Weights: weights for the previous tuned generation (Hard-2). Loaded by the
+// app at startup from tuned_weights_v1.json so Hard-2 stays selectable for comparison.
+let gen2HardWeights: HardWeights = DEFAULT_HARD_WEIGHTS;
+export function setGen2HardWeights(w: HardWeights): void { gen2HardWeights = w; }
+export function getGen2HardWeights(): HardWeights { return gen2HardWeights; }
 
 // -----------------------------------------------------------------------------
 //  Card / state helpers
@@ -745,6 +752,7 @@ export function hardPlay(state: GameState, player: PlayerId): Card {
   return hardPlayImpl(state, player, DEFAULT_HARD_WEIGHTS);
 }
 
+// Hard-3 (latest tuned generation) — uses activeHardWeights.
 export function hardTunedBid(state: GameState, player: PlayerId): { bid: number | "pass" } {
   return hardBidImpl(state, player, activeHardWeights);
 }
@@ -753,4 +761,15 @@ export function hardTunedDeclare(state: GameState, player: PlayerId): { trump: S
 }
 export function hardTunedPlay(state: GameState, player: PlayerId): Card {
   return hardPlayImpl(state, player, activeHardWeights);
+}
+
+// Hard-2 (gen-2 frozen tuned generation) — uses gen2HardWeights.
+export function hard2Bid(state: GameState, player: PlayerId): { bid: number | "pass" } {
+  return hardBidImpl(state, player, gen2HardWeights);
+}
+export function hard2Declare(state: GameState, player: PlayerId): { trump: Suit; partnerCard: Card } {
+  return hardDeclareImpl(state, player, gen2HardWeights);
+}
+export function hard2Play(state: GameState, player: PlayerId): Card {
+  return hardPlayImpl(state, player, gen2HardWeights);
 }

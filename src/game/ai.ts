@@ -3,7 +3,11 @@ import {
   Card, GameState, MIN_BID, PlayerId, RoundState, Suit, SUITS, Trick, cardPoints,
   Rank, BID_INCREMENT,
 } from "./types";
-import { hardBid, hardDeclare, hardPlay, hardTunedBid, hardTunedDeclare, hardTunedPlay } from "./aiHard";
+import {
+  hardBid, hardDeclare, hardPlay,
+  hardTunedBid, hardTunedDeclare, hardTunedPlay,
+  hard2Bid, hard2Declare, hard2Play,
+} from "./aiHard";
 
 // =============================================================================
 // PUBLIC DISPATCH — chooses behavior based on player's AIPersonality
@@ -13,7 +17,8 @@ export function aiBidDecision(state: GameState, player: PlayerId): { bid: number
   const personality = state.players[player].aiPersonality ?? "normal";
   if (personality === "random") return randomBid(state);
   if (personality === "hard") return hardBid(state, player);
-  if (personality === "hard-2") return hardTunedBid(state, player);
+  if (personality === "hard-2") return hard2Bid(state, player);
+  if (personality === "hard-3") return hardTunedBid(state, player);
   return normalBid(state, player);
 }
 
@@ -21,7 +26,8 @@ export function aiDeclareDecision(state: GameState, player: PlayerId): { trump: 
   const personality = state.players[player].aiPersonality ?? "normal";
   if (personality === "random") return randomDeclare(state, player);
   if (personality === "hard") return hardDeclare(state, player);
-  if (personality === "hard-2") return hardTunedDeclare(state, player);
+  if (personality === "hard-2") return hard2Declare(state, player);
+  if (personality === "hard-3") return hardTunedDeclare(state, player);
   return normalDeclare(state, player);
 }
 
@@ -29,7 +35,8 @@ export function aiPlayDecision(state: GameState, player: PlayerId): Card {
   const personality = state.players[player].aiPersonality ?? "normal";
   if (personality === "random") return randomPlay(state, player);
   if (personality === "hard") return hardPlay(state, player);
-  if (personality === "hard-2") return hardTunedPlay(state, player);
+  if (personality === "hard-2") return hard2Play(state, player);
+  if (personality === "hard-3") return hardTunedPlay(state, player);
   return greedyPlay(state, player);
 }
 

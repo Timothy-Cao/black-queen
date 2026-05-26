@@ -20,7 +20,7 @@ export const RANK_LABEL: Record<Rank, string> = {
 export type PlayerId = 0 | 1 | 2 | 3 | 4;
 export const PLAYER_IDS: PlayerId[] = [0, 1, 2, 3, 4];
 
-export type AIPersonality = "normal" | "random" | "hard" | "hard-2";
+export type AIPersonality = "normal" | "random" | "hard" | "hard-2" | "hard-3";
 
 export interface Player {
   id: PlayerId;

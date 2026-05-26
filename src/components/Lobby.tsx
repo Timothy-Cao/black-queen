@@ -10,10 +10,10 @@ interface Props {
 
 const DEFAULTS: Cfg[] = [
   { name: "You", isAI: false },
-  { name: "Alex", isAI: true, aiPersonality: "normal" },
-  { name: "Bri", isAI: true, aiPersonality: "normal" },
-  { name: "Cam", isAI: true, aiPersonality: "normal" },
-  { name: "Dee", isAI: true, aiPersonality: "normal" },
+  { name: "Alex", isAI: true, aiPersonality: "hard-3" },
+  { name: "Bri", isAI: true, aiPersonality: "hard-3" },
+  { name: "Cam", isAI: true, aiPersonality: "hard-3" },
+  { name: "Dee", isAI: true, aiPersonality: "hard-3" },
 ];
 
 const HERO_CARDS: Card[] = [
@@ -96,6 +96,7 @@ export function Lobby({ onStart }: Props) {
                       setPlayers(a);
                     }}
                   >
+                    <option value="hard-3" className="text-black">Hard-3</option>
                     <option value="hard-2" className="text-black">Hard-2</option>
                     <option value="hard" className="text-black">Hard</option>
                     <option value="normal" className="text-black">Normal</option>
