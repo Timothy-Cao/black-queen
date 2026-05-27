@@ -2,7 +2,7 @@
 
 A 5-player trick-taking card game with hidden partnerships and bidding. One round per game: bid, declare trump + a hidden partner card, play 13 rounds, settle the score.
 
-Built as a polished single-page app with four AI personalities. Hard / Hard-2 / Hard-3 are utility-function-based, refined by evolutionary search over millions of simulated games. Hard-4 is a different paradigm entirely — Information-Set Monte Carlo Tree Search with a hand-distribution belief tracker, written in Rust and shipped to the browser via WASM. All run client-side, no backend.
+Built as a polished single-page app with four AI personalities. Hard / Hard-2 / Hard-3 are utility-function-based, refined by evolutionary search over millions of simulated games. **Hard-4** is a different paradigm entirely — Information-Set Monte Carlo Tree Search with a hand-distribution belief tracker and opponent-intent Bayesian inference, written in Rust and shipped to the browser via WASM. Hard-4 beats Hard-3 by +3.92pp in mirror-replay (~4σ) and decisively beats every prior generation. All run client-side, no backend.
 
 → **Play it: [black-queen on Vercel](https://black-queen.vercel.app/)** (or run locally — see below)
 
@@ -36,10 +36,12 @@ Four selectable AI personalities:
 
 Plus `normal` (greedy +5 bidder) and `random` for variety.
 
-**Strength on fresh seeds** (mirror replay paired evaluation):
-- Hard-3 vs Normal: **+15.45 pp** · vs Hard: **+6.21 pp** · vs Hard-2: +0.21 pp
-- Hard-2 vs Hard: **+3.34 pp**
-- Hard-4 vs Hard-3 (play-only, 500 mirror pairs): **+0.7 to +3.5 pp** depending on config; effectively tied
+**Strength on fresh seeds** (mirror-replay paired evaluation):
+- Hard-4 vs Hard-3: **+3.92 pp** (500 pairs, ~4σ) · vs Hard-2: **+3.80 pp** · vs Hard: **+5.32 pp** · vs Normal: **+7.20 pp**
+- Hard-3 vs Normal: +15.45 pp · vs Hard: +6.21 pp · vs Hard-2: +0.21 pp
+- Hard-2 vs Hard: +3.34 pp
+
+Hard-4 is the strongest, beating every prior generation in mirror-replay. The decisive lever was opponent-intent Bayesian inference (Session 2) — calibrated voluntariness-weighted signals from observed plays, used to bias determinization sampling.
 
 **Read more**
 - [`AI.md`](AI.md) — concise elevator pitch (resume-style)

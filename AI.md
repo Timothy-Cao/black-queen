@@ -36,26 +36,32 @@ For each unplayed card, maintain a multiset count of remaining copies (1 or 2 in
 For each move decision: (a) sample a determinization from the belief state — a complete assignment of unseen cards to opponent hands consistent with all known constraints; (b) from the root, pick a candidate move via UCB1; (c) play that move and roll out to game completion using a team-aware tactical policy; (d) backpropagate the team's captured-points share. Repeat for a time-budget worth of iterations (300ms in browser by default, configurable). Most-visited root action wins.
 
 **3. Team-aware everything**
-The rollout policy uses full information inside each determinization, identifies caller-team via the partner card, and plays accordingly: smear high-point cards onto ally-won tricks, defend Q♠, win cheaply when points are on the table, don't dump points onto enemy tricks. The ISMCTS value backprop sums the AI's *whole team's* captured points, not just self's pile — getting this right was the single biggest strength gain in development.
+The rollout policy uses full information inside each determinization, identifies caller-team via the partner card, and plays accordingly: smear high-point cards onto ally-won tricks, defend Q♠, win cheaply when points are on the table, don't dump points onto enemy tricks. The ISMCTS value backprop sums the AI's *whole team's* captured points, not just self's pile — getting this right was a structural fix in Session 1.6.
 
-**4. Rust → WASM deployment**
-The engine, belief tracker, and search are written in Rust (4-crate workspace) and compiled to WASM. The browser loads a ~190KB `.wasm` artifact and runs Hard-4 entirely client-side. A parallel `--target nodejs` build powers headless arena tests. Native CLI throughput: 60k+ random games/sec. WASM per-move latency: ~300ms.
+**4. Opponent-intent Bayesian inference (Session 2)**
+For each opponent not yet known-team, maintain a log-likelihood ratio for "is on caller team" vs "is opposing team". Update from observed plays scaled by *voluntariness* — the player had a meaningful alternative that would have signaled the opposite team allegiance. Eight calibrated signals: voluntary point-feed (+ per 5pts), voluntary Q♠ feed (special bonus, strongest signal), voluntary withhold, voluntary trumping of caller- or opposing-winning trick, voluntary low-card steal of points. Posteriors bias the determinization sampler toward configurations where the partner card lives in a likely-ally hand. **This was the lever that pushed Hard-4 decisively past Hard-3.**
 
-**5. Why a different paradigm**
-Hard-3's utility function plays myopically — one ply at a time, scoring the current move only. Hard-4 plays with multi-ply look-ahead through search; every decision considers hundreds of imagined futures and picks the move that wins the most of them. The two paradigms have different strengths: Hard-3 wins on tightly-tuned scalar calibration; Hard-4 wins on planning and uncertainty handling.
+**5. Rust → WASM deployment**
+The engine, belief tracker, intent tracker, and search are written in Rust (4-crate workspace) and compiled to WASM. The browser loads a ~190KB `.wasm` artifact and runs Hard-4 entirely client-side. A parallel `--target nodejs` build powers headless arena tests. Native CLI throughput: 60k+ random games/sec. WASM per-move latency: ~300ms.
+
+**6. Why a different paradigm**
+Hard-3's utility function plays myopically — one ply at a time, scoring the current move only. Hard-4 plays with multi-ply look-ahead through search; every decision considers hundreds of imagined futures and picks the move that wins the most of them. The two paradigms have different strengths: Hard-3 wins on tightly-tuned scalar calibration; Hard-4 wins on planning, uncertainty handling, and continuous probabilistic intent inference (which a utility function structurally can't express well).
 
 ## Current strength
 
 Verified by mirror-replay paired evaluation (each seed played twice, personalities swapped, variance cancels):
 
-| Matchup | Hard-4 edge |
-|---|---|
-| Hard-4 vs Hard-3 (play-only) | **+0.7 to +3.5pp** depending on configuration; effectively tied |
-| Hard-3 vs Hard-2 | ~0pp |
-| Hard-3 vs Hard | +4.5–6pp |
-| Hard-3 vs Normal | +15.7pp |
+| Matchup | Hard-4 edge | Sample size |
+|---|---|---|
+| Hard-4 vs Hard-3 | **+3.92pp** (~4σ) | 500 mirror pairs |
+| Hard-4 vs Hard-2 | **+3.80pp** | 300 mirror pairs |
+| Hard-4 vs Hard   | **+5.32pp** | 500 mirror pairs |
+| Hard-4 vs Normal | **+7.20pp** | 200 mirror pairs |
+| Hard-3 vs Hard-2 | ~0pp | (reference) |
+| Hard-3 vs Hard | +4.5–6pp | (reference) |
+| Hard-3 vs Normal | +15.7pp | (reference) |
 
-Hard-4 is the first AI to use a fundamentally different approach. In the current shipped state, its play-phase ISMCTS is approximately tied with Hard-3's tuned utility function — a real validation that search-based play can match decades of hand-tuned weight refinement, with substantial headroom remaining.
+Hard-4 is now the strongest AI, beating every prior generation. The intent tracker is the decisive lever — without it (intent OFF), Hard-4 vs Hard-3 is approximately tied. With it, Hard-4 wins by +3.92pp at high statistical significance.
 
 ## What didn't work (across all generations)
 

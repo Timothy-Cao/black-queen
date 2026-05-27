@@ -8,7 +8,9 @@ interface Props {
 // Tournament data (per-seat win-rate edge, fresh-seed verification runs).
 // Update these from `_tournament.ts` output when a new generation ships.
 const MATCHUP: { a: string; b: string; aWin: number; bWin: number; }[] = [
-  { a: "Hard-4", b: "Hard-3", aWin: 53.48, bWin: 52.80 },   // 500-pair mirror replay, play-only
+  { a: "Hard-4", b: "Hard-3", aWin: 54.96, bWin: 51.04 },   // 500-pair mirror, ~4σ (Session 2: intent inference)
+  { a: "Hard-4", b: "Hard-2", aWin: 55.20, bWin: 51.40 },   // 300-pair mirror
+  { a: "Hard-4", b: "Hard",   aWin: 56.48, bWin: 51.16 },   // 500-pair mirror
   { a: "Hard-3", b: "Hard-2", aWin: 53.20, bWin: 52.99 },
   { a: "Hard-3", b: "Hard",   aWin: 56.69, bWin: 50.48 },
   { a: "Hard-3", b: "Normal", aWin: 60.85, bWin: 45.40 },
@@ -73,15 +75,16 @@ const GENS: GenSpec[] = [
   },
   {
     name: "Hard-4",
-    tagline: "Different paradigm: search + belief, not utility scoring.",
+    tagline: "Different paradigm: search + belief + Bayesian intent inference.",
     techniques: [
       "Information-Set Monte Carlo Tree Search (ISMCTS)",
       "Hard-constraint belief tracker (voids, played cards, partner card)",
-      "Team-aware tactical rollout (smear/defend/Q♠-aware)",
+      "Opponent-intent Bayesian inference (smear, withhold, defensive trump)",
+      "Team-aware tactical rollout, biased determinization sampling",
       "Rust → WASM; ~190 KB artifact, runs in-browser at ~300 ms/move",
     ],
-    weights: "0 (algorithmic)",
-    vsBase: 14.6,    // approx vs Normal via Hard-3 chain; needs direct measurement
+    weights: "10 (intent scalars)",
+    vsBase: 13.4,    // +7.20pp vs Normal; vsBase column is "vs Normal" baseline
   },
 ];
 
@@ -97,11 +100,11 @@ const TRIED: TriedItem[] = [
   { label: "Tactical rollout (team-aware)",    result: "win",    note: "Hard-4: smear/defend/Q♠-aware; biggest single lever over random rollouts." },
   { label: "Minimax endgame solver",           result: "regress", note: "Hard-4: -1pp. Minimax assumes optimal opponents; Hard-3 plays heuristically. Kept gated." },
   { label: "Soft bid-strength belief prior",   result: "regress", note: "Hard-4: -3pp at default weights. Needs ES tuning to find right strength. Gated." },
+  { label: "Opponent-intent Bayesian inference", result: "win",  note: "Hard-4 Session 2: +1.2pp over baseline; total Hard-4 vs Hard-3 = +3.92pp (~4σ). 8 calibrated signals scaled by voluntariness." },
 ];
 
 const FUTURE: { label: string; note: string }[] = [
-  { label: "Opponent-intent / alignment inference", note: "Track P(player on caller team) from observable signals: point-feeding patterns, defensive steals, withhold opportunities. Multi-signal Bayesian inference with calibrated likelihood ratios per signal type." },
-  { label: "ES tuning of Hard-4 scalars",         note: "Hard-4 has ~10 magic constants (UCB c, smear thresholds, defense thresholds) that have never been ES-tuned. Hard-3 gained most of its strength this way." },
+  { label: "ES tuning of intent + search scalars", note: "Hard-4 has ~10 intent magnitudes and ~5 search constants that have never been ES-tuned. Multi-opponent fitness recommended (Hard, Hard-2, Hard-3 mix)." },
   { label: "Tree-structured ISMCTS",              note: "Current: single-rooted (stats at root only). Tree-structured: stats at every information set encountered. Each iteration learns more." },
   { label: "Search-based bidder",                 note: "Currently delegates to Hard-3 for bid/declare. Sample N self-hand-consistent worlds, run mini-ISMCTS as 'what if I bid X with trump T'. Holistic Hard-4 vs Hard-3 edge." },
   { label: "ISMCTS-in-endgame (replaces minimax)", note: "Fix the endgame regress: use ISMCTS with full iteration budget at ≤3 tricks, instead of minimax. Matches opponent model." },
@@ -140,10 +143,10 @@ export function AIInfoModal({ onClose }: Props) {
             <b className="text-gold-400"> ~58 tunable scalars</b>, refined by evolutionary search over millions
             of simulated games, with a Bayesian-style team inference layer.
             <b className="text-emerald-300"> Hard-4</b> is a fundamentally different paradigm:
-            <b className="text-emerald-300"> Information-Set Monte Carlo Tree Search</b> with a belief tracker,
+            <b className="text-emerald-300"> Information-Set Monte Carlo Tree Search</b> with a belief tracker
+            and <b className="text-emerald-300">opponent-intent Bayesian inference</b>,
             implemented in Rust and shipped to your browser via WASM (~190 KB).
-            In mirror-replay testing, Hard-4 plays approximately even with Hard-3 at default config — a
-            real validation that search-based play can match decades of hand-tuned weight refinement,
+            In mirror-replay testing, Hard-4 beats Hard-3 by <b className="text-emerald-300">+3.92pp (~4σ)</b> and beats every prior generation,
             with substantial headroom remaining.
           </p>
         </section>
@@ -303,11 +306,10 @@ export function AIInfoModal({ onClose }: Props) {
           </div>
           <p className="text-[11px] text-stone-500 mt-3 leading-relaxed italic">
             Hard-3 represents the ceiling of the utility-function representation. Hard-4 broke
-            into a different paradigm — search over a belief state — and currently plays
-            approximately even with Hard-3 on a default, untuned configuration. The path to
-            decisively beating Hard-3 lies in tuning Hard-4's search scalars (the same ES
-            discipline that gave Hard-3 its edge), or layering proper opponent-intent inference
-            on top of the existing belief tracker.
+            into a different paradigm — search over a belief state with opponent-intent
+            inference — and decisively beats every prior generation. Headroom remaining: ES
+            tuning of the intent magnitudes (Hard-3 got most of its strength this way), tree-
+            structured ISMCTS, and a search-based bidder are the natural next levers.
           </p>
         </section>
       </div>

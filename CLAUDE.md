@@ -103,14 +103,19 @@ All in `aiHard.ts` (except normal/random in `ai.ts`).
 | `hard-3` | Hard-3 | `activeHardWeights` from `tuned_weights_gen3.json` | Tuned + alliance inference + void-creation (gen 3) |
 | `hard-4` | Hard-4 (preview) | Rust crate `bq-ai` (WASM) | Information-Set MCTS + belief tracker. Different paradigm: search over hidden-info determinizations, not utility scoring. Bid + declare currently delegate to Hard-3 (gated off in `hard4Driver.ts`). |
 
-Current strength ordering (verified):
+Current strength ordering (mirror-replay verified):
+- Hard-4 vs Hard-3: **+3.92pp** (500 pairs, ~4σ) — Session 2 with intent inference
+- Hard-4 vs Hard-2: **+3.80pp** (300 pairs)
+- Hard-4 vs Hard:   **+5.32pp** (500 pairs)
+- Hard-4 vs Normal: **+7.20pp** (200 pairs)
 - Hard-3 vs Normal: +15.65pp
-- Hard-3 vs Hard: +4.55–6pp
-- Hard-2 vs Hard: +2.2–3.85pp
+- Hard-3 vs Hard:   +4.55–6pp
 - Hard-3 vs Hard-2: ~0pp
-- Hard-4 vs Hard-3 (mirror-replay, 500 pairs, play-only): +0.7–3.5pp depending on config; effectively tied.
+- Hard-2 vs Hard:   +2.2–3.85pp
 
-**Important:** Hard-4's strength edge is highly sensitive to measurement. Regular arena (random seat assignment) can show variance of ±3pp at 300-game N. Use `_mirror_arena.ts` for trustworthy signals.
+Hard-4 is the strongest AI. Decisive lever was opponent-intent Bayesian inference (Session 2) — without it, Hard-4 ≈ Hard-3.
+
+**Important:** Hard-4 strength is highly sensitive to measurement. Regular arena (random seat assignment) can show ±3pp variance at 300-game N. Use `_mirror_arena.ts` for any measurement under ~5pp.
 
 ---
 
