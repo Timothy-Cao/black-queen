@@ -153,9 +153,11 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
             <div className="mt-3 text-center">
               <button
                 onClick={onOpenAIInfo}
-                className="text-[11px] text-stone-500 hover:text-stone-300 transition-colors"
+                className="inline-flex items-center gap-1.5 text-[11px] text-gold-400/80 hover:text-gold-400 transition-colors"
               >
-                AI Notes ↗
+                <span className="text-gold-400/60" aria-hidden>✦</span>
+                AI Notes
+                <span aria-hidden>↗</span>
               </button>
             </div>
           )}

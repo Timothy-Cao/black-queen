@@ -31,3 +31,7 @@ path = "src/bin/compare_bidding.rs"
 [[bin]]
 name = "compare_archetype"
 path = "src/bin/compare_archetype.rs"
+
+[[bin]]
+name = "dump_game"
+path = "src/bin/dump_game.rs"
