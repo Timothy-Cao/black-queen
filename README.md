@@ -2,7 +2,7 @@
 
 A 5-player trick-taking card game with hidden partnerships and bidding. One round per game: bid, declare trump + a hidden partner card, play 13 rounds, settle the score.
 
-Built as a polished single-page app with three tunable AI personalities. The strongest (Hard-3) wins ~61% of seats against the basic bot and ~57% against the rule-based baseline, trained by evolutionary search over millions of simulated games.
+Built as a polished single-page app with four AI personalities. Hard / Hard-2 / Hard-3 are utility-function-based, refined by evolutionary search over millions of simulated games. Hard-4 is a different paradigm entirely — Information-Set Monte Carlo Tree Search with a hand-distribution belief tracker, written in Rust and shipped to the browser via WASM. All run client-side, no backend.
 
 → **Play it: [black-queen on Vercel](https://black-queen.vercel.app/)** (or run locally — see below)
 
@@ -25,19 +25,21 @@ No backend, no API calls, no analytics — everything runs in the browser.
 
 ## The AI
 
-Three selectable AI personalities, in increasing strength:
+Four selectable AI personalities:
 
 | Personality | Lobby label | What it does |
 |---|---|---|
 | `hard`   | Hard   | Locked rule-based baseline (gen 1) — hand-crafted utility scoring with ~50 scalars |
 | `hard-2` | Hard-2 | First evolutionary tuning of those weights (gen 2) |
 | `hard-3` | Hard-3 | Adds Bayesian-style alliance inference + void-creation discard scoring (gen 3) |
+| `hard-4` | Hard-4 (preview) | Different paradigm: ISMCTS + belief tracker, Rust→WASM (~190 KB). Plays approximately even with Hard-3 at default config. |
 
 Plus `normal` (greedy +5 bidder) and `random` for variety.
 
-**Strength on fresh seeds** (2500 game pairs × mirror replay):
+**Strength on fresh seeds** (mirror replay paired evaluation):
 - Hard-3 vs Normal: **+15.45 pp** · vs Hard: **+6.21 pp** · vs Hard-2: +0.21 pp
 - Hard-2 vs Hard: **+3.34 pp**
+- Hard-4 vs Hard-3 (play-only, 500 mirror pairs): **+0.7 to +3.5 pp** depending on config; effectively tied
 
 **Read more**
 - [`AI.md`](AI.md) — concise elevator pitch (resume-style)

@@ -51,7 +51,19 @@ src/
     _tournament.ts              # head-to-head matrix across gens + baselines
     _ab_void.ts                 # void-creation feature A/B harness
     _ab_infer.ts                # alliance-inference feature A/B harness
+    _mirror_arena.ts            # paired-seed mirror replay (variance-canceling arena)
     _verify_personalities.ts    # confirms each AI personality routes correctly
+
+    hard4Driver.ts              # TS bridge to Rust/WASM Hard-4 engine
+    wasm/                       # wasm-pack --target web build (browser)
+    wasm-node/                  # wasm-pack --target nodejs build (arena/CLI)
+
+# Rust workspace (Hard-4 engine; native CLI + WASM target)
+rust/
+  crates/bq-engine/             # port of TS reducer (pure rules in Rust)
+  crates/bq-ai/                 # belief tracker + ISMCTS + Hard-4 entry points
+  crates/bq-wasm/               # wasm-bindgen JSON wrappers
+  crates/bq-cli/                # native binary: smoke, arena (future)
 
 # repo root
 tuned_weights.json              # working copy = current latest gen (read by CLI tools)
@@ -89,12 +101,16 @@ All in `aiHard.ts` (except normal/random in `ai.ts`).
 | `hard` | Hard | `DEFAULT_HARD_WEIGHTS` | Locked rule-based baseline (gen 1) |
 | `hard-2` | Hard-2 | `gen2HardWeights` from `tuned_weights_gen2.json` | First evolutionary tuning (gen 2) |
 | `hard-3` | Hard-3 | `activeHardWeights` from `tuned_weights_gen3.json` | Tuned + alliance inference + void-creation (gen 3) |
+| `hard-4` | Hard-4 (preview) | Rust crate `bq-ai` (WASM) | Information-Set MCTS + belief tracker. Different paradigm: search over hidden-info determinizations, not utility scoring. Bid + declare currently delegate to Hard-3 (gated off in `hard4Driver.ts`). |
 
-Current strength ordering (verified, +pp = per-seat win-rate edge):
+Current strength ordering (verified):
 - Hard-3 vs Normal: +15.65pp
 - Hard-3 vs Hard: +4.55–6pp
 - Hard-2 vs Hard: +2.2–3.85pp
-- Hard-3 vs Hard-2: ~0pp (tied head-to-head; Hard-3 is better at exploiting weaker opponents)
+- Hard-3 vs Hard-2: ~0pp
+- Hard-4 vs Hard-3 (mirror-replay, 500 pairs, play-only): +0.7–3.5pp depending on config; effectively tied.
+
+**Important:** Hard-4's strength edge is highly sensitive to measurement. Regular arena (random seat assignment) can show variance of ±3pp at 300-game N. Use `_mirror_arena.ts` for trustworthy signals.
 
 ---
 
@@ -161,6 +177,31 @@ toggle the weight set ENABLE vs DISABLE, measure per-seat win-rate delta.
 npx tsx src/game/_verify_personalities.ts    # confirms hard / hard-2 / hard-3 produce distinct behavior
 ```
 
+### Mirror-replay arena (variance-canceling — preferred for measuring small edges)
+```bash
+npx tsx src/game/_mirror_arena.ts 500 hard-4 hard-3   # 500 seed pairs = 1000 games
+```
+
+### Hard-4 (Rust/WASM) operations
+```bash
+# Native unit tests
+cd rust && cargo test
+
+# Native smoke test (5000 games / sec)
+cd rust && cargo run --release -p bq-cli -- smoke 5000
+
+# Build WASM for browser (both targets needed)
+cd rust/crates/bq-wasm && wasm-pack build --target web    --release --out-dir ../../../src/game/wasm      && rm -f ../../../src/game/wasm/.gitignore
+cd rust/crates/bq-wasm && wasm-pack build --target nodejs --release --out-dir ../../../src/game/wasm-node && rm -f ../../../src/game/wasm-node/.gitignore
+
+# Adjust per-move search budget (default 300 ms in browser; arena.ts respects env)
+HARD4_TIME_MS=800 npx tsx src/game/arena.ts 300 hard-4,hard-3
+
+# A/B-test gated Hard-4 features
+BQ_ENDGAME=1   npx tsx src/game/_mirror_arena.ts 300 hard-4 hard-3   # exact endgame solver (default OFF — regresses)
+BQ_BIDPRIOR=1  npx tsx src/game/_mirror_arena.ts 300 hard-4 hard-3   # bid-strength belief prior (default OFF — regresses)
+```
+
 ---
 
 ## Adding a new AI generation (Hard-N)
@@ -189,6 +230,12 @@ Avoid re-spending budget on these:
 - **Soft alliance probability** in `scoreMove` (smear/feed scaled by `allyProb`) regressed Hard-2 by ~1pp because the existing weights were calibrated for a binary gate. Use threshold-upgrade gating (`inferAllyThreshold = 0.85`) instead — it preserves binary behavior on uncertain cases.
 - **Void creation at high default values**: the feature is only weakly positive (+0.24pp at defaults). Don't put it on a critical path; let the tuner decide weight values.
 - **Renaming "trick" → "round" in code internals**: would collide with the existing "round" concept (= the full game in our single-game model). UI-only rename is the right scope.
+
+### Hard-4 specifically (Session 1.7 A/B results)
+
+- **Pure minimax endgame solver** (`endgame.rs::solve_endgame` at ≤10 remaining cards) regressed by ~1pp in mirror replay. Assumes adversarially-optimal opponents, but Hard-3 plays heuristically; solver picks moves good against perfect opponents but suboptimal against the heuristic opponent. Kept in code (gated by `BQ_ENDGAME=1`); future fix is ISMCTS-in-endgame, not pure minimax.
+- **Naive bid-strength belief prior** (`belief.rs::apply_bid_strength_prior`) regressed by ~3pp at default weights. Bumps high bidders' probability of holding aces/Q♠/kings, but the bump magnitudes (1.3x/1.5x) were uncalibrated. Kept in code (gated by `BQ_BIDPRIOR=1`); needs ES tuning of the prior strength.
+- **Reading the regular arena (`arena.ts`) for small Hard-4 strength edges**: random seat assignment makes ±3pp noise common at 300-game N. We initially over-reported Hard-4's strength by ~3pp before adding mirror replay. Use `_mirror_arena.ts` for any measurement under ~5pp.
 
 ---
 

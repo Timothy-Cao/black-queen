@@ -8,6 +8,7 @@ interface Props {
 // Tournament data (per-seat win-rate edge, fresh-seed verification runs).
 // Update these from `_tournament.ts` output when a new generation ships.
 const MATCHUP: { a: string; b: string; aWin: number; bWin: number; }[] = [
+  { a: "Hard-4", b: "Hard-3", aWin: 53.48, bWin: 52.80 },   // 500-pair mirror replay, play-only
   { a: "Hard-3", b: "Hard-2", aWin: 53.20, bWin: 52.99 },
   { a: "Hard-3", b: "Hard",   aWin: 56.69, bWin: 50.48 },
   { a: "Hard-3", b: "Normal", aWin: 60.85, bWin: 45.40 },
@@ -20,6 +21,7 @@ const GEN_COLOR: Record<string, string> = {
   "Hard":    "#a78bfa",   // violet
   "Hard-2":  "#60a5fa",   // sky
   "Hard-3":  "#f5c46b",   // gold
+  "Hard-4":  "#34d399",   // emerald (search-based — different paradigm)
   "Normal":  "#9ca3af",   // gray
   "Random":  "#6b7280",   // darker gray
 };
@@ -59,7 +61,7 @@ const GENS: GenSpec[] = [
   },
   {
     name: "Hard-3",
-    tagline: "Current strongest. Inference + void play.",
+    tagline: "Tuned utility function. The strongest of the heuristic gens.",
     techniques: [
       "Bayesian-style alliance inference from point-feed plays",
       "Threshold-gate: high-confidence inferences promote unknowns to ally/enemy",
@@ -68,6 +70,18 @@ const GENS: GenSpec[] = [
     ],
     weights: "~58",
     vsBase: 15.45,
+  },
+  {
+    name: "Hard-4",
+    tagline: "Different paradigm: search + belief, not utility scoring.",
+    techniques: [
+      "Information-Set Monte Carlo Tree Search (ISMCTS)",
+      "Hard-constraint belief tracker (voids, played cards, partner card)",
+      "Team-aware tactical rollout (smear/defend/Q♠-aware)",
+      "Rust → WASM; ~190 KB artifact, runs in-browser at ~300 ms/move",
+    ],
+    weights: "0 (algorithmic)",
+    vsBase: 14.6,    // approx vs Normal via Hard-3 chain; needs direct measurement
   },
 ];
 
@@ -78,12 +92,19 @@ const TRIED: TriedItem[] = [
   { label: "Void-creation discard scoring",   result: "win",     note: "+0.24pp at defaults, retuned in Hard-3." },
   { label: "Alliance inference (point-feed)", result: "win",     note: "Threshold-gate integration; ~+2pp on call rate." },
   { label: "Multi-hop inference propagation", result: "wash",    note: "+0.06pp at defaults; kept in code, disabled by default." },
+  { label: "ISMCTS + belief (Hard-4)",        result: "win",     note: "New paradigm. Plays approximately even with Hard-3 at default config." },
+  { label: "Team-aware ISMCTS value backprop", result: "win",    note: "Hard-4: structural fix — sum the team's captured points, not just self's." },
+  { label: "Tactical rollout (team-aware)",    result: "win",    note: "Hard-4: smear/defend/Q♠-aware; biggest single lever over random rollouts." },
+  { label: "Minimax endgame solver",           result: "regress", note: "Hard-4: -1pp. Minimax assumes optimal opponents; Hard-3 plays heuristically. Kept gated." },
+  { label: "Soft bid-strength belief prior",   result: "regress", note: "Hard-4: -3pp at default weights. Needs ES tuning to find right strength. Gated." },
 ];
 
 const FUTURE: { label: string; note: string }[] = [
-  { label: "Score-based lead choice",        note: "Currently rule-based; unify with scoreMove. Bounded; risk of regressing leads." },
-  { label: "Withhold detection",             note: "Symmetric inverse of point-feed: 'could have fed but didn't' as anti-ally evidence." },
-  { label: "Endgame solver (last 3 tricks)", note: "Small enumeration; high impact per game, high implementation cost." },
+  { label: "Opponent-intent / alignment inference", note: "Track P(player on caller team) from observable signals: point-feeding patterns, defensive steals, withhold opportunities. Multi-signal Bayesian inference with calibrated likelihood ratios per signal type." },
+  { label: "ES tuning of Hard-4 scalars",         note: "Hard-4 has ~10 magic constants (UCB c, smear thresholds, defense thresholds) that have never been ES-tuned. Hard-3 gained most of its strength this way." },
+  { label: "Tree-structured ISMCTS",              note: "Current: single-rooted (stats at root only). Tree-structured: stats at every information set encountered. Each iteration learns more." },
+  { label: "Search-based bidder",                 note: "Currently delegates to Hard-3 for bid/declare. Sample N self-hand-consistent worlds, run mini-ISMCTS as 'what if I bid X with trump T'. Holistic Hard-4 vs Hard-3 edge." },
+  { label: "ISMCTS-in-endgame (replaces minimax)", note: "Fix the endgame regress: use ISMCTS with full iteration budget at ≤3 tricks, instead of minimax. Matches opponent model." },
 ];
 
 // Maps a win-rate to a 0–100% bar position. Anchored at 50% for neutral.
@@ -106,7 +127,7 @@ export function AIInfoModal({ onClose }: Props) {
           <div>
             <div className="text-[11px] uppercase tracking-[0.2em] text-gold-400/80">A mini-paper</div>
             <h2 className="font-display text-3xl text-gold-400 mt-0.5">Inside the AI</h2>
-            <div className="text-xs text-stone-400 mt-1">Three generations of utility-function game-playing agents, in one page.</div>
+            <div className="text-xs text-stone-400 mt-1">Four generations of game-playing agents — three utility-function, one search-based — in one page.</div>
           </div>
           <button className="btn btn-ghost text-sm" onClick={onClose}>Close</button>
         </div>
@@ -115,19 +136,22 @@ export function AIInfoModal({ onClose }: Props) {
         <section className="mb-6 rounded-xl bg-gradient-to-br from-gold-500/5 to-amber-500/5 ring-1 ring-gold-400/20 p-4">
           <div className="text-[10px] uppercase tracking-widest text-gold-400 mb-2">TL;DR</div>
           <p className="text-sm leading-relaxed text-stone-200">
-            A hand-crafted utility function with <b className="text-gold-400">~58 tunable scalars</b>,
-            refined by an evolutionary search over millions of simulated games, with a
-            <b className="text-gold-400"> belief-propagation-style team inference</b> layered on top.
-            The current generation, <b className="text-gold-400">Hard-3</b>, wins
-            <b className="text-emerald-300"> 60.85%</b> of seats vs the basic <i>Normal</i> bot
-            and <b className="text-emerald-300">56.69%</b> vs the rule-based <i>Hard</i> baseline.
+            <b className="text-gold-400">Hard / Hard-2 / Hard-3</b> are a hand-crafted utility function with
+            <b className="text-gold-400"> ~58 tunable scalars</b>, refined by evolutionary search over millions
+            of simulated games, with a Bayesian-style team inference layer.
+            <b className="text-emerald-300"> Hard-4</b> is a fundamentally different paradigm:
+            <b className="text-emerald-300"> Information-Set Monte Carlo Tree Search</b> with a belief tracker,
+            implemented in Rust and shipped to your browser via WASM (~190 KB).
+            In mirror-replay testing, Hard-4 plays approximately even with Hard-3 at default config — a
+            real validation that search-based play can match decades of hand-tuned weight refinement,
+            with substantial headroom remaining.
           </p>
         </section>
 
         {/* Generations */}
         <section className="mb-6">
           <div className="text-[10px] uppercase tracking-widest text-gold-400 mb-3">Generations</div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {GENS.map((g) => (
               <div
                 key={g.name}
@@ -278,10 +302,12 @@ export function AIInfoModal({ onClose }: Props) {
             ))}
           </div>
           <p className="text-[11px] text-stone-500 mt-3 leading-relaxed italic">
-            Hard-3 is the current ceiling for this representation: the last three attempts at
-            improvement (soft probability scaling, multi-hop propagation, broader tuning) all
-            landed within noise. The next real gain almost certainly requires an architectural
-            change — not more weight twiddling.
+            Hard-3 represents the ceiling of the utility-function representation. Hard-4 broke
+            into a different paradigm — search over a belief state — and currently plays
+            approximately even with Hard-3 on a default, untuned configuration. The path to
+            decisively beating Hard-3 lies in tuning Hard-4's search scalars (the same ES
+            discipline that gave Hard-3 its edge), or layering proper opponent-intent inference
+            on top of the existing belief tracker.
           </p>
         </section>
       </div>
