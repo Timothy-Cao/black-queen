@@ -127,6 +127,7 @@ function knownCallerTeam(state: GameState, player: PlayerId): Set<PlayerId> | nu
  * Hard-4 has its own Rust guard with its own belief/value model.
  */
 function avoidKnownEnemyPointDump(state: GameState, player: PlayerId, chosen: Card): Card {
+  if (tsDiscardGuardDisabled()) return chosen;
   const r = state.round;
   const trick = r.currentTrick;
   if (!trick || trick.plays.length === 0) return chosen;
@@ -155,6 +156,12 @@ function avoidKnownEnemyPointDump(state: GameState, player: PlayerId, chosen: Ca
     })
     .sort((a, b) => cardPoints(a) - cardPoints(b) || a.rank - b.rank);
   return cheaper[0] ?? chosen;
+}
+
+function tsDiscardGuardDisabled(): boolean {
+  // Native CLI/tsx A/B only. Browser keeps the guard enabled.
+  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  return !!proc?.env?.BQ_TS_DISCARD_GUARD_OFF;
 }
 
 // =============================================================================

@@ -195,6 +195,14 @@ Use this for human review across Hard / Hard-2 / Hard-3 / Hard-4. The Rust
 `dump_game` tracer is only truthful for all-Hard-4; its mixed labels are
 budget-scaled Hard-4 variants, not the real TypeScript personalities.
 
+### Deterministic head-to-head matrix
+```bash
+HARD4_TIME_MS=80 npx tsx src/game/_matrix.ts 300 hard,hard-2,hard-3,hard-4,normal
+BQ_TS_DISCARD_GUARD_OFF=1 HARD4_TIME_MS=80 npx tsx src/game/_matrix.ts 1000 hard,hard-2,hard-3,normal
+```
+Use `_matrix.ts` for same-seed one-vs-four mirror checks. `BQ_TS_DISCARD_GUARD_OFF=1`
+disables only the TypeScript hard-family known-enemy discard guard for A/B tests.
+
 ### Hard-4 (Rust/WASM) operations
 ```bash
 # Native unit tests
