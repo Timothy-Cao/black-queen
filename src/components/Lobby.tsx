@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { CardView } from "./CardView";
-import { Card, ShuffleMode, AIPersonality } from "../game/types";
+import { Card, AIPersonality } from "../game/types";
 
 type Cfg = { name: string; isAI: boolean; aiPersonality?: AIPersonality };
 
 interface Props {
-  onStart: (configs: Cfg[], target: number, shuffleMode: ShuffleMode) => void;
+  onStart: (configs: Cfg[], target: number, shuffleIntensity: number) => void;
 }
 
 const DEFAULTS: Cfg[] = [
@@ -28,7 +28,8 @@ const TARGET_SCORE = 300; // Always 300 — matches total points in the 65-card 
 
 export function Lobby({ onStart }: Props) {
   const [players, setPlayers] = useState<Cfg[]>(DEFAULTS);
-  const [shuffleMode, setShuffleMode] = useState<ShuffleMode>("light");
+  // Continuous shuffle intensity 0..1. 0 = light (current default, biased hands), 1 = full random.
+  const [shuffleIntensity, setShuffleIntensity] = useState<number>(0);
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-6">
       <div className="glass rounded-2xl p-8 w-[640px] animate-floatIn relative overflow-visible">
@@ -109,31 +110,33 @@ export function Lobby({ onStart }: Props) {
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-3 mb-2">
-            <label className="text-sm text-stone-300">Shuffle</label>
-            <div className="flex gap-1">
-              {(["light", "full"] as ShuffleMode[]).map((m) => (
-                <button
-                  key={m}
-                  className={`px-3 py-1.5 rounded text-xs uppercase tracking-wider ${
-                    shuffleMode === m ? "bg-gold-500 text-stone-900" : "bg-white/5 text-stone-300 hover:bg-white/10"
-                  }`}
-                  onClick={() => setShuffleMode(m)}
-                >
-                  {m}
-                </button>
-              ))}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm text-stone-300">Shuffle</label>
+              <span className="text-[10px] uppercase tracking-wider text-gold-400/70 font-mono">
+                {shuffleIntensity <= 0.025 ? "light"
+                  : shuffleIntensity >= 0.975 ? "full"
+                  : `${Math.round(shuffleIntensity * 100)}%`}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={Math.round(shuffleIntensity * 100)}
+              onChange={(e) => setShuffleIntensity(parseInt(e.target.value, 10) / 100)}
+              className="w-full accent-gold-500 cursor-pointer"
+              aria-label="Shuffle intensity"
+            />
+            <div className="flex justify-between text-[10px] text-stone-500 mt-1 select-none">
+              <span>Light · dramatic hands</span>
+              <span>Full · uniform</span>
             </div>
           </div>
-          {shuffleMode === "full" && (
-            <div className="text-xs text-amber-300/90 mb-6 italic">
-              Beware: full shuffle is kinda lame.
-            </div>
-          )}
-          {shuffleMode !== "full" && <div className="mb-6" />}
           <button
             className="btn btn-primary w-full text-lg py-3"
-            onClick={() => onStart(players, TARGET_SCORE, shuffleMode)}
+            onClick={() => onStart(players, TARGET_SCORE, shuffleIntensity)}
           >
             Deal &amp; Begin
           </button>

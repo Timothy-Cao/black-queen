@@ -1,4 +1,4 @@
-import { buildDeck5p, deal5p, deal5pLight, shuffle, handSort } from "./deck";
+import { buildDeck5p, deal5pLight, shuffle, handSort } from "./deck";
 import { isLegalPlay, nextPlayer, trickPoints, trickWinner } from "./rules";
 import {
   Bid, Card, GameLogEntry, GameState, MIN_BID, Player, PlayerId,
@@ -12,6 +12,7 @@ export function freshGame(
   playerConfigs: { name: string; isAI: boolean; aiPersonality?: import("./types").AIPersonality }[],
   targetScore = 300,
   shuffleMode: ShuffleMode = "light",
+  shuffleIntensity?: number,
 ): GameState {
   if (playerConfigs.length !== 5) throw new Error("Need 5 players");
   const players: Player[] = playerConfigs.map((p, i) => ({
@@ -23,23 +24,32 @@ export function freshGame(
     tricksWon: [],
     scoreTotal: 0,
   }));
+  // shuffleIntensity is the canonical control (0..1). When the caller only
+  // passed legacy shuffleMode, derive intensity from it.
+  const intensity = shuffleIntensity !== undefined
+    ? Math.max(0, Math.min(1, shuffleIntensity))
+    : (shuffleMode === "full" ? 1 : 0);
   // Round 1: pick a random dealer; the dealer starts the bidding.
   const firstDealer = Math.floor(Math.random() * 5) as PlayerId;
-  const round = startRound(players, firstDealer, 1, shuffleMode);
+  const round = startRound(players, firstDealer, 1, intensity);
+  const intensityLabel = intensity <= 0.05 ? "light"
+    : intensity >= 0.95 ? "full"
+    : `${Math.round(intensity * 100)}%`;
   return {
     players,
     round,
     history: [],
     targetScore,
     phase: round.phase,
-    log: [logEntry("info", `Game started — first to ${targetScore} points wins. Shuffle: ${shuffleMode}.`)],
+    log: [logEntry("info", `Game started — first to ${targetScore} points wins. Shuffle: ${intensityLabel}.`)],
     shuffleMode,
+    shuffleIntensity: intensity,
   };
 }
 
-export function startRound(players: Player[], dealer: PlayerId, roundNumber: number, shuffleMode: ShuffleMode = "light"): RoundState {
+export function startRound(players: Player[], dealer: PlayerId, roundNumber: number, shuffleIntensity = 0): RoundState {
   const deck = shuffle(buildDeck5p());
-  const hands = shuffleMode === "light" ? deal5pLight(deck) : deal5p(deck);
+  const hands = deal5pLight(deck, shuffleIntensity);
   const handsMap = {} as Record<PlayerId, Card[]>;
   for (let i = 0; i < 5; i++) {
     handsMap[i as PlayerId] = hands[i];
@@ -150,7 +160,7 @@ function advanceBidTurn(state: GameState): GameState {
 
 function redealRound(state: GameState): GameState {
   const log = [...state.log, logEntry("system", `Everyone passed. Redealing...`)];
-  const round = startRound(state.players, state.round.dealer, state.round.roundNumber);
+  const round = startRound(state.players, state.round.dealer, state.round.roundNumber, state.shuffleIntensity ?? 0);
   return { ...state, round, log, phase: round.phase };
 }
 
@@ -383,7 +393,7 @@ export function startNextRound(state: GameState): GameState {
   const history = [...state.history, state.round];
   // The caller of the round that just finished becomes the next dealer.
   const dealer: PlayerId = state.round.bidder ?? nextPlayer(state.round.dealer);
-  const round = startRound(state.players, dealer, state.round.roundNumber + 1, state.shuffleMode);
+  const round = startRound(state.players, dealer, state.round.roundNumber + 1, state.shuffleIntensity ?? 0);
   return { ...state, history, round, phase: round.phase, log: [...state.log, logEntry("info", `--- Round ${round.roundNumber} ---`)] };
 }
 

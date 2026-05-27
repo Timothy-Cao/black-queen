@@ -158,7 +158,11 @@ export default function App() {
   if (!state) {
     return (
       <>
-        <Lobby onStart={(cfgs, target, shuffleMode) => setState(freshGame(cfgs, target, shuffleMode))} />
+        <Lobby
+          onStart={(cfgs, target, shuffleIntensity) =>
+            setState(freshGame(cfgs, target, shuffleIntensity >= 0.5 ? "full" : "light", shuffleIntensity))
+          }
+        />
         {showHelp && (
           <HelpModal
             onClose={() => setShowHelp(false)}

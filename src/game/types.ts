@@ -94,6 +94,8 @@ export interface GameState {
   phase: Phase;
   log: GameLogEntry[];
   shuffleMode: ShuffleMode;
+  /** Continuous shuffle intensity. 0 = light (current default, biased hands), 1 = full random. */
+  shuffleIntensity: number;
 }
 
 export interface GameLogEntry {

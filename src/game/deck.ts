@@ -44,17 +44,23 @@ export function deal5p(deck: Card[]): Card[][] {
 }
 
 /**
- * "Light shuffle" deal: biases each hand toward a dominant suit (~7–9 cards) plus
- * a near-void in another suit. Produces more dramatic bids and louder voids
- * than a fully-random shuffle, which tends to give boring 4/3/3/3 hands.
+ * Parameterized deal — interpolates between "light" (heavily biased hands with a
+ * dominant suit + near-void) and "full" (uniformly random).
  *
- * Algorithm: assign each player a dominant + a weak suit (rotated randomly so
- * all 4 suits are favored by at least one of the 5 players). Then walk the
- * shuffled deck and assign each card to a player by weighted random (5× weight
- * on dominant, 0.4× on weak, 1× on neutral, 0 if hand already full).
+ *   intensity = 0  → light: weights (dominant 5, weak 0.4, neutral 1)
+ *   intensity = 1  → full:  weights (1, 1, 1) which is statistically equivalent
+ *                            to Fisher–Yates shuffle then sequential deal.
+ *
+ * Values in between linearly blend the weights, so the slider feels smooth: at
+ * t=0.5 you still see a mild dominant-suit bias but it's much subtler.
  */
-export function deal5pLight(deck: Card[]): Card[][] {
+export function deal5pLight(deck: Card[], intensity = 0): Card[][] {
   if (deck.length !== 65) throw new Error("Deck must be 65 cards");
+  const t = Math.max(0, Math.min(1, intensity));
+  // Linear blend between light extremes (5, 0.4) and uniform (1, 1).
+  const dominantW = 5 + (1 - 5) * t;       // 5 → 1
+  const weakW     = 0.4 + (1 - 0.4) * t;   // 0.4 → 1
+  // (neutral weight is always 1)
   const suits: Suit[] = ["S", "H", "D", "C"];
   const shuffledSuits = shuffle(suits);
   // Five favored suits (one suit doubled), assigned to players in a random order.
@@ -76,8 +82,8 @@ export function deal5pLight(deck: Card[]): Card[][] {
     for (let i = 0; i < 5; i++) {
       let w: number;
       if (hands[i].length >= 13) w = 0;
-      else if (card.suit === playerDominant[i]) w = 5;
-      else if (card.suit === playerWeak[i]) w = 0.4;
+      else if (card.suit === playerDominant[i]) w = dominantW;
+      else if (card.suit === playerWeak[i]) w = weakW;
       else w = 1;
       weights.push(w);
       total += w;
