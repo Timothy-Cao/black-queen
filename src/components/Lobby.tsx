@@ -6,14 +6,15 @@ type Cfg = { name: string; isAI: boolean; aiPersonality?: AIPersonality };
 
 interface Props {
   onStart: (configs: Cfg[], target: number, shuffleIntensity: number, randomizeShuffle: boolean) => void;
+  onOpenAIInfo?: () => void;
 }
 
 const DEFAULTS: Cfg[] = [
-  { name: "You", isAI: false },
-  { name: "Alex", isAI: true, aiPersonality: "hard-3" },
-  { name: "Bri", isAI: true, aiPersonality: "hard-3" },
-  { name: "Cam", isAI: true, aiPersonality: "hard-3" },
-  { name: "Dee", isAI: true, aiPersonality: "hard-3" },
+  { name: "Player", isAI: false },
+  { name: "Adam", isAI: true, aiPersonality: "hard-3" },
+  { name: "Bravo", isAI: true, aiPersonality: "hard-3" },
+  { name: "Charlie", isAI: true, aiPersonality: "hard-3" },
+  { name: "Delta", isAI: true, aiPersonality: "hard-3" },
 ];
 
 const HERO_CARDS: Card[] = [
@@ -26,7 +27,7 @@ const HERO_CARDS: Card[] = [
 
 const TARGET_SCORE = 300; // Always 300 — matches total points in the 65-card deck.
 
-export function Lobby({ onStart }: Props) {
+export function Lobby({ onStart, onOpenAIInfo }: Props) {
   const [players, setPlayers] = useState<Cfg[]>(DEFAULTS);
   // Continuous shuffle intensity 0..1. 0 = light (current default, biased hands), 1 = full random.
   const [shuffleIntensity, setShuffleIntensity] = useState<number>(0);
@@ -54,9 +55,24 @@ export function Lobby({ onStart }: Props) {
           <h1 className="font-display text-5xl text-gold-400 tracking-wide drop-shadow-[0_0_18px_rgba(245,196,107,0.25)]">
             Black Queen
           </h1>
-          <p className="text-sm text-stone-300 mt-1 mb-6">
+          <p className="text-sm text-stone-300 mt-1 mb-4">
             A 5-player game of hidden partnerships and bidding.
           </p>
+          {onOpenAIInfo && (
+            <button
+              onClick={onOpenAIInfo}
+              className="group w-full mb-6 flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-left bg-gradient-to-br from-gold-500/10 to-amber-500/5 ring-1 ring-gold-400/25 hover:ring-gold-400/60 hover:from-gold-500/15 transition-all"
+              title="Open the AI mini-paper"
+            >
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-gold-400/90 mb-0.5">A mini-paper</div>
+                <div className="text-[13px] text-stone-100 leading-snug">
+                  AI Discussion <span className="text-stone-400 font-normal">— how Hard / Hard-2 / Hard-3 / Hard-4 were built</span>
+                </div>
+              </div>
+              <span className="text-gold-400 text-lg group-hover:translate-x-0.5 transition-transform" aria-hidden>→</span>
+            </button>
+          )}
           <div className="text-[11px] uppercase tracking-widest text-gold-400/80 mb-2">Players</div>
           <div className="space-y-2 mb-5">
             {players.map((p, i) => (
@@ -133,10 +149,6 @@ export function Lobby({ onStart }: Props) {
               className={`w-full accent-gold-500 ${randomizeShuffle ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
               aria-label="Shuffle intensity"
             />
-            <div className="flex justify-between text-[10px] text-stone-500 mt-1 select-none">
-              <span>Light · dramatic hands</span>
-              <span>Full · uniform</span>
-            </div>
             <label className="flex items-center gap-1.5 mt-2 text-xs text-stone-300 select-none cursor-pointer">
               <input
                 type="checkbox"
@@ -144,8 +156,7 @@ export function Lobby({ onStart }: Props) {
                 onChange={(e) => setRandomizeShuffle(e.target.checked)}
                 className="accent-gold-500"
               />
-              <span>Randomize per round</span>
-              <span className="text-[10px] text-stone-500">(re-roll intensity each deal)</span>
+              <span>Randomize shuffle</span>
             </label>
           </div>
           <button
@@ -156,7 +167,7 @@ export function Lobby({ onStart }: Props) {
               randomizeShuffle,
             )}
           >
-            Deal &amp; Begin
+            Start
           </button>
         </div>
       </div>

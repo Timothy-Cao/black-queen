@@ -136,12 +136,13 @@ const FUTURE: { label: string; note: string }[] = [
 //  Tabs
 // ---------------------------------------------------------------------------
 
-type TabId = "overview" | "generations" | "results" | "method" | "roadmap";
+type TabId = "overview" | "generations" | "results" | "method" | "failures" | "roadmap";
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview",    label: "Overview" },
   { id: "generations", label: "Generations" },
   { id: "results",     label: "Results" },
   { id: "method",      label: "Method" },
+  { id: "failures",    label: "Failures" },
   { id: "roadmap",     label: "Roadmap" },
 ];
 
@@ -261,6 +262,7 @@ export function AIInfoPage({ onBack }: Props) {
           {tab === "overview" && <OverviewTab />}
           {tab === "generations" && <GenerationsTab />}
           {tab === "results" && <ResultsTab />}
+          {tab === "failures" && <FailuresTab />}
           {tab === "method" && <MethodTab />}
           {tab === "roadmap" && <RoadmapTab />}
 
@@ -661,6 +663,158 @@ function MethodTab() {
         </Figure>
       </Section>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+//  Failures tab — deep-dive on every concept that didn't pan out.
+//
+//  The Method tab's TRIED table lists ALL experiments with one-line verdicts.
+//  This tab is just the ones that DIDN'T work, with prose explanations of
+//  WHY each one failed. Useful both as a research log and as a guard against
+//  a future Claude (or human) re-running the same experiment.
+// ---------------------------------------------------------------------------
+
+interface FailureEntry {
+  title: string;
+  hypothesis: string;
+  result: string;
+  why: string;
+  verdict: "regress" | "wash";
+}
+
+const FAILURES: FailureEntry[] = [
+  {
+    title: "Single-opponent ES tuning",
+    hypothesis: "Evolutionary search against the rule-based Hard would find a better Hard-2.",
+    result: "Candidates beat Hard on training seeds but lost to prior tuned gens on fresh seeds.",
+    why: "The fitness signal narrowly maximizes performance against ONE opponent's quirks. Specialized weights gain on training games but don't generalize — they're effectively memorizing how to exploit Hard, not playing better Black Queen. The fix: multi-opponent fitness + non-regression promotion gate against ALL prior gens.",
+    verdict: "regress",
+  },
+  {
+    title: "Soft alliance-probability scaling",
+    hypothesis: "Scaling smear/feed bonuses by a continuous P(ally) value instead of a hard 0/1 gate would handle uncertainty more gracefully.",
+    result: "Regressed Hard-2 by roughly 1pp.",
+    why: "The existing smear/feed weights were calibrated assuming a binary gate (fire fully or not at all). Multiplying them by a soft 0.5 made the smear signal half-strength when it should have been off entirely. The fix was a threshold-upgrade gate (≥ 0.85 → treat as confirmed ally) that preserves binary behavior while letting high-confidence inferences in.",
+    verdict: "regress",
+  },
+  {
+    title: "Multi-hop inference propagation",
+    hypothesis: "If A fed points to B, and B is on caller team, then A and B's alliance signal should propagate to other plays involving B.",
+    result: "+0.06pp at defaults — within noise.",
+    why: "Direct caller-anchor inferences (A fed points to the caller) already capture most of the signal. Multi-hop chains add information only when the anchor pathway is missing, which is rare. The infrastructure is kept off-by-default in case a future variant of the inference makes use of indirect chains.",
+    verdict: "wash",
+  },
+  {
+    title: "Hard-4 minimax endgame solver",
+    hypothesis: "At ≤ 3 tricks remaining, the game is small enough to solve exactly with minimax.",
+    result: "Regressed by ~1pp in mirror replay vs Hard-3 opponent.",
+    why: "Minimax assumes adversarially-OPTIMAL opponents. But the actual test opponent (Hard-3) plays HEURISTICALLY. The solver picks moves that are best against perfect play but suboptimal against Hard-3's heuristics — it 'plays scared' of an opponent that isn't there. Gated behind BQ_ENDGAME=1; the proper fix is ISMCTS-in-endgame, which inherits the same opponent model the rest of the search uses.",
+    verdict: "regress",
+  },
+  {
+    title: "Hard-4 soft bid-strength belief prior",
+    hypothesis: "A player who bid 200+ probably has aces and Q♠. Bias the determinization sampler toward that.",
+    result: "Regressed by ~3pp at default magnitudes.",
+    why: "The bias bumps (1.3× / 1.5× multipliers) were uncalibrated — set by intuition, never tuned. Even a directionally-correct prior can hurt if its strength is wrong. The fix would be ES tuning of the prior magnitudes; gated behind BQ_BIDPRIOR=1.",
+    verdict: "regress",
+  },
+  {
+    title: "Shuffle-robust 'Hard-A' generation",
+    hypothesis: "Hard-3 was tuned on Light shuffle; maybe a separate model tuned on randomized intensity would be more robust.",
+    result: "Wash — AI doesn't reference shuffle anywhere; degradation at high shuffle was mostly game-variance.",
+    why: "The Hard-3 vs Normal edge collapses from +16.35pp (Light) to +3.57pp (Full), but Hard-3 vs Hard only goes from +4.55pp to +2.45pp. If Hard-3 were uniquely miscalibrated for Light, both would degrade similarly. The asymmetric collapse points to the GAME getting more luck-bound (flatter hands → fewer committed-to-fail bids → less skill differential available), not the AI breaking. A shuffle-robust gen wouldn't have helped.",
+    verdict: "wash",
+  },
+  {
+    title: "Hard-5: ES-tune Hard-4 intent weights",
+    hypothesis: "Hard-4's 9 IntentWeights (LLR magnitudes) were hand-set; ES tuning should find improvements like it did for Hard-3's weight vector.",
+    result: "Two 20-gen runs both verified at −0.20pp on fresh seeds (within 1σ of noise).",
+    why: "The intent magnitudes were already at a plateau. The first run (no anchor gate) drifted into overfit territory exactly as expected (training-set wins → verification null). The second run (gated against frozen Default) saw the gate correctly block drift, but ALSO couldn't find genuine improvement — suggesting the defaults are already near-optimal for this representation. Same ceiling that Hard-3 hit before Hard-4's paradigm shift.",
+    verdict: "regress",
+  },
+  {
+    title: "Threshold-optimization rollout backprop",
+    hypothesis: "Black Queen's scoring is an indicator function (made bid → +bid, failed → −bid). The natural ISMCTS rollout value should be P(team makes bid), not captured points / 300.",
+    result: "Pure binary: −1.47pp at N=300. Hybrid (0.5·EV + 0.5·win): +1.93pp at N=300 → −0.20pp at N=500.",
+    why: "Pure binary outcomes are too SPARSE a signal for UCB at finite rollouts — most rollouts at competent play have a fairly determined outcome, so the value collapses to 0 or 1 for nearly every move, losing the per-action differentiation that drives MCTS. The EV proxy is continuous and correlates near-monotonically with win probability — so adding the threshold jump on top adds no real signal at this search depth. (Could become useful at deeper search where the outcome is more uncertain per rollout.)",
+    verdict: "regress",
+  },
+  {
+    title: "Partner-aware bidding (symmetric)",
+    hypothesis: "Hands rich in Aces and Q♠ are likely to be partner → bid less. Hands poor in them are locked-in opposing → bid more (push caller into failure).",
+    result: "Regressed by 2.00pp at N=300.",
+    why: "The 'bid less when partner-rich' direction was a strategic mistake. A hand with 4 Aces + Q♠ ISN'T weak — it's STRONG. The default capacity formula already values it correctly and would have it bid aggressively. Artificially lowering its target told the AI to defer when it should have called itself. The fix was to make the heuristic asymmetric: only raise bids for partner-poor hands.",
+    verdict: "regress",
+  },
+  {
+    title: "Partner-aware bidding (asymmetric)",
+    hypothesis: "Same as above but ONLY raise bid for clearly partner-poor hands (no Aces, no Q♠, no Kings); never lower.",
+    result: "+0.07pp at N=600. Statistically zero.",
+    why: "The trigger condition is rare — most hands have at least one Ace or King. And of the hands that DO trigger, the default Hard-4 bidder already mostly passes (weak hand → low capacity → no bid). The narrow remaining window where (hand is trigger-weak) ∧ (default would still bid) ∧ (+10pp would cross the caller-fail threshold) is < 5% of games. Even strong intra-window effect averages to zero. The strategic insight is sound, but a heuristic implementation can't extract enough of it; a proper search-based bidder would be needed.",
+    verdict: "wash",
+  },
+];
+
+function FailuresTab() {
+  const regressions = FAILURES.filter((f) => f.verdict === "regress");
+  const washes = FAILURES.filter((f) => f.verdict === "wash");
+  return (
+    <Section id="failures" kicker="§7b" title="Concepts that didn't pan out — and why">
+      <p>
+        Every ambitious-sounding AI idea that <em>didn't</em> measurably improve the agent.
+        Some regressed measurably; some came in at the noise floor. Listed here so the
+        strategic intuition each represents is preserved, alongside the empirical reason it
+        didn't translate. A separate &ldquo;sound idea, wrong scale&rdquo; tag is missing from the
+        list — many of these ARE good ideas that should work given more compute or a
+        different architecture.
+      </p>
+
+      <div className="text-[10px] uppercase tracking-widest text-rose-300/80 mt-6 mb-2">Regressions ({regressions.length})</div>
+      <div className="space-y-3">
+        {regressions.map((f) => <FailureCard key={f.title} f={f} />)}
+      </div>
+
+      <div className="text-[10px] uppercase tracking-widest text-stone-400/80 mt-6 mb-2">Washes — at noise floor ({washes.length})</div>
+      <div className="space-y-3">
+        {washes.map((f) => <FailureCard key={f.title} f={f} />)}
+      </div>
+
+      <p className="mt-8 text-[12px] text-stone-500 italic leading-relaxed">
+        Pattern across the failures: most are theoretically correct ideas that lose to the
+        ceiling of the current architecture (single-rooted ISMCTS at ~300 ms with hand-coded
+        rollout policy) — not because the strategy is wrong, but because the limited search
+        depth or representation can't extract enough signal to overcome noise. The right
+        next step is architectural (tree-structured ISMCTS, neural rollout policy, learned
+        belief representation), not more strategy patches.
+      </p>
+    </Section>
+  );
+}
+
+function FailureCard({ f }: { f: FailureEntry }) {
+  const borderColor = f.verdict === "regress" ? "ring-rose-500/25" : "ring-white/10";
+  return (
+    <div className={`rounded-xl bg-black/25 ring-1 ${borderColor} p-4`}>
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="text-[14px] font-semibold text-stone-100">{f.title}</div>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider font-semibold flex-shrink-0 ${
+          f.verdict === "regress" ? "bg-rose-500/20 text-rose-300" : "bg-stone-500/20 text-stone-300"
+        }`}>
+          {f.verdict === "regress" ? "Reject" : "Wash"}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-[80px_1fr] gap-y-1.5 gap-x-3 text-[12px]">
+        <div className="text-stone-500 uppercase tracking-wider text-[10px] sm:pt-0.5">Hypothesis</div>
+        <div className="text-stone-300">{f.hypothesis}</div>
+
+        <div className="text-stone-500 uppercase tracking-wider text-[10px] sm:pt-0.5">Result</div>
+        <div className="text-stone-300">{f.result}</div>
+
+        <div className="text-stone-500 uppercase tracking-wider text-[10px] sm:pt-0.5">Why</div>
+        <div className="text-stone-300 leading-relaxed">{f.why}</div>
+      </div>
+    </div>
   );
 }
 

@@ -187,6 +187,7 @@ export default function App() {
               randomizeShuffle,
             ))
           }
+          onOpenAIInfo={openAIInfo}
         />
         {showHelp && (
           <HelpModal
