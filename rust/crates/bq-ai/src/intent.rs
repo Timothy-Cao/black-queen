@@ -20,7 +20,7 @@ pub enum TeamLabel { Caller, Opposing }
 
 /// LLR magnitudes — defaults tuned conservatively. Each is a separate scalar
 /// so they can be A/B tested and ES-tuned individually.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct IntentWeights {
     /// Per-5pts of a point card voluntarily fed to a caller-team-winning trick.
     pub w_voluntary_feed_to_caller: f64,
@@ -56,6 +56,62 @@ impl Default for IntentWeights {
             llr_clamp: 3.0,
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+//  Runtime override (thread-safe, used by the ES tuner to swap weights per-seat
+//  before each hard4_play call). Set None to fall back to Default.
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
+mod override_cell {
+    use super::IntentWeights;
+    use std::sync::RwLock;
+    use std::sync::OnceLock;
+
+    fn cell() -> &'static RwLock<Option<IntentWeights>> {
+        static CELL: OnceLock<RwLock<Option<IntentWeights>>> = OnceLock::new();
+        CELL.get_or_init(|| RwLock::new(None))
+    }
+
+    pub fn set(w: Option<IntentWeights>) {
+        *cell().write().unwrap() = w;
+    }
+
+    pub fn get() -> IntentWeights {
+        cell().read().unwrap().clone().unwrap_or_default()
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+mod override_cell {
+    // wasm32 is single-threaded; use a plain Cell behind a thread_local.
+    use super::IntentWeights;
+    use std::cell::RefCell;
+
+    thread_local! {
+        static OVERRIDE: RefCell<Option<IntentWeights>> = const { RefCell::new(None) };
+    }
+
+    pub fn set(w: Option<IntentWeights>) {
+        OVERRIDE.with(|c| *c.borrow_mut() = w);
+    }
+
+    pub fn get() -> IntentWeights {
+        OVERRIDE.with(|c| c.borrow().clone().unwrap_or_default())
+    }
+}
+
+/// Install a custom IntentWeights set (None resets to Default).
+/// Used by the ES tuner; never called from the shipping browser/WASM code path
+/// unless explicitly via JS interop.
+pub fn set_intent_weights_override(w: Option<IntentWeights>) {
+    override_cell::set(w);
+}
+
+/// The currently-active IntentWeights — override if set, Default otherwise.
+pub fn current_intent_weights() -> IntentWeights {
+    override_cell::get()
 }
 
 #[derive(Clone, Debug)]

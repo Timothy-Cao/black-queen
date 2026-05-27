@@ -189,9 +189,9 @@ fn intent_enabled_runtime() -> bool {
 fn build_intent_tracker(state: &GameState, _self_id: PlayerId) -> IntentTracker {
     let Some(caller) = state.caller else {
         // No caller yet — fall back to dummy tracker, never queried for valid signals.
-        return IntentTracker::new(0, IntentWeights::default());
+        return IntentTracker::new(0, crate::intent::current_intent_weights());
     };
-    let mut tracker = IntentTracker::new(caller, IntentWeights::default());
+    let mut tracker = IntentTracker::new(caller, crate::intent::current_intent_weights());
     let trump = state.trump;
     let partner_card = state.partner_card;
 
