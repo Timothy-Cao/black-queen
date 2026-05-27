@@ -6,15 +6,28 @@
 //! holds a UI pause via `pendingTrickComplete`, but for search-time simulation
 //! the pause is irrelevant.
 
-use crate::deck::{build_deck, deal_hands, shuffle_seeded};
+use crate::deck::{build_deck, deal_hands, deal_hands_light, shuffle_seeded};
 use crate::rng::GameRng;
 use crate::rules::{legal_play_indices, next_player, trick_points, trick_winner};
 use crate::types::{BidEntry, Card, GameState, Phase, PlayerId, Suit, Trick, TrickPlay};
 
 pub fn new_game(rng: &mut GameRng, first_bidder: PlayerId) -> GameState {
+    new_game_with_intensity(rng, first_bidder, 0.0)
+}
+
+/// Construct a fresh game, dealing hands at the given shuffle intensity.
+/// 0 = light (biased dominant suit + near-void per seat), 1 = full random.
+/// Defaults to light (matches the TS production default in src/game/engine.ts).
+pub fn new_game_with_intensity(rng: &mut GameRng, first_bidder: PlayerId, intensity: f64) -> GameState {
     let mut deck = build_deck();
     shuffle_seeded(&mut deck, rng);
-    let hands = deal_hands(deck);
+    let hands = if intensity >= 0.999 {
+        // At t≈1 the weighted path is statistically identical to round-robin
+        // (all weights = 1), but use the simple path for determinism / speed.
+        deal_hands(deck)
+    } else {
+        deal_hands_light(deck, intensity, rng)
+    };
     GameState {
         phase: Phase::Bidding,
         hands,

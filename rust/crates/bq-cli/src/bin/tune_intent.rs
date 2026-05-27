@@ -17,7 +17,7 @@
 
 use bq_ai::hard4::{hard4_bid, hard4_declare, hard4_play};
 use bq_ai::intent::{set_intent_weights_override, IntentWeights};
-use bq_engine::engine::{apply_bid, apply_declare, apply_pass, apply_play, new_game};
+use bq_engine::engine::{apply_bid, apply_declare, apply_pass, apply_play, new_game_with_intensity};
 use bq_engine::rng::{from_seed, GameRng};
 use bq_engine::types::{Phase, PlayerId};
 use rand::Rng;
@@ -126,7 +126,8 @@ fn play_one(
 ) -> [bool; 5] {
     let mut rng: GameRng = from_seed(seed);
     let first_bidder: PlayerId = (seed % 5) as u8;
-    let mut state = new_game(&mut rng, first_bidder);
+    // Tune on the production shuffle distribution (Light = intensity 0).
+    let mut state = new_game_with_intensity(&mut rng, first_bidder, 0.0);
 
     let set_for = |p: PlayerId| {
         set_intent_weights_override(Some(match seats[p as usize] {
