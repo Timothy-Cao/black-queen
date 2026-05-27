@@ -112,6 +112,9 @@ mod tests {
 
     #[test]
     fn endgame_solver_picks_a_legal_card_with_one_trick_left() {
+        // should_solve_endgame is gated OFF by default since Session 1.7 A/B.
+        // Enable it for this test so the gate-check assertion holds.
+        std::env::set_var("BQ_ENDGAME", "1");
         // Drive a game until 5 cards remain across all players (1 trick).
         let mut rng = from_seed(7);
         let mut state = new_game(&mut rng, 0);

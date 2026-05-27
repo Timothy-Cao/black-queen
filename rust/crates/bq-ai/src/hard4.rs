@@ -9,10 +9,11 @@
 
 use crate::belief::BeliefState;
 use crate::handeval::{evaluate_hand, estimate_bid_capacity};
+use crate::intent::{IntentTracker, IntentWeights};
 use crate::ismcts::{ismcts_play, SearchParams};
 use bq_engine::deck::build_deck;
 use bq_engine::rng::GameRng;
-use bq_engine::types::{Card, GameState, PlayerId, Suit};
+use bq_engine::types::{Card, GameState, PlayerId, Suit, Trick, TrickPlay};
 use std::time::Duration;
 
 /// Returns the bid amount to make, or None to pass.
@@ -128,6 +129,25 @@ pub fn hard4_play(
         }
     }
 
+    // Build IntentTracker by replaying history with reconstructed hands.
+    // Each opponent's hand at each point is: initial_deal - cards_they've_played.
+    // We don't know their initial deal exactly — but for voluntariness checks we
+    // need at least the player's hand AT THE MOMENT of the play, which we can
+    // compute by summing their played cards in reverse.
+    let intent_enabled = intent_enabled_runtime();
+    let intent_tracker = if intent_enabled {
+        Some(build_intent_tracker(state, self_id))
+    } else { None };
+
+    // Apply intent prior to belief (only if intent is enabled AND we have a partner card).
+    if let Some(tracker) = &intent_tracker {
+        let mut team_probs = [0.5f64; 5];
+        for p in 0..5u8 {
+            team_probs[p as usize] = tracker.p_on_caller_team(p);
+        }
+        belief.apply_intent_prior(state.partner_card, &team_probs);
+    }
+
     // On wasm32 we cannot use a wall-clock deadline (no monotonic clock).
     // Approximate by capping iterations proportional to time_ms: ~3 iterations
     // per ms on a typical laptop in release mode. Native paths use real time.
@@ -151,6 +171,100 @@ pub fn hard4_play(
         ..Default::default()
     };
     ismcts_play(state, &belief, rng, &params)
+}
+
+/// Intent inference is on by default on wasm32 (browser ships with it).
+/// Native (arena/tune) is gated by BQ_NO_INTENT for A/B testing.
+fn intent_enabled_runtime() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    { true }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::env::var("BQ_NO_INTENT").ok().filter(|s| !s.is_empty()).is_none()
+    }
+}
+
+/// Reconstruct an IntentTracker by replaying tricks, computing each player's
+/// hand-before-play from played-cards history. This is O(plays seen) per move.
+fn build_intent_tracker(state: &GameState, _self_id: PlayerId) -> IntentTracker {
+    let Some(caller) = state.caller else {
+        // No caller yet — fall back to dummy tracker, never queried for valid signals.
+        return IntentTracker::new(0, IntentWeights::default());
+    };
+    let mut tracker = IntentTracker::new(caller, IntentWeights::default());
+    let trump = state.trump;
+    let partner_card = state.partner_card;
+
+    // For each player, compute their TOTAL set of played cards (across all tricks
+    // including the current one) AND their currently-held hand. From these we can
+    // reconstruct "hand-before-play" by adding back cards they played AFTER that point.
+    let mut played_in_order: Vec<Vec<Card>> = vec![Vec::new(); 5];
+    for trick in &state.tricks {
+        for tp in &trick.plays {
+            played_in_order[tp.player as usize].push(tp.card);
+        }
+    }
+    if let Some(cur) = &state.current_trick {
+        for tp in &cur.plays {
+            played_in_order[tp.player as usize].push(tp.card);
+        }
+    }
+
+    // Each player's INITIAL hand = current hand + all their played cards.
+    let initial_hands: Vec<Vec<Card>> = (0..5).map(|p| {
+        let mut h = state.hands[p].clone();
+        h.extend(played_in_order[p].iter().copied());
+        h
+    }).collect();
+
+    // Now replay tricks in order. For each play, compute hand-before-play =
+    // initial_hand minus the cards they've played strictly BEFORE this one.
+    let mut player_play_index = [0usize; 5];
+    let mut process_trick = |t: &Trick, tracker: &mut IntentTracker, ppi: &mut [usize; 5]| {
+        let mut trick_before = Trick {
+            leader: t.leader,
+            plays: Vec::new(),
+            winner: None,
+            points: None,
+        };
+        for tp in &t.plays {
+            let p_idx = tp.player as usize;
+            let already_played_count = ppi[p_idx];
+            let prior_played: Vec<Card> = played_in_order[p_idx][..already_played_count].to_vec();
+            let hand_before: Vec<Card> = initial_hands[p_idx].iter()
+                .copied()
+                .filter(|c| !card_multiset_contains(&prior_played, *c, &initial_hands[p_idx]))
+                .collect();
+            // Note: card_multiset_contains is a multiset-aware "have we removed this many copies yet"
+            // helper, used because cards have no instance id.
+            tracker.observe_play(
+                tp.player, tp.card, &hand_before, &trick_before, trump, partner_card,
+            );
+            trick_before.plays.push(TrickPlay { player: tp.player, card: tp.card });
+            ppi[p_idx] += 1;
+        }
+    };
+
+    for t in &state.tricks {
+        process_trick(t, &mut tracker, &mut player_play_index);
+    }
+    if let Some(cur) = &state.current_trick {
+        process_trick(cur, &mut tracker, &mut player_play_index);
+    }
+
+    tracker
+}
+
+/// Multiset-aware containment check: returns true if removing one copy of
+/// `card` from `_initial_hand` after `prior` is already covered (i.e., the
+/// initial hand has ≤ count of this card matching what's already been removed).
+/// Simpler reformulation: returns true if `prior` already accounts for all
+/// copies of `card` that the player initially held.
+fn card_multiset_contains(prior: &[Card], card: Card, initial_hand: &[Card]) -> bool {
+    let prior_count = prior.iter().filter(|c| **c == card).count();
+    let initial_count = initial_hand.iter().filter(|c| **c == card).count();
+    // True if we've already accounted for all the initial copies in `prior`.
+    prior_count >= initial_count
 }
 
 /// Determine whose captured-points we sum when scoring a rollout's outcome.

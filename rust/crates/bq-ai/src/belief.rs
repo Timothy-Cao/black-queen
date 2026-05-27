@@ -63,6 +63,33 @@ impl BeliefState {
         }
     }
 
+    /// Apply an intent-tracker prior: bias the sampler toward configurations
+    /// where the partner card is held by a player we suspect is on the caller's
+    /// team. Higher P(p in caller team) → higher weight for that player holding
+    /// the partner card. Symmetric: lower P → lower weight.
+    ///
+    /// Multiplier formula: `partner_card_weight(p) = exp(k * (P(team) - 0.5))`
+    /// with k=2.0 by default, so a P=0.8 player gets ~1.8× weight, P=0.2 → ~0.55×.
+    pub fn apply_intent_prior(
+        &mut self,
+        partner_card: Option<Card>,
+        team_probs: &[f64; 5],
+    ) {
+        let Some(pc) = partner_card else { return };
+        if !self.unseen.contains_key(&pc) { return; }
+        // Only one card type benefits from this — the partner card itself.
+        // Sampling that card to a likely-ally is the main mechanism by which
+        // intent inference biases search.
+        const K: f64 = 2.0;
+        for p in 0..5u8 {
+            if p == self.self_id { continue; }
+            let prob = team_probs[p as usize];
+            let multiplier = (K * (prob - 0.5)).exp();
+            let entry = self.soft_prior[p as usize].entry(pc).or_insert(1.0);
+            *entry *= multiplier;
+        }
+    }
+
     /// Apply a bid-strength prior: a player who bid `bid_amount` is more likely
     /// to hold high cards (aces, Q♠, kings) and a long suit. We bump their
     /// per-card weights proportional to bid strength above MIN_BID.
