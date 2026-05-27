@@ -199,24 +199,13 @@ export function AIInfoPage({ onBack }: Props) {
     <div className="h-screen w-full bg-[#0a1f16] text-stone-200 flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 backdrop-blur-md bg-[#0a1f16]/85 border-b border-white/5">
-        <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-6 py-3">
           <button
             className="text-xs text-stone-300 hover:text-gold-400 flex items-center gap-1.5 transition-colors"
             onClick={onBack}
           >
             <span aria-hidden>←</span> Back to game
           </button>
-          <div className="flex items-center gap-4 text-[11px] text-stone-500 font-mono">
-            <span>Inside the AI</span>
-            <a
-              className="hover:text-stone-300 transition-colors"
-              href="https://github.com/Timothy-Cao/black-queen"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              github ↗
-            </a>
-          </div>
         </div>
         {/* Tabs */}
         <nav className="max-w-4xl mx-auto px-6 flex gap-1 -mb-px overflow-x-auto" aria-label="Sections">
@@ -269,7 +258,7 @@ export function AIInfoPage({ onBack }: Props) {
           {tab === "glossary" && <GlossaryTab />}
 
           <footer className="mt-12 pt-6 border-t border-white/10 text-[11px] text-stone-500 leading-relaxed">
-            All measurements use a custom headless arena: each match is played as same-seeded mirrored pairs (the deal is fixed, the two players swap seats at every position) so seat order and shuffle variance cancel out. Source is on <a className="text-gold-400 hover:underline" href="https://github.com/Timothy-Cao/black-queen" target="_blank" rel="noopener noreferrer">GitHub</a>.
+            All measurements use a custom headless arena: each match is played as same-seeded mirrored pairs (the deal is fixed, the two players swap seats at every position) so seat order and shuffle variance cancel out.
           </footer>
         </article>
       </div>
