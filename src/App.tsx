@@ -10,7 +10,7 @@ import { BiddingPanel } from "./components/BiddingPanel";
 import { DeclarePanel } from "./components/DeclarePanel";
 import { RoundEnd } from "./components/RoundEnd";
 import { HelpModal } from "./components/HelpModal";
-import { AIInfoModal } from "./components/AIInfoModal";
+import { AIInfoPage } from "./components/AIInfoPage";
 import { PartnerRevealFlash } from "./components/PartnerRevealFlash";
 import { Confetti } from "./components/Confetti";
 import { SettingsBar } from "./components/SettingsBar";
@@ -30,8 +30,23 @@ export default function App() {
   const [me] = useState<PlayerId>(0);
   const [showHands, setShowHands] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [showAIInfo, setShowAIInfo] = useState(false);
+  const [route, setRoute] = useState<string>(() => typeof window !== "undefined" ? window.location.pathname : "/");
   const [showHistory, setShowHistory] = useState(false);
+
+  // Routing: keep `route` in sync with the URL and the back/forward buttons.
+  useEffect(() => {
+    const onPop = () => setRoute(window.location.pathname);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const navigate = (to: string) => {
+    if (window.location.pathname === to) return;
+    window.history.pushState({}, "", to);
+    setRoute(to);
+  };
+  const openAIInfo = () => navigate("/ai");
+  const closeAIInfo = () => navigate("/");
+  const onAIInfoRoute = route === "/ai";
   const [muted, setMutedState] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(typeof window === "undefined" || window.innerWidth >= 1100);
   const [speed, setSpeed] = useState<"slow" | "normal" | "fast">("normal");
@@ -155,6 +170,11 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [state, me, showHelp]);
 
+  // /ai route: render the AI Info page instead of the game (full page replacement).
+  if (onAIInfoRoute) {
+    return <AIInfoPage onBack={closeAIInfo} />;
+  }
+
   if (!state) {
     return (
       <>
@@ -171,10 +191,9 @@ export default function App() {
         {showHelp && (
           <HelpModal
             onClose={() => setShowHelp(false)}
-            onOpenAIInfo={() => { setShowHelp(false); setShowAIInfo(true); }}
+            onOpenAIInfo={() => { setShowHelp(false); openAIInfo(); }}
           />
         )}
-        {showAIInfo && <AIInfoModal onClose={() => setShowAIInfo(false)} />}
         <nav
           aria-label="Legal links"
           className="fixed bottom-4 left-4 z-50 flex gap-2 rounded-lg bg-black/35 px-2 py-1 text-[11px] text-stone-300/75 backdrop-blur-sm"
@@ -336,10 +355,9 @@ export default function App() {
         {showHelp && (
           <HelpModal
             onClose={() => setShowHelp(false)}
-            onOpenAIInfo={() => { setShowHelp(false); setShowAIInfo(true); }}
+            onOpenAIInfo={() => { setShowHelp(false); openAIInfo(); }}
           />
         )}
-        {showAIInfo && <AIInfoModal onClose={() => setShowAIInfo(false)} />}
         {showHistory && <HistoryModal state={state} onClose={() => setShowHistory(false)} />}
       </div>
 
