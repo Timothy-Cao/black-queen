@@ -30,7 +30,6 @@ const GEN_COLOR: Record<string, string> = {
   "Hard-2":  "#60a5fa",
   "Hard-3":  "#f5c46b",
   "Hard-4":  "#34d399",
-  "Hard-5":  "#fb923c",   // amber/orange, newest tier
   "Normal":  "#9ca3af",
   "Random":  "#6b7280",
 };
@@ -90,6 +89,7 @@ const GENS: GenSpec[] = [
       "Hard-constraint belief tracker tracks voids, played cards, partner identity",
       "Opponent-intent Bayesian inference: 9 calibrated signals scaled by voluntariness",
       "Team-aware tactical rollout; biased determinization sampling from belief",
+      "Low-point enemy-discard guard, discovered by trace review",
       "Rust → WASM ~190 KB; ~300 ms/move in-browser",
     ],
   },
@@ -112,9 +112,9 @@ const TRIED: TriedItem[] = [
   { label: "Rust-engine deal mirroring",           result: "win",     note: "Ported deal5pLight to Rust + parameterized intensity. Tuning now matches production distribution (Light)." },
   { label: "Rayon-parallel ES evaluation",         result: "win",     note: "Lock-free atomic tallies + thread-local weight override. ~7.5× wall-time speedup on 16 cores." },
   { label: "Hard-5: ES-tune Hard-4 intent weights", result: "regress", note: "Two 20-gen runs (no gate, then with non-regression gate vs Default). Both converged on weights that look improved on training seeds but verify at −0.20pp on fresh seeds (within 1σ of noise). Hard-4's intent magnitudes are already near-optimal for this representation. Tuner infra retained for future use." },
-  { label: "Threshold-optimization rollout backprop", result: "regress", note: "Replaced ISMCTS's EV-proxy (captured/300) with the true indicator (P(team makes bid)). Theoretically correct, Black Queen's scoring IS an indicator. Pure binary: −1.47pp at N=300. Hybrid (0.5·EV + 0.5·win): +1.93pp at N=300 → −0.20pp at N=500. EV proxy already correlates near-monotonically with win probability so the threshold-jump adds no signal at this search depth. Runtime toggle retained for deeper-search experiments." },
+  { label: "Threshold-optimization rollout backprop", result: "regress", note: "Replaced ISMCTS's EV-proxy (captured/300) with the true indicator, P(team makes bid). The theory was plausible, but pure binary value was −1.47pp at N=300. Hybrid value was +1.93pp at N=300, then −0.20pp at N=500. The smoother EV proxy already carries the useful signal at this search depth." },
   { label: "Partner-aware bidding adjustment",       result: "wash",    note: "Insight: weak hands with no aces/Q♠/kings are likely on the opposing team, so push the bid up to force the caller into failure territory. Symmetric version (also lower bid for partner-rich hands) regressed −2.00pp, strong hands should bid more, not less. Asymmetric fix (only raise for partner-poor): +0.87pp at N=300 → +0.07pp at N=600. The triggering window is <5% of games. Toggle retained for any future smarter bidder." },
-  { label: "Low-point enemy-discard guard",           result: "win",     note: "Qualitative trace review found Hard-4 dumping point cards onto enemy-winning tricks. Narrow post-search guard swaps only non-trump point discards to cheaper non-trump discards; 80ms A/B: +1.24pp at N=500." },
+  { label: "Low-point enemy-discard guard",           result: "win",     note: "Qualitative trace review found hard AIs dumping point cards onto known enemy-winning tricks. Hard-4 has the Rust post-search guard, and Hard / Hard-2 / Hard-3 now have the same narrow TypeScript guard. Latest matrix: +0.30pp to +0.66pp vs Normal for the TS hard family, with no lineup reorder." },
 ];
 
 // Shuffle-intensity sweep (Hard-3 vs others at five intensities, 1500 pairs × 2 mirror).
@@ -127,7 +127,7 @@ const SHUFFLE_SWEEP: { t: number; label: string; vsNormal: number; vsHard: numbe
 ];
 
 const FUTURE: { label: string; note: string }[] = [
-  { label: "Tree-structured ISMCTS",                       note: "Current implementation is single-rooted, UCB statistics live at the root only. Promoting to per-info-set statistics gets compounding improvement from every rollout. This is the highest-EV direction now that intent-tuning hit its ceiling." },
+  { label: "Tree-structured ISMCTS",                       note: "Current implementation is single-rooted: UCB statistics live at the root only. Promoting to per-info-set statistics gets compounding improvement from every rollout. This is the highest-value direction now that intent tuning hit its ceiling." },
   { label: "Search-based bidder",                          note: "Hard-4 currently delegates bid + declare to Hard-3. Sampling N self-hand-consistent worlds and running mini-ISMCTS would close the holistic Hard-4 vs Hard-3 edge." },
   { label: "ISMCTS-in-endgame (replaces minimax)",         note: "Minimax assumed optimal opponents and regressed −1pp. Running ISMCTS with full budget at ≤3 tricks instead matches the opponent model used everywhere else." },
   { label: "ES-tune Hard-4 search constants",              note: "Hard-4 has ~5 search scalars (UCB exploration, rollout count, endgame depth) still set by hand-tuned intuition. Lower priority than the architectural items now that intent ES showed the well is dry at this scale." },
@@ -241,7 +241,7 @@ export function AIInfoPage({ onBack }: Props) {
             <p className="text-[14px] text-stone-400 leading-relaxed">
               A trick-taking card game with hidden partnerships, played by an evolving series
               of AI agents. This page documents what each generation does, what worked, what didn't,
-              and where the headroom remaining lives.
+              and where the remaining headroom is.
             </p>
             <div className="mt-4 flex gap-x-5 gap-y-1 flex-wrap text-[11px] text-stone-500 font-mono">
               <span>Game: 5-player · 65-card deck · 300 pts</span>
@@ -259,7 +259,7 @@ export function AIInfoPage({ onBack }: Props) {
           {tab === "glossary" && <GlossaryTab />}
 
           <footer className="mt-12 pt-6 border-t border-white/10 text-[11px] text-stone-500 leading-relaxed">
-            All measurements use a custom headless arena: each match is played as same-seeded mirrored pairs (the deal is fixed, the two players swap seats at every position) so seat order and shuffle variance cancel out.
+            Unless noted otherwise, measurements use a custom headless arena with same-seeded mirror pairs. The deal is fixed, the two agents swap seats at every position, and seat order plus shuffle variance mostly cancel out.
           </footer>
         </article>
       </div>
@@ -288,8 +288,7 @@ function OverviewTab() {
           It is implemented in Rust and shipped to the browser as a ~190 KB WebAssembly module.
           In mirror-replay testing, Hard-4 beats Hard-3 by <span className="text-emerald-300 font-medium">
           +3.92pp (~4σ)</span> and beats every prior generation, with substantial
-          headroom remaining (intent scalars never ES-tuned, single-rooted search, no
-          search-based bidder).
+          headroom remaining in tree structure, endgame search, and bidding.
         </p>
       </Section>
 
@@ -300,15 +299,15 @@ function OverviewTab() {
           card-points: <span className="text-gold-400 font-medium">Q♠ = 30</span>, A = 15,
           10 = 10, 5 = 5. One player wins a bid (150–300), declares trump, and names a
           partner card by rank-and-suit; whoever holds it is on their team but stays hidden
-          until they play that card. The caller's team must capture ≥ bid in card-points across
-          13 trick-plays to score the bid; if they fall short, they all lose it.
+          until they play that card. The caller's team must capture at least the bid in
+          card-points across 13 tricks to score the bid. If they fall short, they lose it.
         </p>
         <p>
           Two ingredients make this an interesting target for a computer player. First,
           the partner card creates a hidden-information layer on top of the usual
           trick-taking. Every play is also a communication, and inferring who's on whose
           team from observed plays is its own sub-problem. Second, the point cards are
-          concentrated (Q♠ alone is 10% of the deck), so whether you fed the 30-pointer
+          concentrated (Q♠ alone is 10% of all points), so whether you fed the 30-pointer
           or held it back dominates the scoring.
         </p>
       </Section>
@@ -339,8 +338,8 @@ function GenerationsTab() {
           weight's magnitude), evaluates each on ~120 mixed-personality games (mirror-replayed
           for variance reduction), and promotes the winner. From Hard-2 onward a
           <em>non-regression promotion gate</em> rejects any candidate that loses head-to-head
-          against the previous generation, single-opponent fitness alone produced opponent-
-          overfit weights.
+          against the previous generation. Single-opponent fitness produced opponent-overfit
+          weights, so it is no longer used as the promotion standard.
         </p>
         <p>
           <span className="text-stone-100 font-medium">Hard-3 additions.</span> A Bayesian-style
@@ -357,8 +356,8 @@ function GenerationsTab() {
         <p>
           Hard-3 sat at the ceiling of the utility-function representation. Three attempts at
           further weight tuning, single-opponent ES, multi-hop inference propagation, soft
-          ally-probability scaling, landed within ±0.2pp. The signal had bottomed out under
-          the noise floor. The next gain demanded a different shape.
+          ally-probability scaling, and related small features landed within the noise floor.
+          The next gain needed a different representation.
         </p>
         <p>
           <span className="text-stone-100 font-medium">ISMCTS.</span> Hard-4 runs Information-
@@ -367,8 +366,8 @@ function GenerationsTab() {
           consistent with the belief), runs a UCB-guided rollout from the current state, and
           backpropagates the team's captured points (not just the searching player's, which
           was a structural fix during development). Rollouts use a team-aware tactical
-          policy, smear/defend/Q♠-aware, rather than random play, which is the single
-          biggest lever over a baseline ISMCTS.
+          policy that knows how to smear, defend Q♠, and win cheaply. That tactical rollout
+          was the largest improvement over baseline random rollouts.
         </p>
         <p>
           <span className="text-stone-100 font-medium">Belief tracker.</span> A hard-constraint
@@ -388,6 +387,14 @@ function GenerationsTab() {
           likely hand configurations.
         </p>
         <p>
+          <span className="text-stone-100 font-medium">Discard guard.</span> After qualitative
+          trace review, Hard-4 also has a narrow post-search guard for a clear tactical error:
+          dumping a non-trump point card onto a trick a known enemy is already winning when a
+          cheaper non-trump discard is legal. The same guard now protects Hard, Hard-2, and
+          Hard-3 in TypeScript. It is deliberately small, and recent matrix checks show it as
+          a modest cleanup rather than a new generation.
+        </p>
+        <p>
           <span className="text-stone-100 font-medium">Engineering.</span> The whole stack is
           implemented in Rust (~1900 LOC) and compiled to WebAssembly (~190 KB shipped). A
           thin TypeScript driver warms the module at app startup and falls back to Hard-3 if
@@ -396,7 +403,7 @@ function GenerationsTab() {
         </p>
       </Section>
 
-      <Figure caption="Each generation card: paradigm, weight count, per-seat edge vs Normal (light shuffle, 2500 pairs × 2 mirror).">
+      <Figure caption="Each generation card: paradigm, weight count, and historical per-seat edge vs Normal where measured on the light-shuffle mirror harness.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {GENS.map((g) => (
             <div
@@ -440,8 +447,14 @@ function ResultsTab() {
           shuffle intensity 0 (Light)</strong>, see "Shuffle intensity" below for how strength
           varies across intensities.
         </p>
+        <p>
+          The newest discard-guard matrix did not change the ordering. It gave Hard,
+          Hard-2, and Hard-3 small gains against Normal (+0.30pp to +0.66pp), while internal
+          hard-family matchups moved by less than half a point. That is useful cleanup, not
+          evidence for a new named generation.
+        </p>
 
-        <Figure caption="Matchup matrix. Bars show per-seat win rate; edge = A − B in percentage points.">
+        <Figure caption="Matchup matrix. Bars show per-seat win rate; edge is A minus B in percentage points.">
           <div className="space-y-2.5">
             {MATCHUP.map((m) => {
               const edge = m.aWin - m.bWin;
@@ -490,7 +503,7 @@ function ResultsTab() {
       <Section id="archetypes" kicker="§5b" title="Hand archetypes, a strategic vocabulary">
         <p>
           The same hand can play three different <em>roles</em> in a game, caller, partner,
-          opposing, and the dominant role is determined more by hand <em>shape</em> than
+          or opposing, and the dominant role is determined more by hand <em>shape</em> than
           raw point count. Three orthogonal scores capture this:
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-5 text-[12px]">
@@ -533,7 +546,7 @@ function ResultsTab() {
         <ul className="space-y-1.5 text-[13px] text-stone-300 pl-5 list-disc">
           <li><b className="text-stone-100">"Strong caller, partner-rich"</b>, high caller-score and partner-score ≥ 2. The classic dilemma: bid yourself, or let someone else win and likely play as partner.</li>
           <li><b className="text-stone-100">"Partner-magnet"</b>, partner-score ≥ 4 but unremarkable caller-score. Just let the bid stay low; you'll be on the winning side anyway.</li>
-          <li><b className="text-stone-100">"High-feeder, opposing-side"</b>, partner-score ≤ 1 with lots of unprotected 10s/5s. Push the bid up so the caller's threshold goes higher, the alternative is bleeding to an easily-made bid.</li>
+          <li><b className="text-stone-100">"High-feeder, opposing-side"</b>, partner-score ≤ 1 with lots of unprotected 10s/5s. Push the bid up so the caller's threshold goes higher; the alternative is bleeding to an easily-made bid.</li>
           <li><b className="text-stone-100">"Weak opposing-side"</b>, low across all three. No good plays available; minimize damage.</li>
         </ul>
         <p>
@@ -556,7 +569,7 @@ function ResultsTab() {
         </p>
         <p>
           Hard-3 was tuned against Light shuffles, but the AI itself never references the
-          shuffle parameter in its decision code, it just reads the hand it was dealt and
+          shuffle parameter in its decision code. It just reads the hand it was dealt and
           evaluates from there. So the question is: <em>does the AI's edge over a baseline
           survive at higher intensities?</em>
         </p>
@@ -654,7 +667,7 @@ function MethodTab() {
 // ---------------------------------------------------------------------------
 //  Failures tab, deep-dive on every concept that didn't pan out.
 //
-//  The Method tab's TRIED table lists ALL experiments with one-line verdicts.
+//  The Method tab's TRIED table lists every experiment with one-line verdicts.
 //  This tab is just the ones that DIDN'T work, with prose explanations of
 //  WHY each one failed. Useful both as a research log and as a guard against
 //  a future Claude (or human) re-running the same experiment.
@@ -673,7 +686,7 @@ const FAILURES: FailureEntry[] = [
     title: "Single-opponent ES tuning",
     hypothesis: "Evolutionary search against the rule-based Hard would find a better Hard-2.",
     result: "Candidates beat Hard on training seeds but lost to prior tuned gens on fresh seeds.",
-    why: "The fitness signal narrowly maximizes performance against ONE opponent's quirks. Specialized weights gain on training games but don't generalize, they're effectively memorizing how to exploit Hard, not playing better Black Queen. The fix: multi-opponent fitness + non-regression promotion gate against ALL prior gens.",
+    why: "The fitness signal narrowly maximizes performance against one opponent's quirks. Specialized weights gain on training games but don't generalize. They learn how to exploit Hard rather than how to play better Black Queen. The fix was multi-opponent fitness plus a non-regression promotion gate against prior generations.",
     verdict: "regress",
   },
   {
@@ -694,56 +707,56 @@ const FAILURES: FailureEntry[] = [
     title: "Hard-4 minimax endgame solver",
     hypothesis: "At ≤ 3 tricks remaining, the game is small enough to solve exactly with minimax.",
     result: "Regressed by ~1pp in mirror replay vs Hard-3 opponent.",
-    why: "Minimax assumes adversarially-OPTIMAL opponents. But the actual test opponent (Hard-3) plays HEURISTICALLY. The solver picks moves that are best against perfect play but suboptimal against Hard-3's heuristics, it 'plays scared' of an opponent that isn't there. Gated behind BQ_ENDGAME=1; the proper fix is ISMCTS-in-endgame, which inherits the same opponent model the rest of the search uses.",
+    why: "Minimax assumes adversarially optimal opponents. The actual test opponent, Hard-3, plays heuristically. The solver picks moves that are best against perfect play but suboptimal against Hard-3's habits, so it over-defends against threats that the opponent is unlikely to find. It remains gated behind BQ_ENDGAME=1. The proper fix is ISMCTS-in-endgame, which uses the same opponent model as the rest of the search.",
     verdict: "regress",
   },
   {
     title: "Hard-4 soft bid-strength belief prior",
     hypothesis: "A player who bid 200+ probably has aces and Q♠. Bias the determinization sampler toward that.",
     result: "Regressed by ~3pp at default magnitudes.",
-    why: "The bias bumps (1.3× / 1.5× multipliers) were uncalibrated, set by intuition, never tuned. Even a directionally-correct prior can hurt if its strength is wrong. The fix would be ES tuning of the prior magnitudes; gated behind BQ_BIDPRIOR=1.",
+    why: "The bias bumps (1.3x / 1.5x multipliers) were set by intuition and never tuned. Even a directionally correct prior can hurt if its strength is wrong. The fix would be ES tuning of the prior magnitudes. It remains gated behind BQ_BIDPRIOR=1.",
     verdict: "regress",
   },
   {
     title: "Shuffle-robust 'Hard-A' generation",
     hypothesis: "Hard-3 was tuned on Light shuffle; maybe a separate model tuned on randomized intensity would be more robust.",
     result: "Wash, AI doesn't reference shuffle anywhere; degradation at high shuffle was mostly game-variance.",
-    why: "The Hard-3 vs Normal edge collapses from +16.35pp (Light) to +3.57pp (Full), but Hard-3 vs Hard only goes from +4.55pp to +2.45pp. If Hard-3 were uniquely miscalibrated for Light, both would degrade similarly. The asymmetric collapse points to the GAME getting more luck-bound (flatter hands → fewer committed-to-fail bids → less skill differential available), not the AI breaking. A shuffle-robust gen wouldn't have helped.",
+    why: "The Hard-3 vs Normal edge collapses from +16.35pp (Light) to +3.57pp (Full), but Hard-3 vs Hard only goes from +4.55pp to +2.45pp. If Hard-3 were uniquely miscalibrated for Light, both would degrade similarly. The asymmetric collapse points to the game getting more luck-bound: flatter hands, fewer committed-to-fail bids, and less skill differential available. A shuffle-robust gen would not have helped much.",
     verdict: "wash",
   },
   {
     title: "Hard-5: ES-tune Hard-4 intent weights",
     hypothesis: "Hard-4's 9 IntentWeights (LLR magnitudes) were hand-set; ES tuning should find improvements like it did for Hard-3's weight vector.",
     result: "Two 20-gen runs both verified at −0.20pp on fresh seeds (within 1σ of noise).",
-    why: "The intent magnitudes were already at a plateau. The first run (no anchor gate) drifted into overfit territory exactly as expected (training-set wins → verification null). The second run (gated against frozen Default) saw the gate correctly block drift, but ALSO couldn't find genuine improvement, suggesting the defaults are already near-optimal for this representation. Same ceiling that Hard-3 hit before Hard-4's paradigm shift.",
+    why: "The intent magnitudes were already at a plateau. The first run, with no anchor gate, drifted into overfit territory: training-set wins, verification null. The second run, gated against frozen Default, correctly blocked drift but still could not find genuine improvement. That suggests the defaults are already near-optimal for this representation, similar to the ceiling Hard-3 hit before Hard-4's paradigm shift.",
     verdict: "regress",
   },
   {
     title: "Threshold-optimization rollout backprop",
     hypothesis: "Black Queen's scoring is an indicator function (made bid → +bid, failed → −bid). The natural ISMCTS rollout value should be P(team makes bid), not captured points / 300.",
     result: "Pure binary: −1.47pp at N=300. Hybrid (0.5·EV + 0.5·win): +1.93pp at N=300 → −0.20pp at N=500.",
-    why: "Pure binary outcomes are too SPARSE a signal for UCB at finite rollouts, most rollouts at competent play have a fairly determined outcome, so the value collapses to 0 or 1 for nearly every move, losing the per-action differentiation that drives MCTS. The EV proxy is continuous and correlates near-monotonically with win probability, so adding the threshold jump on top adds no real signal at this search depth. (Could become useful at deeper search where the outcome is more uncertain per rollout.)",
+    why: "Pure binary outcomes are too sparse a signal for UCB at finite rollouts. Most competent rollouts have a fairly determined outcome, so the value collapses to 0 or 1 for nearly every move and loses the per-action differentiation that drives MCTS. The EV proxy is continuous and correlates near-monotonically with win probability, so adding the threshold jump adds no real signal at this search depth. It could become useful at deeper search, where each rollout outcome is less settled.",
     verdict: "regress",
   },
   {
     title: "Partner-aware bidding (symmetric)",
     hypothesis: "Hands rich in Aces and Q♠ are likely to be partner → bid less. Hands poor in them are locked-in opposing → bid more (push caller into failure).",
     result: "Regressed by 2.00pp at N=300.",
-    why: "The 'bid less when partner-rich' direction was a strategic mistake. A hand with 4 Aces + Q♠ ISN'T weak, it's STRONG. The default capacity formula already values it correctly and would have it bid aggressively. Artificially lowering its target told the AI to defer when it should have called itself. The fix was to make the heuristic asymmetric: only raise bids for partner-poor hands.",
+    why: "The 'bid less when partner-rich' direction was a strategic mistake. A hand with 4 Aces plus Q♠ is strong. The default capacity formula already values it correctly and would have it bid aggressively. Artificially lowering its target told the AI to defer when it should have called itself. The fix was to make the heuristic asymmetric: only raise bids for partner-poor hands.",
     verdict: "regress",
   },
   {
     title: "Partner-aware bidding (asymmetric)",
-    hypothesis: "Same as above but ONLY raise bid for clearly partner-poor hands (no Aces, no Q♠, no Kings); never lower.",
+    hypothesis: "Same as above, but only raise bid for clearly partner-poor hands (no Aces, no Q♠, no Kings); never lower.",
     result: "+0.07pp at N=600. Statistically zero.",
-    why: "The trigger condition is rare, most hands have at least one Ace or King. And of the hands that DO trigger, the default Hard-4 bidder already mostly passes (weak hand → low capacity → no bid). The narrow remaining window where (hand is trigger-weak) ∧ (default would still bid) ∧ (+10pp would cross the caller-fail threshold) is < 5% of games. Even strong intra-window effect averages to zero. The strategic insight is sound, but a heuristic implementation can't extract enough of it; a proper search-based bidder would be needed.",
+    why: "The trigger condition is rare. Most hands have at least one Ace or King. Of the hands that do trigger, the default Hard-4 bidder already mostly passes because weak hands imply low capacity. The remaining window, where the hand is trigger-weak, the default would still bid, and +10pp would cross the caller-fail threshold, is under 5% of games. The strategic insight is sound, but this heuristic cannot extract enough of it. A proper search-based bidder would be needed.",
     verdict: "wash",
   },
   {
     title: "Archetype-aware bidding (partner + feeder + caller)",
-    hypothesis: "Use all three hand-archetype scores together. Push bid up when locked-out of partner role AND feeder-rich (lots to lose at low bid). Lower bid slightly when partner-magnet but weak caller (will be partner anyway, no need to fight).",
+    hypothesis: "Use all three hand-archetype scores together. Push bid up when locked out of partner role and feeder-rich (lots to lose at low bid). Lower bid slightly when partner-magnet but weak caller (will be partner anyway, no need to fight).",
     result: "−0.10pp at N=600. Statistically zero again.",
-    why: "The richer feature set widens the trigger window vs partner-aware-only, but doesn't change the underlying limit: the default bidder is already passing on weak hands and bidding aggressively on strong ones. The fitness-relevant window is the narrow band where the heuristic disagrees with the default AND the disagreement matters at the game's final outcome. Across the four attempted bid-adjustment heuristics, that window appears to be smaller than the measurement noise floor of a reasonable A/B. To actually move bidding strength would take a real search-based bidder (sample N self-hand-consistent worlds, run mini-MCTS at each bid level) rather than any closed-form adjustment.",
+    why: "The richer feature set widens the trigger window compared with partner-aware-only, but it does not change the underlying limit: the default bidder already passes on weak hands and bids aggressively on strong ones. The relevant window is the narrow band where the heuristic disagrees with the default and the disagreement affects the final outcome. Across the bid-adjustment attempts, that window appears smaller than the measurement noise floor of a reasonable A/B. Moving bidding strength will likely require a real search-based bidder rather than another closed-form adjustment.",
     verdict: "wash",
   },
 ];
@@ -757,9 +770,8 @@ function FailuresTab() {
         Every ambitious-sounding AI idea that <em>didn't</em> measurably improve the agent.
         Some regressed measurably; some came in at the noise floor. Listed here so the
         strategic intuition each represents is preserved, alongside the empirical reason it
-        didn't translate. A separate &ldquo;sound idea, wrong scale&rdquo; tag is missing from the
-        list, many of these ARE good ideas that should work given more compute or a
-        different architecture.
+        didn't translate. Many of these are sound ideas at the wrong scale: they may work
+        with more compute or a different architecture, but they did not pay off here.
       </p>
 
       <div className="text-[10px] uppercase tracking-widest text-rose-300/80 mt-6 mb-2">Regressions ({regressions.length})</div>
@@ -777,8 +789,8 @@ function FailuresTab() {
         ceiling of the current architecture (single-rooted ISMCTS at ~300 ms with hand-coded
         rollout policy), not because the strategy is wrong, but because the limited search
         depth or representation can't extract enough signal to overcome noise. The right
-        next step is architectural (tree-structured ISMCTS, neural rollout policy, learned
-        belief representation), not more strategy patches.
+        next step is architectural: tree-structured ISMCTS, a stronger rollout policy, or
+        learned belief representation.
       </p>
     </Section>
   );
@@ -818,8 +830,8 @@ function RoadmapTab() {
         work. Two 20-generation runs both verified at &minus;0.20pp on fresh seeds.
         Hard-4's hand-set intent defaults turned out to already be near-optimal for
         this representation, the same ceiling Hard-3 hit before Hard-4 broke into a new
-        paradigm. The remaining headroom isn't in tuning what's there. It's in
-        architectural changes:
+        paradigm. The remaining headroom is not in tuning what is already there. It is in
+        architecture:
       </p>
       <div className="space-y-2.5 my-4">
         {FUTURE.map((f) => (
@@ -945,7 +957,7 @@ const GLOSSARY: GlossaryEntry[] = [
   },
   {
     term: "σ / standard error",
-    def: "The expected spread of a measurement due to random sampling noise. An edge of +3pp at SE ≈ 1pp is ~3σ — strong statistical signal. At SE ≈ 2pp it's only ~1.5σ — could easily be noise.",
+    def: "The expected spread of a measurement due to random sampling noise. An edge of +3pp at SE ≈ 1pp is ~3σ, which is a strong statistical signal. At SE ≈ 2pp it is only ~1.5σ and could easily be noise.",
   },
   {
     term: "WASM (WebAssembly)",

@@ -1,87 +1,120 @@
 # How the strongest AIs were built
 
-A 5-player Black Queen game with hidden partnerships and bidding. Four AI generations live in production. The first three (Hard, Hard-2, Hard-3) are utility-function-based with hand-tuned + evolved scalar weights. The fourth (Hard-4) is a different paradigm entirely: Information-Set Monte Carlo Tree Search with a belief tracker, implemented in Rust and shipped to the browser via WASM.
+Black Queen is a 5-player trick-taking game with hidden partnerships, bidding, trump, and 300 card-points in the deck. Four AI generations live in production. Hard, Hard-2, and Hard-3 use a tuned utility function. Hard-4 uses Information-Set Monte Carlo Tree Search with a belief tracker, implemented in Rust and shipped to the browser through WebAssembly.
 
-## Generation 1–3: Hand-crafted utility function
+## Hard through Hard-3: tuned utility play
 
-### The approach in one line
+The first three hard AIs share the same basic design: score every legal action, choose the best-scoring action, and tune the scalar weights by simulation.
 
-A hand-crafted utility function with ~55 tunable scalars, refined by evolutionary search over millions of simulated games, with belief-propagation-style team inference layered on top.
+### What the utility function scores
 
-### What's inside
+Each move is scored as expected team points captured minus card spend cost, plus situational features:
 
-**1. Tunable scoring function**
-Every play is scored as expected team-captured-points minus the spend cost of the card, plus situational bonuses (smear toward known ally, penalty for feeding the enemy, special handling for the Queen of Spades, void-creation rewards for shedding a near-empty suit). ~55 scalar weights expose every magic number to optimization.
+- smear high-point cards onto tricks a known ally is winning
+- avoid feeding points to known enemies
+- special handling for Q♠, including commit and dump thresholds
+- void-creation rewards when shedding a near-empty suit
+- bid and declare strength from trump length, top cards, voids, point cards, and partner-card quality
 
-**2. Evolutionary tuning**
-A (1+λ)-Evolution Strategy with self-adaptive sigma (1/5-success rule). Each generation samples 12 weight-vector mutations relative to the current best, evaluates them on 80–150 simulated games each, and promotes the strongest. Mirror-replay paired evaluation (every random seed is played twice with the personalities swapped) cancels out seat and shuffle variance.
+Hard is the locked baseline. Hard-2 is the first evolutionary tuning pass. Hard-3 adds alliance inference and void-creation features, then retunes the weight set.
 
-**3. Multi-opponent fitness**
-Fitness isn't just "beat the rule-based AI" — that opponent-overfits. The tuner runs each candidate against a *mix* of the locked baseline and the previous generation's tuned weights, so improvements have to generalize. A promotion gate blocks any candidate that regresses against the prior generation.
+### How tuning works
 
-**4. Bayesian-style team inference**
-Black Queen's defining feature is hidden partnerships. The strongest utility-function AI maintains a per-player probability of "is on the caller's team", updated from observed play patterns: a player who voluntarily feeds a high-point card to a trick they aren't winning is signaling whose side they're on. A threshold-gate promotes high-confidence inferences to "treat as confirmed ally / enemy."
+The tuner uses a `(1+λ)` Evolution Strategy. Each generation mutates the current best weight vector, evaluates candidates through seeded games, and promotes only candidates that improve on fresh checks. Mirror replay is used whenever the expected edge is small: each seed is played twice, with the AIs swapped across seats, so seat order and deal variance mostly cancel out.
 
-**5. Generation pipeline**
-Three selectable AI personalities live in production: **Hard** (locked rule-based baseline), **Hard-2** (first evolutionary refinement), **Hard-3** (added alliance inference + void-creation, re-tuned over 100 generations). Each generation's weights are archived as a versioned JSON and loaded into a distinct runtime slot.
+Single-opponent tuning was abandoned because it overfit. Candidates that trained only against Hard learned Hard's quirks and failed against prior tuned generations. The current promotion discipline uses multi-opponent fitness plus a non-regression gate.
 
-## Generation 4: Information-Set MCTS
+### Team inference
 
-A different paradigm. Hard-3 represents the ceiling of "tunable utility function" — every recent tuning attempt landed within noise. Hard-4 changes the representation and the algorithm:
+Black Queen's partner card makes every play a possible signal. Hard-3 tracks a probability that each unknown player is on the caller's team. Voluntary point-feeds are evidence, forced plays are not. Once confidence crosses a threshold, the player is treated as an inferred ally or enemy and the normal smear/feed gates apply.
 
-**1. Belief state**
-For each unplayed card, maintain a multiset count of remaining copies (1 or 2 in the 65-card deck). For each opponent, maintain a set of cards they provably cannot hold, derived from observed play: suit voids (off-suit when you couldn't follow), played cards (now gone), the declared partner card (caller can't hold all copies). Hard constraints only in the shipped version; soft signals (bid-strength priors, smear/withhold inference) are gated off pending calibration.
+## Hard-4: search over hidden information
 
-**2. Information-Set Monte Carlo Tree Search**
-For each move decision: (a) sample a determinization from the belief state — a complete assignment of unseen cards to opponent hands consistent with all known constraints; (b) from the root, pick a candidate move via UCB1; (c) play that move and roll out to game completion using a team-aware tactical policy; (d) backpropagate the team's captured-points share. Repeat for a time-budget worth of iterations (300ms in browser by default, configurable). Most-visited root action wins.
+Hard-4 changed the representation. Instead of a one-ply utility score, it samples plausible worlds and searches through them.
 
-**3. Team-aware everything**
-The rollout policy uses full information inside each determinization, identifies caller-team via the partner card, and plays accordingly: smear high-point cards onto ally-won tricks, defend Q♠, win cheaply when points are on the table, don't dump points onto enemy tricks. The ISMCTS value backprop sums the AI's *whole team's* captured points, not just self's pile — getting this right was a structural fix in Session 1.6.
+### Belief state
 
-**4. Opponent-intent Bayesian inference (Session 2)**
-For each opponent not yet known-team, maintain a log-likelihood ratio for "is on caller team" vs "is opposing team". Update from observed plays scaled by *voluntariness* — the player had a meaningful alternative that would have signaled the opposite team allegiance. Eight calibrated signals: voluntary point-feed (+ per 5pts), voluntary Q♠ feed (special bonus, strongest signal), voluntary withhold, voluntary trumping of caller- or opposing-winning trick, voluntary low-card steal of points. Posteriors bias the determinization sampler toward configurations where the partner card lives in a likely-ally hand. **This was the lever that pushed Hard-4 decisively past Hard-3.**
+The belief tracker records what each opponent can still hold. It uses hard constraints from the public game history:
 
-**5. Rust → WASM deployment**
-The engine, belief tracker, intent tracker, and search are written in Rust (4-crate workspace) and compiled to WASM. The browser loads a ~190KB `.wasm` artifact and runs Hard-4 entirely client-side. A parallel `--target nodejs` build powers headless arena tests. Native CLI throughput: 60k+ random games/sec. WASM per-move latency: ~300ms.
+- played cards are gone
+- a player who failed to follow suit is void in that suit
+- the declared partner card cannot be in impossible hands
+- every sampled hand must preserve the remaining hand sizes
 
-**6. Why a different paradigm**
-Hard-3's utility function plays myopically — one ply at a time, scoring the current move only. Hard-4 plays with multi-ply look-ahead through search; every decision considers hundreds of imagined futures and picks the move that wins the most of them. The two paradigms have different strengths: Hard-3 wins on tightly-tuned scalar calibration; Hard-4 wins on planning, uncertainty handling, and continuous probabilistic intent inference (which a utility function structurally can't express well).
+### Information-Set MCTS
+
+For each move, Hard-4 repeatedly samples a determinization: one complete assignment of unseen cards that fits the belief state. It then runs a UCB-guided rollout from the current position, using a tactical policy rather than random play. The rollout values the whole team's captured points, not just the searching player's pile.
+
+That team-aware backpropagation was a structural fix. In a partnership game, a trick lost to your partner can be good.
+
+### Opponent-intent inference
+
+Hard-4 also maintains a log-likelihood ratio for each unknown player's team alignment. The tracker updates from voluntary signals such as point-feeds, Q♠ feeds, withholds, trumping a caller-winning trick, or stealing points from the opposing team. These signals bias the determinization sampler toward worlds where the partner card is in a likely ally's hand.
+
+This was the decisive lever. With intent inference off, Hard-4 is roughly tied with Hard-3. With it on, Hard-4 is the strongest AI in the lineup.
+
+### Discard guards
+
+Qualitative trace review found a repeatable mistake: hard AIs sometimes dumped a non-trump point card onto a trick a known enemy was already winning, even when a cheaper non-trump discard was legal. Hard-4 now has a narrow Rust-side post-search guard for that case. Hard, Hard-2, and Hard-3 have the matching TypeScript guard.
+
+This is a small cleanup, not a new generation. The TS guard matrix showed +0.30pp to +0.66pp against Normal, with no meaningful ordering change inside the hard family.
 
 ## Current strength
 
-Verified by mirror-replay paired evaluation (each seed played twice, personalities swapped, variance cancels):
+The primary strength numbers come from mirror-replay paired evaluation on light shuffle:
 
-| Matchup | Hard-4 edge | Sample size |
-|---|---|---|
-| Hard-4 vs Hard-3 | **+3.92pp** (~4σ) | 500 mirror pairs |
-| Hard-4 vs Hard-2 | **+3.80pp** | 300 mirror pairs |
-| Hard-4 vs Hard   | **+5.32pp** | 500 mirror pairs |
-| Hard-4 vs Normal | **+7.20pp** | 200 mirror pairs |
-| Hard-3 vs Hard-2 | ~0pp | (reference) |
-| Hard-3 vs Hard | +4.5–6pp | (reference) |
-| Hard-3 vs Normal | +15.7pp | (reference) |
+| Matchup | Edge | Sample |
+|---|---:|---|
+| Hard-4 vs Hard-3 | +3.92pp | 500 mirror pairs |
+| Hard-4 vs Hard-2 | +3.80pp | 300 mirror pairs |
+| Hard-4 vs Hard | +5.32pp | 500 mirror pairs |
+| Hard-4 vs Normal | +7.20pp | 200 mirror pairs |
+| Hard-3 vs Hard | +4.5pp to +6pp | reference matrix |
+| Hard-3 vs Normal | about +15.7pp | reference matrix |
 
-Hard-4 is now the strongest AI, beating every prior generation. The intent tracker is the decisive lever — without it (intent OFF), Hard-4 vs Hard-3 is approximately tied. With it, Hard-4 wins by +3.92pp at high statistical significance.
+Hard-4 is strongest overall. Hard-3 still has the largest measured edge over Normal in some older utility-only matrices, but Hard-4 wins the direct head-to-heads against prior hard generations.
 
-## What didn't work (across all generations)
+## What did not work
 
-- **Single-opponent ES tuning** opponent-overfits — candidates beat Hard on training seeds but lose to prior tuned gens. Switched to multi-opponent fitness with non-regression gate.
-- **Soft probability scaling of smear/feed signals** (treating ally-probability as a gradient) regressed Hard-2 by ~1pp because weights were calibrated for binary gates. Reverted to threshold-gate integration.
-- **Belief propagation across unknowns** (multi-hop inference) moved the needle by ~0.06pp — kept in codebase, off by default.
-- **Hard-4 minimax endgame solver** regressed by ~1pp in A/B testing. Reason: minimax assumes adversarially-optimal opponents, but Hard-3 (the test opponent) plays heuristically. Solver picks moves good vs perfect play but suboptimal vs the actual opponent. Kept in codebase; future fix would be ISMCTS-in-endgame matching opponent model.
-- **Hard-4 soft bid-strength belief prior** regressed by ~3pp at default weights. Bias direction was uncalibrated. Kept in codebase; needs ES tuning to find the right strength.
+- Single-opponent ES tuning overfit to the opponent. Multi-opponent fitness replaced it.
+- Soft alliance-probability scaling regressed because the scoring weights were calibrated for binary ally/enemy gates.
+- Multi-hop inference propagation moved only +0.06pp and remains off by default.
+- The minimax endgame solver regressed by about 1pp. It assumed perfect opponents, while the real opponents are heuristic.
+- The soft bid-strength belief prior regressed by about 3pp at default magnitudes. The direction may be useful, but the strength needs tuning.
+- ES tuning of Hard-4 intent weights verified at −0.20pp on fresh seeds. The current intent magnitudes appear near a plateau for this representation.
+- Threshold-based rollout value, `P(team makes bid)`, sounded theoretically right but lost the smoother action signal supplied by captured-points EV.
+- Partner-aware and archetype-aware bidding heuristics landed at noise. A real search-based bidder is the better path.
 
-## How it was measured
+## How to measure changes
 
-Four harnesses, all reproducible from the CLI:
-- **Arena** (`src/game/arena.ts`) — N-game benchmark across personality mixes; ~3,500 games/sec throughput.
-- **Mirror arena** (`src/game/_mirror_arena.ts`) — paired-seed mirror replay; cuts variance significantly, makes small edges measurable.
-- **Tournament** (`src/game/_tournament.ts`) — head-to-head matrix across every AI generation plus baselines.
-- **A/B feature gates** (`src/game/_ab_*.ts`) — same-seed before/after comparison for any single feature, so behavior changes are isolated from variance.
+Use the variance-canceling harness for small edges:
 
-End-to-end: every architectural change is gated by an A/B test before tuning, and every tuned candidate is validated against the full tournament on fresh seeds before shipping.
+```bash
+npx tsx src/game/_mirror_arena.ts 500 hard-4 hard-3
+```
 
----
+Use the deterministic matrix harness for same-seed one-vs-four checks:
 
-Total tuning compute (Hard-2/Hard-3): ~150k–200k simulated games per generation, all on a laptop CPU under seeded RNG.
-Hard-4 inference: ~300ms per move at 300–1000 ISMCTS iterations; native arena throughput ~3 games/sec.
+```bash
+HARD4_TIME_MS=80 npx tsx src/game/_matrix.ts 300 hard,hard-2,hard-3,hard-4,normal
+BQ_TS_DISCARD_GUARD_OFF=1 HARD4_TIME_MS=80 npx tsx src/game/_matrix.ts 1000 hard,hard-2,hard-3,normal
+```
+
+Use the smoke test after any AI change:
+
+```bash
+npx tsx src/game/smoketest.ts
+```
+
+The main rule: do not trust a small edge from a regular random-seat arena. Under about 5pp, use mirror replay or a paired A/B harness.
+
+## Best next directions
+
+The next likely gains are architectural:
+
+- tree-structured ISMCTS, so deeper decisions accumulate statistics instead of only root moves
+- search-based bidding and declaring, since Hard-4 still delegates both to Hard-3
+- ISMCTS-in-endgame, replacing the failed minimax solver with the same opponent model used elsewhere
+- better rollout policy or learned belief features, once there is a stable evaluation harness for them
+
+More small heuristic patches are lower priority unless trace review shows a clear, repeatable mistake.
