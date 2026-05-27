@@ -60,11 +60,38 @@ Even in these blowouts, fixing the discard logic would have:
 
 I'd estimate **~+1 to +3 pp net edge** for the AI if this single fix shipped cleanly. That's bigger than every Hard-5 experiment we ran.
 
-## What the fix could look like
+## Follow-up implemented: low-point enemy-discard guard
+
+Implemented in `rust/crates/bq-ai/src/hard4.rs` after ISMCTS returns a move.
+The guard is deliberately narrow:
+
+- It only fires when the chosen card is a non-trump discard.
+- It only fires when the current trick winner is outside the AI's value team.
+- It swaps to the lowest-point legal non-trump discard if one is strictly cheaper.
+- It avoids revealing the partner card solely because that card is cheap.
+
+This preserves intentional smears onto an ally-winning trick, so it addresses
+Error 1 directly. Error 2 (missed smears before a card dies later) remains a
+separate problem for rollout policy or value shaping.
+
+A/B result:
+
+| Run | Guarded | Baseline | Edge |
+|---|---:|---:|---:|
+| 300 pairs x 2 mirror, 30 ms, seed 0 | 53.27% | 53.60% | -0.33pp |
+| 300 pairs x 2 mirror, 80 ms, seed 100000 | 54.20% | 53.00% | +1.20pp |
+| 500 pairs x 2 mirror, 80 ms, seed 200000 | 54.96% | 53.72% | +1.24pp |
+
+Read: positive at the realistic 80 ms trace budget, but not a giant jump. The
+original +1 to +3pp estimate was plausible but optimistic; the observed edge is
+closer to +1pp and should still be treated as modest until a larger run confirms
+it.
+
+## What the remaining fix could look like
 
 Three options, in order of effort:
 
-1. **Add an explicit discard-ordering subroutine** that runs BEFORE the ISMCTS search returns its move: if the search's chosen card is a non-trump discard and there exists a legal alternative with strictly lower point value AND same suit category, swap to the lower-point card. Cheap to implement; preserves the search's strategic choice in every other case.
+1. **Add an explicit discard-ordering subroutine** that runs after the ISMCTS search returns its move: if the search's chosen card is a non-trump discard to an enemy-winning trick and there exists a legal alternative with strictly lower point value, swap to the lower-point card. Implemented as the low-point enemy-discard guard above.
 
 2. **Bias the rollout policy** to spend the lowest-point legal card when the rollout doesn't intend to win the trick. Same idea but inside the rollout instead of post-search. Slightly heavier, slightly more correct in expectation.
 

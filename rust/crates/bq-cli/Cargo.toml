@@ -35,3 +35,7 @@ path = "src/bin/compare_archetype.rs"
 [[bin]]
 name = "dump_game"
 path = "src/bin/dump_game.rs"
+
+[[bin]]
+name = "compare_discard_guard"
+path = "src/bin/compare_discard_guard.rs"

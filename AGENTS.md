@@ -241,6 +241,7 @@ Avoid re-spending budget on these:
 - **Pure minimax endgame solver** (`endgame.rs::solve_endgame` at ≤10 remaining cards) regressed by ~1pp in mirror replay. Assumes adversarially-optimal opponents, but Hard-3 plays heuristically; solver picks moves good against perfect opponents but suboptimal against the heuristic opponent. Kept in code (gated by `BQ_ENDGAME=1`); future fix is ISMCTS-in-endgame, not pure minimax.
 - **Naive bid-strength belief prior** (`belief.rs::apply_bid_strength_prior`) regressed by ~3pp at default weights. Bumps high bidders' probability of holding aces/Q♠/kings, but the bump magnitudes (1.3x/1.5x) were uncalibrated. Kept in code (gated by `BQ_BIDPRIOR=1`); needs ES tuning of the prior strength.
 - **Reading the regular arena (`arena.ts`) for small Hard-4 strength edges**: random seat assignment makes ±3pp noise common at 300-game N. We initially over-reported Hard-4's strength by ~3pp before adding mirror replay. Use `_mirror_arena.ts` for any measurement under ~5pp.
+- **Low-point enemy-discard guard** (`hard4.rs::low_point_enemy_discard_guard`) is default ON. It post-processes an ISMCTS move only when Hard-4 chose a non-trump point-card discard onto an enemy-winning trick and a cheaper non-trump discard is legal. It preserves smears to ally-winning tricks and avoids revealing partner card only because it is cheap. A/B: 30ms N=300 was -0.33pp; 80ms N=300 was +1.20pp; 80ms N=500 was +1.24pp. Treat as a modest tactical fix, not a new generation.
 
 ---
 

@@ -9,10 +9,11 @@
 
 use crate::belief::BeliefState;
 use crate::handeval::{evaluate_hand, estimate_bid_capacity};
-use crate::intent::{IntentTracker, IntentWeights};
+use crate::intent::IntentTracker;
 use crate::ismcts::{ismcts_play, SearchParams};
 use bq_engine::deck::build_deck;
 use bq_engine::rng::GameRng;
+use bq_engine::rules::{legal_play_indices, trick_winner};
 use bq_engine::types::{Card, GameState, PlayerId, Suit, Trick, TrickPlay};
 use std::time::Duration;
 
@@ -210,6 +211,43 @@ fn partner_aware_bidding_enabled() -> bool {
     }
 }
 
+// ---------------------------------------------------------------------------
+//  Low-point enemy-discard guard.
+//
+//  Default = ON. Qualitative trace review found repeated cases where ISMCTS
+//  chose a point-card discard onto a trick currently won by the opposing team,
+//  despite having lower-point non-trump discards available. This post-search
+//  guard only fires for non-trump discards to an enemy-winning trick, so it
+//  preserves intentional smears when a teammate is already winning.
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
+mod discard_guard_cell {
+    use std::cell::RefCell;
+    thread_local! {
+        static OVERRIDE: RefCell<Option<bool>> = const { RefCell::new(None) };
+    }
+    pub fn set(b: Option<bool>) { OVERRIDE.with(|c| *c.borrow_mut() = b); }
+    pub fn get() -> Option<bool> { OVERRIDE.with(|c| *c.borrow()) }
+}
+
+pub fn set_discard_guard(enabled: bool) {
+    #[cfg(not(target_arch = "wasm32"))]
+    discard_guard_cell::set(Some(enabled));
+    #[cfg(target_arch = "wasm32")]
+    { let _ = enabled; }
+}
+
+fn discard_guard_enabled() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    { return true; }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Some(v) = discard_guard_cell::get() { return v; }
+        std::env::var("BQ_DISCARD_GUARD_OFF").ok().filter(|s| !s.is_empty()).is_none()
+    }
+}
+
 /// Decide trump suit and partner card.
 ///
 /// Trump: the suit our hand evaluator picks as strongest (not just longest).
@@ -340,10 +378,46 @@ pub fn hard4_play(
         min_iterations: 64,
         max_iterations: max_iters,
         self_id,
-        value_players,
+        value_players: value_players.clone(),
         ..Default::default()
     };
-    ismcts_play(state, &belief, rng, &params)
+    let chosen = ismcts_play(state, &belief, rng, &params);
+    if discard_guard_enabled() {
+        low_point_enemy_discard_guard(state, self_id, chosen, &value_players)
+    } else {
+        chosen
+    }
+}
+
+fn low_point_enemy_discard_guard(
+    state: &GameState,
+    self_id: PlayerId,
+    chosen: Card,
+    value_players: &[PlayerId],
+) -> Card {
+    let Some(trick) = state.current_trick.as_ref() else { return chosen };
+    let Some(led_suit) = trick.plays.first().map(|tp| tp.card.suit) else { return chosen };
+    if chosen.suit == led_suit || Some(chosen.suit) == state.trump || chosen.points() == 0 {
+        return chosen;
+    }
+
+    let current_winner = trick_winner(trick, state.trump);
+    if value_players.iter().any(|&p| p == current_winner) {
+        return chosen;
+    }
+
+    let partner_card = state.partner_card;
+    let legal = legal_play_indices(&state.hands[self_id as usize], Some(trick));
+    legal.iter()
+        .map(|&i| state.hands[self_id as usize][i])
+        .filter(|c| c.suit != led_suit)
+        .filter(|c| Some(c.suit) != state.trump)
+        .filter(|c| c.points() < chosen.points())
+        .filter(|c| {
+            Some(*c) != partner_card || Some(chosen) == partner_card || Some(self_id) == state.caller
+        })
+        .min_by_key(|c| (c.points(), c.rank))
+        .unwrap_or(chosen)
 }
 
 /// Intent inference is on by default on wasm32 (browser ships with it).
@@ -393,7 +467,7 @@ fn build_intent_tracker(state: &GameState, _self_id: PlayerId) -> IntentTracker 
     // Now replay tricks in order. For each play, compute hand-before-play =
     // initial_hand minus the cards they've played strictly BEFORE this one.
     let mut player_play_index = [0usize; 5];
-    let mut process_trick = |t: &Trick, tracker: &mut IntentTracker, ppi: &mut [usize; 5]| {
+    let process_trick = |t: &Trick, tracker: &mut IntentTracker, ppi: &mut [usize; 5]| {
         let mut trick_before = Trick {
             leader: t.leader,
             plays: Vec::new(),
@@ -517,5 +591,69 @@ mod tests {
         }
         assert_eq!(state.phase, Phase::Done);
         assert_eq!(state.captured_points.iter().sum::<u16>(), 300);
+    }
+
+    #[test]
+    fn discard_guard_swaps_point_card_on_enemy_won_trick() {
+        let state = GameState {
+            phase: Phase::Playing,
+            hands: vec![
+                vec![Card { suit: Suit::D, rank: 14 }, Card { suit: Suit::C, rank: 9 }],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+            ],
+            bids: vec![],
+            caller: Some(1),
+            winning_bid: Some(200),
+            trump: Some(Suit::S),
+            partner_card: Some(Card { suit: Suit::H, rank: 14 }),
+            tricks: vec![],
+            current_trick: Some(Trick {
+                leader: 1,
+                plays: vec![TrickPlay { player: 1, card: Card { suit: Suit::H, rank: 13 } }],
+                winner: None,
+                points: None,
+            }),
+            next_to_act: 0,
+            captured_points: vec![0; 5],
+            passed: vec![false; 5],
+        };
+        let chosen = Card { suit: Suit::D, rank: 14 };
+        let guarded = low_point_enemy_discard_guard(&state, 0, chosen, &[0, 2, 3, 4]);
+        assert_eq!(guarded, Card { suit: Suit::C, rank: 9 });
+    }
+
+    #[test]
+    fn discard_guard_preserves_smear_to_ally_won_trick() {
+        let state = GameState {
+            phase: Phase::Playing,
+            hands: vec![
+                vec![Card { suit: Suit::D, rank: 14 }, Card { suit: Suit::C, rank: 9 }],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+            ],
+            bids: vec![],
+            caller: Some(1),
+            winning_bid: Some(200),
+            trump: Some(Suit::S),
+            partner_card: Some(Card { suit: Suit::H, rank: 14 }),
+            tricks: vec![],
+            current_trick: Some(Trick {
+                leader: 1,
+                plays: vec![TrickPlay { player: 1, card: Card { suit: Suit::H, rank: 13 } }],
+                winner: None,
+                points: None,
+            }),
+            next_to_act: 0,
+            captured_points: vec![0; 5],
+            passed: vec![false; 5],
+        };
+        let chosen = Card { suit: Suit::D, rank: 14 };
+        let guarded = low_point_enemy_discard_guard(&state, 0, chosen, &[0, 1]);
+        assert_eq!(guarded, chosen);
     }
 }
