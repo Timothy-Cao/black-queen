@@ -101,6 +101,17 @@ const TRIED: TriedItem[] = [
   { label: "Minimax endgame solver",           result: "regress", note: "Hard-4: -1pp. Minimax assumes optimal opponents; Hard-3 plays heuristically. Kept gated." },
   { label: "Soft bid-strength belief prior",   result: "regress", note: "Hard-4: -3pp at default weights. Needs ES tuning to find right strength. Gated." },
   { label: "Opponent-intent Bayesian inference", result: "win",  note: "Hard-4 Session 2: +1.2pp over baseline; total Hard-4 vs Hard-3 = +3.92pp (~4σ). 8 calibrated signals scaled by voluntariness." },
+  { label: "Shuffle-robust 'Hard-A' generation",  result: "wash", note: "AI never references shuffle mode in code. Sweep across 5 intensities showed edge degradation is mostly game-variance, not AI miscalibration. Not worth a new generation." },
+];
+
+// Shuffle-intensity sweep data: Hard-3 vs Normal/Hard at five intensities.
+// Source: `npx tsx src/game/_shuffle_sweep.ts 1500 ...` (1500 game pairs × 2 mirror per cell).
+const SHUFFLE_SWEEP: { t: number; label: string; vsNormal: number; vsHard: number }[] = [
+  { t: 0.00, label: "Light",  vsNormal: 16.35, vsHard: 4.55 },
+  { t: 0.25, label: "25%",    vsNormal: 13.48, vsHard: 6.45 },
+  { t: 0.50, label: "50%",    vsNormal:  9.83, vsHard: 4.79 },
+  { t: 0.75, label: "75%",    vsNormal:  6.67, vsHard: 3.55 },
+  { t: 1.00, label: "Full",   vsNormal:  3.57, vsHard: 2.45 },
 ];
 
 const FUTURE: { label: string; note: string }[] = [
@@ -234,6 +245,65 @@ export function AIInfoModal({ onClose }: Props) {
               );
             })}
           </div>
+        </section>
+
+        {/* Shuffle intensity sweep */}
+        <section className="mb-6">
+          <div className="text-[10px] uppercase tracking-widest text-gold-400 mb-3">How shuffle intensity affects AI strength</div>
+          <div className="text-[11px] text-stone-400 mb-3">
+            The lobby slider blends from <i>Light</i> (biased deals — every hand has a long suit and a near-void) to <i>Full</i> (uniformly random). Higher intensity = flatter, more 4/3/3/3 hands.
+            The chart below shows Hard-3's per-seat win-rate edge against two opponents at each setting.
+          </div>
+          <div className="rounded-xl ring-1 ring-white/10 p-4 bg-black/20">
+            {(() => {
+              const maxEdge = Math.max(...SHUFFLE_SWEEP.flatMap((r) => [r.vsNormal, r.vsHard]));
+              return (
+                <div className="space-y-3">
+                  {SHUFFLE_SWEEP.map((r) => (
+                    <div key={r.t} className="grid grid-cols-[64px_1fr] gap-3 items-center text-[11px]">
+                      <div className="text-stone-400 font-mono">{r.label}</div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2.5 rounded-full bg-white/5 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${(r.vsNormal / maxEdge) * 100}%`, background: GEN_COLOR["Hard-3"] }}
+                            />
+                          </div>
+                          <span className="font-mono text-stone-300 w-14 text-right">+{r.vsNormal.toFixed(2)}pp</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${(r.vsHard / maxEdge) * 100}%`, background: GEN_COLOR["Hard"] }}
+                            />
+                          </div>
+                          <span className="font-mono text-stone-400 w-14 text-right">+{r.vsHard.toFixed(2)}pp</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            <div className="flex items-center justify-end gap-4 text-[10px] text-stone-500 mt-3 pt-3 border-t border-white/5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2.5 rounded-sm" style={{ background: GEN_COLOR["Hard-3"] }} />
+                Hard-3 vs Normal
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2 rounded-sm" style={{ background: GEN_COLOR["Hard"] }} />
+                Hard-3 vs Hard
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-stone-400 mt-3 leading-relaxed">
+            <b className="text-stone-200">The edge shrinks at higher intensity</b> — but mostly because the <i>game</i> gets more
+            luck-based, not because the AI is broken. Flatter hands → fewer committed-to-fail bids → less skill
+            differential available for <i>anyone</i> to exploit. The AI doesn't reference shuffle mode anywhere in
+            its decision code: it just plays the hand it's dealt.
+          </p>
         </section>
 
         {/* Method timeline */}
