@@ -23,8 +23,10 @@ use bq_engine::types::{Phase, PlayerId};
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
+use rayon::prelude::*;
 use std::fs;
 use std::io::Write;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 fn say(msg: &str) {
@@ -197,30 +199,37 @@ fn evaluate(
     time_ms: u64,
     seed_base: u64,
 ) -> (f64, f64) {
-    let mut cand_wins = 0u64;
-    let mut cand_seats = 0u64;
-    let mut base_wins = 0u64;
-    let mut base_seats = 0u64;
-    for i in 0..n {
-        // Random seat layout per pair. We use a separate cheap RNG just for
-        // layout selection — the game itself uses the seed below.
+    // Parallel reduction across pairs. Each pair plays two mirror games and
+    // contributes its 10 seat outcomes (5 original + 5 mirror) to the tallies.
+    // Atomic counters because rayon's reduce path is overkill for u64 sums.
+    let cand_wins = AtomicU64::new(0);
+    let cand_seats = AtomicU64::new(0);
+    let base_wins = AtomicU64::new(0);
+    let base_seats = AtomicU64::new(0);
+
+    (0..n).into_par_iter().for_each(|i| {
+        // Per-pair layout RNG (seeded independently — same pair always gets the
+        // same layout regardless of thread scheduling).
         let mut layout_rng = Xoshiro256PlusPlus::seed_from_u64(7 + i * 1009 + seed_base);
         let mut seats = [Slot::Baseline; 5];
         for k in 0..5 { seats[k] = if layout_rng.gen::<bool>() { Slot::Cand } else { Slot::Baseline }; }
-        // Force at least one of each.
         if !seats.iter().any(|s| *s == Slot::Cand) { seats[0] = Slot::Cand; }
         if !seats.iter().any(|s| *s == Slot::Baseline) { seats[1] = Slot::Baseline; }
 
         let game_seed = seed_base.wrapping_add(i.wrapping_mul(7919));
-        // Original layout.
+
+        let mut local_cand_w = 0u64;
+        let mut local_cand_s = 0u64;
+        let mut local_base_w = 0u64;
+        let mut local_base_s = 0u64;
+
         let w = play_one(seats, cand, baseline, time_ms, game_seed);
         for k in 0..5 {
             match seats[k] {
-                Slot::Cand => { cand_seats += 1; if w[k] { cand_wins += 1; } }
-                Slot::Baseline => { base_seats += 1; if w[k] { base_wins += 1; } }
+                Slot::Cand => { local_cand_s += 1; if w[k] { local_cand_w += 1; } }
+                Slot::Baseline => { local_base_s += 1; if w[k] { local_base_w += 1; } }
             }
         }
-        // Mirror layout: swap cand <-> baseline at every seat.
         let mirror: [Slot; 5] = std::array::from_fn(|k| match seats[k] {
             Slot::Cand => Slot::Baseline,
             Slot::Baseline => Slot::Cand,
@@ -228,12 +237,22 @@ fn evaluate(
         let w2 = play_one(mirror, cand, baseline, time_ms, game_seed);
         for k in 0..5 {
             match mirror[k] {
-                Slot::Cand => { cand_seats += 1; if w2[k] { cand_wins += 1; } }
-                Slot::Baseline => { base_seats += 1; if w2[k] { base_wins += 1; } }
+                Slot::Cand => { local_cand_s += 1; if w2[k] { local_cand_w += 1; } }
+                Slot::Baseline => { local_base_s += 1; if w2[k] { local_base_w += 1; } }
             }
         }
-    }
-    (cand_wins as f64 / cand_seats as f64, base_wins as f64 / base_seats as f64)
+
+        cand_wins.fetch_add(local_cand_w, Ordering::Relaxed);
+        cand_seats.fetch_add(local_cand_s, Ordering::Relaxed);
+        base_wins.fetch_add(local_base_w, Ordering::Relaxed);
+        base_seats.fetch_add(local_base_s, Ordering::Relaxed);
+    });
+
+    let cw = cand_wins.load(Ordering::Relaxed) as f64;
+    let cs = cand_seats.load(Ordering::Relaxed) as f64;
+    let bw = base_wins.load(Ordering::Relaxed) as f64;
+    let bs = base_seats.load(Ordering::Relaxed) as f64;
+    (cw / cs, bw / bs)
 }
 
 // ---------------------------------------------------------------------------

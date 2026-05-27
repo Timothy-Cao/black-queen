@@ -65,21 +65,22 @@ impl Default for IntentWeights {
 
 #[cfg(not(target_arch = "wasm32"))]
 mod override_cell {
+    // Thread-local on native so the ES tuner (rayon) can run candidates in
+    // parallel without races. Each rayon worker thread has its own override
+    // slot; setters before each hard4_play call only affect the calling thread.
     use super::IntentWeights;
-    use std::sync::RwLock;
-    use std::sync::OnceLock;
+    use std::cell::RefCell;
 
-    fn cell() -> &'static RwLock<Option<IntentWeights>> {
-        static CELL: OnceLock<RwLock<Option<IntentWeights>>> = OnceLock::new();
-        CELL.get_or_init(|| RwLock::new(None))
+    thread_local! {
+        static OVERRIDE: RefCell<Option<IntentWeights>> = const { RefCell::new(None) };
     }
 
     pub fn set(w: Option<IntentWeights>) {
-        *cell().write().unwrap() = w;
+        OVERRIDE.with(|c| *c.borrow_mut() = w);
     }
 
     pub fn get() -> IntentWeights {
-        cell().read().unwrap().clone().unwrap_or_default()
+        OVERRIDE.with(|c| c.borrow().clone().unwrap_or_default())
     }
 }
 
