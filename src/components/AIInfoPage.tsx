@@ -499,6 +499,65 @@ function ResultsTab() {
         </Figure>
       </Section>
 
+      <Section id="archetypes" kicker="§5b" title="Hand archetypes — a strategic vocabulary">
+        <p>
+          The same hand can play three different <em>roles</em> in a game — caller, partner,
+          opposing — and the dominant role is determined more by hand <em>shape</em> than
+          raw point count. Three orthogonal scores capture this:
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-5 text-[12px]">
+          <div className="rounded-lg bg-black/25 ring-1 ring-white/5 p-3">
+            <div className="font-semibold text-gold-400 mb-1">Partner-score</div>
+            <div className="text-stone-400 leading-snug">
+              How many unique <em>partner-eligible</em> cards held — the four Aces and Q♠.
+              <span className="font-mono text-stone-300"> Range 0–5.</span>
+            </div>
+            <div className="mt-2 text-stone-500 text-[11px] leading-snug">
+              <b className="text-stone-300">High</b> → you'll likely be called as partner regardless of who wins the bid. <br />
+              <b className="text-stone-300">Low</b> → locked into opposing team.
+            </div>
+          </div>
+          <div className="rounded-lg bg-black/25 ring-1 ring-white/5 p-3">
+            <div className="font-semibold text-gold-400 mb-1">Feeder-score</div>
+            <div className="text-stone-400 leading-snug">
+              Expected points your hand donates: full value for 10s/5s/Q♠, half for aces
+              (which win their own points ~50% of the time).
+            </div>
+            <div className="mt-2 text-stone-500 text-[11px] leading-snug">
+              <b className="text-stone-300">Low</b> → little to lose, can play conservatively.<br />
+              <b className="text-stone-300">High</b> → bleeding points either way; great smear asset on caller team, catastrophic on opposing team.
+            </div>
+          </div>
+          <div className="rounded-lg bg-black/25 ring-1 ring-white/5 p-3">
+            <div className="font-semibold text-gold-400 mb-1">Caller-score</div>
+            <div className="text-stone-400 leading-snug">
+              Strength as the bidder: longest-suit-length² + 4·voids + 2·(A/K in longest suit).
+            </div>
+            <div className="mt-2 text-stone-500 text-[11px] leading-snug">
+              <b className="text-stone-300">High</b> → if your longest suit becomes trump you'd dominate.<br />
+              <b className="text-stone-300">Low</b> → no clear trump candidate, weak caller.
+            </div>
+          </div>
+        </div>
+        <p>
+          A few archetypal hands these scores name cleanly:
+        </p>
+        <ul className="space-y-1.5 text-[13px] text-stone-300 pl-5 list-disc">
+          <li><b className="text-stone-100">"Strong caller, partner-rich"</b> — high caller-score and partner-score ≥ 2. The classic dilemma: bid yourself, or let someone else win and likely play as partner.</li>
+          <li><b className="text-stone-100">"Partner-magnet"</b> — partner-score ≥ 4 but unremarkable caller-score. Just let the bid stay low; you'll be on the winning side anyway.</li>
+          <li><b className="text-stone-100">"High-feeder, opposing-side"</b> — partner-score ≤ 1 with lots of unprotected 10s/5s. Push the bid up so the caller's threshold goes higher — the alternative is bleeding to an easily-made bid.</li>
+          <li><b className="text-stone-100">"Weak opposing-side"</b> — low across all three. No good plays available; minimize damage.</li>
+        </ul>
+        <p>
+          These archetypes are <em>not</em> currently consumed by the production AI — Hard-3
+          encodes the same information diffusely across its 58 weights, and Hard-4 thinks in
+          cards rather than compositional features. They're documented here as analytical
+          vocabulary. Implementation lives in <code className="font-mono text-stone-400">
+          src/game/handArchetypes.ts</code> and is suitable for any future opponent-modeling
+          feature or in-game "Hand Analysis" UI panel.
+        </p>
+      </Section>
+
       <Section id="shuffle" kicker="§6" title="How shuffle intensity affects AI strength">
         <p>
           The deal is parameterized by a continuous intensity <em>t</em> ∈ [0, 1].
