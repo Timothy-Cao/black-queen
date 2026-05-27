@@ -111,6 +111,7 @@ const TRIED: TriedItem[] = [
   { label: "Shuffle-robust 'Hard-A' generation",   result: "wash",    note: "AI never references shuffle mode in code. Sweep showed edge degradation is mostly game-variance, not AI miscalibration." },
   { label: "Rust-engine deal mirroring",           result: "win",     note: "Ported deal5pLight to Rust + parameterized intensity. Tuning now matches production distribution (Light)." },
   { label: "Rayon-parallel ES evaluation",         result: "win",     note: "Lock-free atomic tallies + thread-local weight override. ~7.5× wall-time speedup on 16 cores." },
+  { label: "Hard-5: ES-tune Hard-4 intent weights", result: "regress", note: "Two 20-gen runs (no gate, then with non-regression gate vs Default). Both converged on weights that look improved on training seeds but verify at −0.20pp on fresh seeds (within 1σ of noise). Hard-4's intent magnitudes are already near-optimal for this representation. Tuner infra retained for future use." },
 ];
 
 // Shuffle-intensity sweep (Hard-3 vs others at five intensities, 1500 pairs × 2 mirror).
@@ -123,10 +124,10 @@ const SHUFFLE_SWEEP: { t: number; label: string; vsNormal: number; vsHard: numbe
 ];
 
 const FUTURE: { label: string; note: string }[] = [
-  { label: "ES-tune Hard-4 search constants",              note: "Hard-4 has ~5 search scalars (UCB exploration, rollout count, endgame depth) still set by hand-tuned intuition. Same ES treatment as the intent weights — likely a smaller jump but free if the infra is already there." },
-  { label: "Tree-structured ISMCTS",                       note: "Current implementation is single-rooted — UCB statistics live at the root only. Promoting to per-info-set statistics gets compounding improvement from every rollout." },
+  { label: "Tree-structured ISMCTS",                       note: "Current implementation is single-rooted — UCB statistics live at the root only. Promoting to per-info-set statistics gets compounding improvement from every rollout. This is the highest-EV direction now that intent-tuning hit its ceiling." },
   { label: "Search-based bidder",                          note: "Hard-4 currently delegates bid + declare to Hard-3. Sampling N self-hand-consistent worlds and running mini-ISMCTS would close the holistic Hard-4 vs Hard-3 edge." },
   { label: "ISMCTS-in-endgame (replaces minimax)",         note: "Minimax assumed optimal opponents and regressed −1pp. Running ISMCTS with full budget at ≤3 tricks instead matches the opponent model used everywhere else." },
+  { label: "ES-tune Hard-4 search constants",              note: "Hard-4 has ~5 search scalars (UCB exploration, rollout count, endgame depth) still set by hand-tuned intuition. Lower priority than the architectural items now that intent ES showed the well is dry at this scale." },
 ];
 
 // ---------------------------------------------------------------------------
@@ -606,9 +607,11 @@ function RoadmapTab() {
   return (
     <Section id="future" kicker="§8" title="Future directions">
       <p>
-        Hard-4's headroom isn't in any one ambitious idea — it's in finishing the work that
-        shipped at hand-set defaults. Hard-5 (the ES-tuned intent layer) is the in-flight
-        attempt; the items below are the natural next levers.
+        The Hard-5 attempt (ES-tune Hard-4's intent magnitudes) <em>didn't</em> work —
+        two 20-generation runs both verified at −0.20pp on fresh seeds. Hard-4's hand-set
+        intent defaults turned out to already be near-optimal for this representation.
+        Same ceiling Hard-3 hit before Hard-4 broke into a new paradigm. The remaining
+        headroom isn't in tuning what's there; it's in architectural changes:
       </p>
       <div className="space-y-2.5 my-4">
         {FUTURE.map((f) => (

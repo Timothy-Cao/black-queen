@@ -242,6 +242,17 @@ Avoid re-spending budget on these:
 - **Naive bid-strength belief prior** (`belief.rs::apply_bid_strength_prior`) regressed by ~3pp at default weights. Bumps high bidders' probability of holding aces/Q♠/kings, but the bump magnitudes (1.3x/1.5x) were uncalibrated. Kept in code (gated by `BQ_BIDPRIOR=1`); needs ES tuning of the prior strength.
 - **Reading the regular arena (`arena.ts`) for small Hard-4 strength edges**: random seat assignment makes ±3pp noise common at 300-game N. We initially over-reported Hard-4's strength by ~3pp before adding mirror replay. Use `_mirror_arena.ts` for any measurement under ~5pp.
 
+### Hard-5 (ES-tuning Hard-4 intent weights) — null result, **don't repeat without an algorithmic change**
+
+Two 20-generation ES runs targeting `IntentWeights` (9 LLR magnitudes in `rust/crates/bq-ai/src/intent.rs`). Tuner is in `rust/crates/bq-cli/src/bin/tune_intent.rs`, rayon-parallel, runs at ~30 min wall on 16 cores.
+
+- **v1 (no non-regression gate)**: 20/20 promotes on training seeds with +1–6pp edges. Verification on fresh seeds: **−0.20pp**. Classic ES overfit — the moving baseline drifted.
+- **v2 (gated against frozen Default with −1pp tolerance)**: 13 promotes / 20 gens with consistent +1–3pp vs anchor during gens. Verification on fresh seeds: **−0.20pp**. Same result.
+
+The Hard-4 intent-weight defaults are already at a plateau ES can't escape at this scale. Verification SE ≈ 1.77pp; the −0.20pp result is within 1σ of zero, meaning we are statistically indistinguishable from Default — not regressing, but not improving. Same kind of ceiling Hard-3 hit before Hard-4 broke into a new paradigm.
+
+**Future Hard-N work should be architectural**: tree-structured ISMCTS, search-based bidder, or ISMCTS-in-endgame (in roughly that order of EV). The tuner infrastructure (rayon-parallel ES, thread-local weight override, non-regression gate) remains useful for any new tunable surface that's added — but re-running it on the existing intent magnitudes is not worth the compute.
+
 ---
 
 ## Conventions

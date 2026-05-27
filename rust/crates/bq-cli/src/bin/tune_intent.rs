@@ -281,7 +281,15 @@ fn main() {
         games_per_eval, lambda, games_per_eval * 2 * lambda as u64));
 
     let mut best = IntentWeights::default();
-    // Baseline fitness (sanity): how does default fare against itself? Should be 50/50.
+    // Anchor = the original Default, frozen for the whole run. Every promotion
+    // must beat the moving baseline AND not regress vs anchor on the same
+    // training seeds. This is the non-regression gate that the v1 tuner
+    // lacked, leading to a -0.20pp verification result on the first 20-gen run.
+    let anchor = IntentWeights::default();
+    // Tolerance: a candidate may be slightly below anchor on training seeds
+    // (noise) as long as it dominates the moving baseline. Use 1pp = same scale
+    // as 95% CI for our eval size.
+    const ANCHOR_TOLERANCE_PP: f64 = -1.0;
     let t0 = Instant::now();
     let (bw, _) = evaluate(&best, &best, games_per_eval, time_ms, seed_base);
     say(&format!("\nGen 0 (self-play sanity): cand winrate = {:.2}% (expect ~50%)  elapsed={:.1}s",
@@ -293,27 +301,40 @@ fn main() {
     for gen in 1..=generations {
         let g0 = Instant::now();
         let mut successes = 0;
+        // Track (cand, edge_vs_best_pp, edge_vs_anchor_pp). "Top" = highest
+        // edge vs best that ALSO clears the anchor tolerance.
         let mut best_cand: Option<(IntentWeights, f64, f64)> = None;
         for k in 0..lambda {
             let cand = mutate(&best, sigma, &mut mut_rng);
             let seed = seed_base
                 .wrapping_add((gen as u64).wrapping_mul(31_337))
                 .wrapping_add((k as u64).wrapping_mul(101));
-            let (cr, br) = evaluate(&cand, &best, games_per_eval, time_ms, seed);
-            let edge_pp = (cr - br) * 100.0;
-            if edge_pp > 0.0 { successes += 1; }
-            match &best_cand {
-                None => best_cand = Some((cand, cr, br)),
-                Some((_, prev_cr, prev_br)) => {
-                    if (cr - br) > (prev_cr - prev_br) { best_cand = Some((cand, cr, br)); }
+            // Split eval budget: half vs current best, half vs anchor.
+            let n_half = (games_per_eval / 2).max(1);
+            let (cr_b, br_b) = evaluate(&cand, &best,   n_half, time_ms, seed);
+            let (cr_a, br_a) = evaluate(&cand, &anchor, n_half, time_ms, seed.wrapping_add(1_000_003));
+            let edge_b = (cr_b - br_b) * 100.0;
+            let edge_a = (cr_a - br_a) * 100.0;
+            // Composite success: a "win" for σ adaptation = positive vs both.
+            if edge_b > 0.0 && edge_a >= ANCHOR_TOLERANCE_PP { successes += 1; }
+            // Only consider candidates that clear the anchor gate; among those,
+            // pick the one with the largest edge vs the moving baseline.
+            if edge_a >= ANCHOR_TOLERANCE_PP {
+                match &best_cand {
+                    None => best_cand = Some((cand, edge_b, edge_a)),
+                    Some((_, prev_edge_b, _)) => {
+                        if edge_b > *prev_edge_b { best_cand = Some((cand, edge_b, edge_a)); }
+                    }
                 }
             }
         }
-        let (cand, cr, br) = best_cand.unwrap();
-        let top_edge_pp = (cr - br) * 100.0;
-        // Promotion: ANY beneficial mutation. (1+λ) classic.
-        let promoted = top_edge_pp > 0.0;
-        if promoted { best = cand; }
+        let promoted = best_cand.as_ref().map_or(false, |(_, eb, _)| *eb > 0.0);
+        let (top_edge_b, top_edge_a) = best_cand.as_ref()
+            .map(|(_, eb, ea)| (*eb, *ea))
+            .unwrap_or((0.0, 0.0));
+        if let Some((cand, _, _)) = best_cand.filter(|(_, eb, _)| *eb > 0.0) {
+            best = cand;
+        }
         // 1/5-success rule for sigma adaptation.
         let success_rate = successes as f64 / lambda as f64;
         sigma = if success_rate > 0.2 { (sigma * SIGMA_GROW).min(SIGMA_MAX) }
@@ -322,8 +343,8 @@ fn main() {
         let promo = if promoted { "PROMOTE" } else { "  hold " };
         let elapsed_gen = g0.elapsed().as_secs_f64();
         say(&format!(
-            "Gen {:3}: top edge={:+.2}pp [cand {:.2}% vs base {:.2}%]  σ={:.3}  succ={}/{}  {}  t={:.1}s",
-            gen, top_edge_pp, cr*100.0, br*100.0, sigma, successes, lambda, promo, elapsed_gen,
+            "Gen {:3}: vs-best={:+.2}pp  vs-anchor={:+.2}pp  σ={:.3}  succ={}/{}  {}  t={:.1}s",
+            gen, top_edge_b, top_edge_a, sigma, successes, lambda, promo, elapsed_gen,
         ));
 
         // Checkpoint best every 5 gens.
