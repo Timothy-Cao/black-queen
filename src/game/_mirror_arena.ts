@@ -41,7 +41,7 @@ function runOneGame(seats: AIPersonality[]): { winners: Set<PlayerId>; caller?: 
   const bid = r.winningBid;
   const pts = r.roundPoints!;
   const team = caller !== undefined ? new Set([caller, ...(r.partners ?? [])]) : new Set<PlayerId>();
-  const teamPts = Array.from(team).reduce((s, p) => s + (pts[p] ?? 0), 0);
+  const teamPts: number = Array.from(team).reduce<number>((s, p) => s + (pts[p] ?? 0), 0);
   const made = bid !== undefined && teamPts >= bid;
   const winners = new Set<PlayerId>();
   for (const p of [0, 1, 2, 3, 4] as PlayerId[]) {
@@ -57,9 +57,11 @@ function makeMixedSeats(p1: AIPersonality, p2: AIPersonality, p1Slots: number[])
   return seats;
 }
 
-const N = parseInt(process.argv[2] || "500", 10);
-const p1 = (process.argv[3] || "hard-4") as AIPersonality;
-const p2 = (process.argv[4] || "hard-3") as AIPersonality;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const argv: string[] = (globalThis as any).process?.argv ?? [];
+const N = parseInt(argv[2] || "500", 10);
+const p1 = (argv[3] || "hard-4") as AIPersonality;
+const p2 = (argv[4] || "hard-3") as AIPersonality;
 
 // Per-personality, per-mirror-pair stats.
 let p1Played = 0, p1Wins = 0, p1Called = 0, p1Made = 0;
