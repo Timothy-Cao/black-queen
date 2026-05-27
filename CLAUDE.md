@@ -242,6 +242,32 @@ Avoid re-spending budget on these:
 - **Naive bid-strength belief prior** (`belief.rs::apply_bid_strength_prior`) regressed by ~3pp at default weights. Bumps high bidders' probability of holding aces/Q♠/kings, but the bump magnitudes (1.3x/1.5x) were uncalibrated. Kept in code (gated by `BQ_BIDPRIOR=1`); needs ES tuning of the prior strength.
 - **Reading the regular arena (`arena.ts`) for small Hard-4 strength edges**: random seat assignment makes ±3pp noise common at 300-game N. We initially over-reported Hard-4's strength by ~3pp before adding mirror replay. Use `_mirror_arena.ts` for any measurement under ~5pp.
 
+### Archetype-aware bidding (Hard-5 attempt 4) — null result
+
+Same heuristic-bidder idea, but using all three hand archetype scores from
+`src/game/handArchetypes.ts` (ported into Rust as `archetype_scores()` in
+`hard4.rs`) instead of just the partner-likeliness count.
+
+Logic:
+- partner ≤ 1 AND feeder ≥ 40: push bid up by `(feeder - 40) / 4`,
+  capped at +25. ("locked-out + vulnerable")
+- partner ≥ 4 AND caller < 60: lower bid by 8. ("weak partner-magnet")
+
+Runtime toggle: `BQ_BID_ARCHETYPE=1` or `set_archetype_aware_bidding(true)`.
+A/B harness: `rust/crates/bq-cli/src/bin/compare_archetype.rs`.
+
+Result: **−0.10pp at N=600**. The richer feature set widens the trigger
+window but doesn't change the fundamental limit: the default bidder is
+already passing on weak hands and bidding aggressively on strong ones, so
+the band where the heuristic disagrees AND the disagreement matters is
+smaller than the measurement noise floor.
+
+Four bid-adjustment attempts (partner symmetric, partner asymmetric,
+threshold-aware, archetype-aware) all null. The honest conclusion is
+that a closed-form bid adjustment cannot move the needle here; only a
+search-based bidder (sample self-hand-consistent worlds, run mini-MCTS
+at each candidate bid level) would.
+
 ### Partner-aware bidding (Hard-5 attempt 3) — null result
 
 User-proposed strategic insight: a player with 0 aces, no Q♠, no kings is

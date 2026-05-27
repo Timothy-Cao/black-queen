@@ -55,24 +55,9 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
           <h1 className="font-display text-5xl text-gold-400 tracking-wide drop-shadow-[0_0_18px_rgba(245,196,107,0.25)]">
             Black Queen
           </h1>
-          <p className="text-sm text-stone-300 mt-1 mb-4">
+          <p className="text-sm text-stone-300 mt-1 mb-6">
             A 5-player game of hidden partnerships and bidding.
           </p>
-          {onOpenAIInfo && (
-            <button
-              onClick={onOpenAIInfo}
-              className="group w-full mb-6 flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-left bg-gradient-to-br from-gold-500/10 to-amber-500/5 ring-1 ring-gold-400/25 hover:ring-gold-400/60 hover:from-gold-500/15 transition-all"
-              title="Open the AI mini-paper"
-            >
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-gold-400/90 mb-0.5">A mini-paper</div>
-                <div className="text-[13px] text-stone-100 leading-snug">
-                  AI Discussion <span className="text-stone-400 font-normal">— how Hard / Hard-2 / Hard-3 / Hard-4 were built</span>
-                </div>
-              </div>
-              <span className="text-gold-400 text-lg group-hover:translate-x-0.5 transition-transform" aria-hidden>→</span>
-            </button>
-          )}
           <div className="text-[11px] uppercase tracking-widest text-gold-400/80 mb-2">Players</div>
           <div className="space-y-2 mb-5">
             {players.map((p, i) => (
@@ -115,7 +100,7 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
                       setPlayers(a);
                     }}
                   >
-                    <option value="hard-4" className="text-black">Hard-4 (preview)</option>
+                    <option value="hard-4" className="text-black">Hard-4</option>
                     <option value="hard-3" className="text-black">Hard-3</option>
                     <option value="hard-2" className="text-black">Hard-2</option>
                     <option value="hard" className="text-black">Hard</option>
@@ -169,6 +154,16 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
           >
             Start
           </button>
+          {onOpenAIInfo && (
+            <div className="mt-3 text-center">
+              <button
+                onClick={onOpenAIInfo}
+                className="text-[11px] text-stone-500 hover:text-stone-300 transition-colors"
+              >
+                AI Notes ↗
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

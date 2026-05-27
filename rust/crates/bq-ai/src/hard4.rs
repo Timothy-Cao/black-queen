@@ -64,8 +64,117 @@ pub fn hard4_bid(state: &GameState, self_id: PlayerId) -> Option<u16> {
         }
     }
 
+    // Archetype-aware adjustment (Hard-5 attempt 4, richer than partner-aware).
+    //
+    // Computes three orthogonal scores capturing what role this hand fits:
+    //   partner ∈ [0, 5] — unique partner-eligible cards held (4 Aces + Q♠).
+    //   feeder ∈ [0, ~120] — point cards weighted by ease-of-loss (Aces 0.5x).
+    //   caller ∈ [0, ~150] — longest_suit² + 4·voids + 2·(A/K in longest).
+    //
+    // Adjustment combines two strategic signals:
+    //   1. "Locked-out + vulnerable": partner ≤ 1 AND feeder ≥ 40.
+    //      You'll be on opposing team and will bleed points if caller wins
+    //      easily. Push the bid up — proportional to feeder excess over 40.
+    //   2. "Weak partner-magnet": partner ≥ 4 AND caller < 60.
+    //      You're going to be called as partner regardless. Don't fight a
+    //      bid you'll be on the winning side of. Small downward nudge.
+    //
+    // The trigger window is wider than partner-aware-only (more games fire);
+    // the magnitude is also informed by the relevant axis instead of a flat
+    // bump. If this is null, we have strong evidence the bid-adjustment
+    // direction is genuinely hopeless at the current search depth.
+    if archetype_aware_bidding_enabled() {
+        let (partner, feeder, caller) = archetype_scores(hand);
+        let mut adjustment: i32 = 0;
+        if partner <= 1 && feeder >= 40 {
+            let excess = (feeder - 40) / 4;  // ~0..20 for feeder up to 120
+            adjustment += excess.min(25);
+        }
+        if partner >= 4 && caller < 60 {
+            adjustment -= 8;
+        }
+        if adjustment != 0 {
+            let new_target = (target as i32 + adjustment).max(150).min(300);
+            target = ((new_target / 5) * 5) as u16;
+        }
+    }
+
     if required > target { return None; }
     Some(required)
+}
+
+// ---------------------------------------------------------------------------
+//  Hand archetype scores (Rust port of src/game/handArchetypes.ts).
+//  Returns (partner, feeder, caller) all as i32 for integer-math heuristics.
+// ---------------------------------------------------------------------------
+
+fn archetype_scores(hand: &[Card]) -> (i32, i32, i32) {
+    // Partner-score: count unique (suit, rank) ∈ {A♠, A♥, A♦, A♣, Q♠} held.
+    let mut partner = 0i32;
+    for &(suit, rank) in &[(Suit::S, 14u8), (Suit::H, 14), (Suit::D, 14), (Suit::C, 14), (Suit::S, 12)] {
+        if hand.iter().any(|c| c.suit == suit && c.rank == rank) { partner += 1; }
+    }
+    // Feeder-score: Σ point-card value; Aces weighted 0.5 (rounded down).
+    let mut feeder = 0i32;
+    for c in hand {
+        let pts = c.points() as i32;
+        if pts == 0 { continue; }
+        if c.rank == 14 { feeder += pts / 2; }
+        else { feeder += pts; }
+    }
+    // Caller-score: longest_suit² + 4·voids + 2·(A/K in longest suit).
+    let mut lengths = [0i32; 4];
+    for c in hand {
+        let idx = match c.suit { Suit::S => 0, Suit::H => 1, Suit::D => 2, Suit::C => 3 };
+        lengths[idx] += 1;
+    }
+    let voids = lengths.iter().filter(|&&l| l == 0).count() as i32;
+    let mut longest_len = 0i32;
+    let mut longest_suit = Suit::S;
+    for (i, &l) in lengths.iter().enumerate() {
+        if l > longest_len {
+            longest_len = l;
+            longest_suit = match i { 0 => Suit::S, 1 => Suit::H, 2 => Suit::D, _ => Suit::C };
+        }
+    }
+    let top_in_longest = hand.iter()
+        .filter(|c| c.suit == longest_suit && (c.rank == 14 || c.rank == 13))
+        .count() as i32;
+    let caller = longest_len * longest_len + 4 * voids + 2 * top_in_longest;
+    (partner, feeder, caller)
+}
+
+// ---------------------------------------------------------------------------
+//  Archetype-aware bidding toggle (Hard-5 attempt 4).
+//  Default = OFF until A/B'd. Enable: BQ_BID_ARCHETYPE=1 or
+//  set_archetype_aware_bidding(true) at runtime.
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
+mod bid_archetype_cell {
+    use std::cell::RefCell;
+    thread_local! {
+        static OVERRIDE: RefCell<Option<bool>> = const { RefCell::new(None) };
+    }
+    pub fn set(b: Option<bool>) { OVERRIDE.with(|c| *c.borrow_mut() = b); }
+    pub fn get() -> Option<bool> { OVERRIDE.with(|c| *c.borrow()) }
+}
+
+pub fn set_archetype_aware_bidding(enabled: bool) {
+    #[cfg(not(target_arch = "wasm32"))]
+    bid_archetype_cell::set(Some(enabled));
+    #[cfg(target_arch = "wasm32")]
+    { let _ = enabled; }
+}
+
+fn archetype_aware_bidding_enabled() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    { return false; }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Some(v) = bid_archetype_cell::get() { return v; }
+        std::env::var("BQ_BID_ARCHETYPE").ok().filter(|s| !s.is_empty()).is_some()
+    }
 }
 
 // ---------------------------------------------------------------------------

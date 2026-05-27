@@ -27,3 +27,7 @@ path = "src/bin/compare_indicator.rs"
 [[bin]]
 name = "compare_bidding"
 path = "src/bin/compare_bidding.rs"
+
+[[bin]]
+name = "compare_archetype"
+path = "src/bin/compare_archetype.rs"
