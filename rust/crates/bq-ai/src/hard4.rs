@@ -33,8 +33,72 @@ pub fn hard4_bid(state: &GameState, self_id: PlayerId) -> Option<u16> {
     if target > 240 && capacity < 280 { target = 240; }
     if target > 300 { target = 300; }
 
+    // Partner-aware adjustment.
+    //
+    // Insight: if your hand is rich in partner-eligible cards (Aces, Q♠, Kings),
+    // you're very likely to be called as partner regardless of who wins the
+    // bid — so you should let the bid stay low. Conversely, if your hand has
+    // none of those cards, you'll be on the OPPOSING team for sure. At a low
+    // bid the caller easily wins; pushing the bid higher tilts the game toward
+    // caller-failure, which is a win for you (opponent).
+    //
+    // Heuristic: partner_score = aces × 1.0 + Q♠ × 1.2 + kings × 0.35. Centered
+    // around 1.5 (the typical-hand average), it adjusts target by ≈ ∓7 pts per
+    // unit of partner-likeliness. Range capped at ±20 to avoid pathological
+    // overshoot for hands with 4 aces + Q♠.
+    if partner_aware_bidding_enabled() {
+        let aces = hand.iter().filter(|c| c.rank == 14).count() as i32;
+        let q_spades = hand.iter().filter(|c| c.suit == Suit::S && c.rank == 12).count() as i32;
+        let kings = hand.iter().filter(|c| c.rank == 13).count() as i32;
+        let score_x10 = aces * 10 + q_spades * 12 + kings * 3;
+        // Asymmetric: only raise bids for partner-POOR hands (likely-opponent
+        // who can profit from pushing the caller into failure territory). DON'T
+        // lower bids for partner-RICH hands — those are strong hands the default
+        // capacity formula already values correctly. Lowering them was a bug
+        // (regressed −2.00pp in N=300 A/B); the strong-hand player should
+        // typically WIN the bid themselves, not let it stay low.
+        if score_x10 < 15 {
+            let adjustment = (((15 - score_x10) * 7) / 10).min(20);  // up to +20
+            let new_target = (target as i32 + adjustment).min(300);
+            target = ((new_target / 5) * 5) as u16;
+        }
+    }
+
     if required > target { return None; }
     Some(required)
+}
+
+// ---------------------------------------------------------------------------
+//  Partner-aware bidding toggle (Hard-5 candidate feature).
+//  Default = OFF until A/B'd. Enable: BQ_BID_PARTNER_AWARE=1 or
+//  set_partner_aware_bidding(true) at runtime.
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
+mod bid_partner_cell {
+    use std::cell::RefCell;
+    thread_local! {
+        static OVERRIDE: RefCell<Option<bool>> = const { RefCell::new(None) };
+    }
+    pub fn set(b: Option<bool>) { OVERRIDE.with(|c| *c.borrow_mut() = b); }
+    pub fn get() -> Option<bool> { OVERRIDE.with(|c| *c.borrow()) }
+}
+
+pub fn set_partner_aware_bidding(enabled: bool) {
+    #[cfg(not(target_arch = "wasm32"))]
+    bid_partner_cell::set(Some(enabled));
+    #[cfg(target_arch = "wasm32")]
+    { let _ = enabled; }
+}
+
+fn partner_aware_bidding_enabled() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    { return false; }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Some(v) = bid_partner_cell::get() { return v; }
+        std::env::var("BQ_BID_PARTNER_AWARE").ok().filter(|s| !s.is_empty()).is_some()
+    }
 }
 
 /// Decide trump suit and partner card.

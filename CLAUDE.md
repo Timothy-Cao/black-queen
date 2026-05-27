@@ -242,6 +242,31 @@ Avoid re-spending budget on these:
 - **Naive bid-strength belief prior** (`belief.rs::apply_bid_strength_prior`) regressed by ~3pp at default weights. Bumps high bidders' probability of holding aces/Q♠/kings, but the bump magnitudes (1.3x/1.5x) were uncalibrated. Kept in code (gated by `BQ_BIDPRIOR=1`); needs ES tuning of the prior strength.
 - **Reading the regular arena (`arena.ts`) for small Hard-4 strength edges**: random seat assignment makes ±3pp noise common at 300-game N. We initially over-reported Hard-4's strength by ~3pp before adding mirror replay. Use `_mirror_arena.ts` for any measurement under ~5pp.
 
+### Partner-aware bidding (Hard-5 attempt 3) — null result
+
+User-proposed strategic insight: a player with 0 aces, no Q♠, no kings is
+almost certainly going to be an OPPONENT (not a partner). For such hands,
+the optimal play is to push the bid UP — at low bids the caller easily
+makes it (lose), at high bids the caller may fail (win). Symmetrically: a
+player rich in partner-eligible cards should let the bid stay low.
+
+Implementation in `hard4.rs::hard4_bid` behind a runtime toggle
+(`BQ_BID_PARTNER_AWARE=1` or `set_partner_aware_bidding(true)`). Two variants:
+
+- **Symmetric** (raise for partner-poor, lower for partner-rich): regressed
+  −2.00pp at N=300. The "lower for partner-rich" direction was a bug —
+  4-aces-plus-Q♠ hands are *strong*, the default capacity formula already
+  values them correctly, and lowering their target was anti-strategic.
+- **Asymmetric** (only raise for partner-poor, never lower): +0.87pp at
+  N=300 → **+0.07pp at N=600**. The window where this adjustment can
+  matter (hand is weak enough for heuristic to fire AND strong enough
+  default bidder would have bid AND +10pp crosses the caller-fail
+  threshold) is <5% of games. Even strong intra-window effect averages to
+  ~0pp overall.
+
+Default = OFF on all targets. Toggle retained for any future smarter
+bidder that uses the partner-likeliness score as one input among many.
+
 ### Threshold-optimization backprop (Hard-5 attempt 2) — null result
 
 Hypothesis: Black Queen scoring is an indicator function (made bid → +bid; failed → −bid), so the natural ISMCTS rollout value should be `P(team makes bid)`, not `captured_points / 300`. Implemented in `ismcts.rs` behind a runtime toggle (`BQ_INDICATOR_ON=1` or `set_indicator_mode(true)`), defaulted off.
