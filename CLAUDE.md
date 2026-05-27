@@ -242,6 +242,18 @@ Avoid re-spending budget on these:
 - **Naive bid-strength belief prior** (`belief.rs::apply_bid_strength_prior`) regressed by ~3pp at default weights. Bumps high bidders' probability of holding aces/Q♠/kings, but the bump magnitudes (1.3x/1.5x) were uncalibrated. Kept in code (gated by `BQ_BIDPRIOR=1`); needs ES tuning of the prior strength.
 - **Reading the regular arena (`arena.ts`) for small Hard-4 strength edges**: random seat assignment makes ±3pp noise common at 300-game N. We initially over-reported Hard-4's strength by ~3pp before adding mirror replay. Use `_mirror_arena.ts` for any measurement under ~5pp.
 
+### Threshold-optimization backprop (Hard-5 attempt 2) — null result
+
+Hypothesis: Black Queen scoring is an indicator function (made bid → +bid; failed → −bid), so the natural ISMCTS rollout value should be `P(team makes bid)`, not `captured_points / 300`. Implemented in `ismcts.rs` behind a runtime toggle (`BQ_INDICATOR_ON=1` or `set_indicator_mode(true)`), defaulted off.
+
+A/B (`compare_indicator.rs`, same-seeded mirrored pairs, 100 ms/move):
+- Pure indicator (binary 0/1 win flag): **−1.47pp at N=300** (~1σ regression)
+- Hybrid (0.5·EV + 0.5·win): **+1.93pp at N=300 → −0.20pp at N=500**
+
+The hybrid result at N=300 was a noise-band coincidence; the EV proxy already correlates near-monotonically with win probability so the threshold-jump term adds no real signal at this search depth. Pure indicator regresses because binary outcomes are too sparse — UCB explores less efficiently than with smooth EV gradients.
+
+Default = OFF on all targets (browser ships the EV baseline). Toggle kept in the code for deeper-search experiments (tree-structured ISMCTS, neural-net rollouts) where the indicator might become more informative.
+
 ### Hard-5 (ES-tuning Hard-4 intent weights) — null result, **don't repeat without an algorithmic change**
 
 Two 20-generation ES runs targeting `IntentWeights` (9 LLR magnitudes in `rust/crates/bq-ai/src/intent.rs`). Tuner is in `rust/crates/bq-cli/src/bin/tune_intent.rs`, rayon-parallel, runs at ~30 min wall on 16 cores.

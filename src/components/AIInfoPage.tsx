@@ -112,6 +112,7 @@ const TRIED: TriedItem[] = [
   { label: "Rust-engine deal mirroring",           result: "win",     note: "Ported deal5pLight to Rust + parameterized intensity. Tuning now matches production distribution (Light)." },
   { label: "Rayon-parallel ES evaluation",         result: "win",     note: "Lock-free atomic tallies + thread-local weight override. ~7.5× wall-time speedup on 16 cores." },
   { label: "Hard-5: ES-tune Hard-4 intent weights", result: "regress", note: "Two 20-gen runs (no gate, then with non-regression gate vs Default). Both converged on weights that look improved on training seeds but verify at −0.20pp on fresh seeds (within 1σ of noise). Hard-4's intent magnitudes are already near-optimal for this representation. Tuner infra retained for future use." },
+  { label: "Threshold-optimization rollout backprop", result: "regress", note: "Replaced ISMCTS's EV-proxy (captured/300) with the true indicator (P(team makes bid)). Theoretically correct — Black Queen's scoring IS an indicator. Pure binary: −1.47pp at N=300. Hybrid (0.5·EV + 0.5·win): +1.93pp at N=300 → −0.20pp at N=500. EV proxy already correlates near-monotonically with win probability so the threshold-jump adds no signal at this search depth. Runtime toggle retained for deeper-search experiments." },
 ];
 
 // Shuffle-intensity sweep (Hard-3 vs others at five intensities, 1500 pairs × 2 mirror).

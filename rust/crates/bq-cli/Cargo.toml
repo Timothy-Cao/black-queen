@@ -19,3 +19,7 @@ path = "src/main.rs"
 [[bin]]
 name = "tune_intent"
 path = "src/bin/tune_intent.rs"
+
+[[bin]]
+name = "compare_indicator"
+path = "src/bin/compare_indicator.rs"

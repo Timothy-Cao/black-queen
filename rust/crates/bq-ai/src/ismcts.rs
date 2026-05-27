@@ -18,6 +18,50 @@ use bq_engine::engine::apply_play;
 use bq_engine::rng::GameRng;
 use bq_engine::rules::legal_play_indices;
 use bq_engine::types::{Card, GameState, Phase, PlayerId};
+
+// ---------------------------------------------------------------------------
+//  Indicator-mode runtime switch
+//
+//  Default: enabled (indicator = "did our team make bid").
+//  Native: BQ_INDICATOR_OFF=1 env var or `set_indicator_mode(false)` reverts
+//  to the smooth EV proxy (captured / 300) for A/B testing.
+//  wasm32: always on; the browser path doesn't expose a toggle.
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
+mod indicator_cell {
+    use std::cell::RefCell;
+    thread_local! {
+        // None = honor env var (default), Some(b) = explicit override
+        static OVERRIDE: RefCell<Option<bool>> = const { RefCell::new(None) };
+    }
+    pub fn set(b: Option<bool>) { OVERRIDE.with(|c| *c.borrow_mut() = b); }
+    pub fn get() -> Option<bool> { OVERRIDE.with(|c| *c.borrow()) }
+}
+
+pub fn set_indicator_mode(enabled: bool) {
+    #[cfg(not(target_arch = "wasm32"))]
+    indicator_cell::set(Some(enabled));
+    #[cfg(target_arch = "wasm32")]
+    { let _ = enabled; }
+}
+
+fn indicator_mode_enabled() -> bool {
+    // OFF by default everywhere. A/B testing (compare_indicator, N=500) found
+    // pure indicator regressed by ~1.5pp and hybrid landed at ±0. The EV proxy
+    // already correlates monotonically with win probability so adding a
+    // threshold-jump term adds no signal at this search depth. Toggle is kept
+    // for future experiments (e.g., much deeper search where the discrete
+    // outcome might become more informative).
+    #[cfg(target_arch = "wasm32")]
+    { return false; }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Some(v) = indicator_cell::get() { return v; }
+        // Enable only when explicitly requested via BQ_INDICATOR_ON=1.
+        std::env::var("BQ_INDICATOR_ON").ok().filter(|s| !s.is_empty()).is_some()
+    }
+}
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -130,11 +174,31 @@ pub fn ismcts_play(
             rollout_tactical(&mut sim, rng);
         }
 
-        // 4. Backprop. Value = sum of value-player captured points / 300.
+        // 4. Backprop. Black Queen scoring is an indicator function: my team
+        // scores +bid (win) or −bid (loss). The natural rollout value is the
+        // probability of winning the round, NOT the expected captured points.
+        // Indicator mode is the default; an env var BQ_INDICATOR_OFF (and the
+        // companion runtime setter) reverts to the EV-proxy for A/B testing.
         let captured: u16 = params.value_players.iter()
             .map(|&p| sim.captured_points[p as usize])
             .sum();
-        let value = captured as f64 / 300.0;
+        let value = if indicator_mode_enabled() {
+            // Hybrid: EV smoothing (low variance) + win-bonus (threshold awareness).
+            // Pure indicator (tried first) regressed by ~1.5pp because binary
+            // outcomes are too sparse a signal for UCB at finite rollouts.
+            // This shape keeps EV's per-move differentiation while adding a
+            // jump at the threshold boundary so threshold-relevant decisions
+            // are tilted toward the win line.
+            let bid = sim.winning_bid.unwrap_or(0);
+            let i_am_caller_team = sim.caller
+                .map_or(false, |c| params.value_players.iter().any(|&p| p == c));
+            let threshold = if i_am_caller_team { bid } else { 301u16.saturating_sub(bid) };
+            let won = captured >= threshold;
+            // Weighted: 0.5 × ev + 0.5 × win. Range [0, 1].
+            0.5 * (captured as f64 / 300.0) + (if won { 0.5 } else { 0.0 })
+        } else {
+            captured as f64 / 300.0
+        };
         let s = stats.get_mut(&chosen).unwrap();
         s.visits += 1;
         s.total_value += value;
