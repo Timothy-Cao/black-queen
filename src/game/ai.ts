@@ -37,9 +37,9 @@ export function aiDeclareDecision(state: GameState, player: PlayerId): { trump: 
 export function aiPlayDecision(state: GameState, player: PlayerId): Card {
   const personality = state.players[player].aiPersonality ?? "normal";
   if (personality === "random") return randomPlay(state, player);
-  if (personality === "hard") return hardPlay(state, player);
-  if (personality === "hard-2") return hard2Play(state, player);
-  if (personality === "hard-3") return hardTunedPlay(state, player);
+  if (personality === "hard") return avoidKnownEnemyPointDump(state, player, hardPlay(state, player));
+  if (personality === "hard-2") return avoidKnownEnemyPointDump(state, player, hard2Play(state, player));
+  if (personality === "hard-3") return avoidKnownEnemyPointDump(state, player, hardTunedPlay(state, player));
   if (personality === "hard-4") return hard4Play(state, player);
   return greedyPlay(state, player);
 }
@@ -116,6 +116,45 @@ function knownCallerTeam(state: GameState, player: PlayerId): Set<PlayerId> | nu
     return new Set<PlayerId>([r.bidder, ...r.revealedPartners]);
   }
   return null;
+}
+
+/**
+ * Conservative post-process for the TS hard-family AIs. If the AI chose a
+ * non-trump point-card discard onto a trick that it knows the enemy is winning,
+ * and a cheaper non-trump discard is legal, shed the cheaper card instead.
+ *
+ * This intentionally uses only exact team knowledge from `knownCallerTeam`.
+ * Hard-4 has its own Rust guard with its own belief/value model.
+ */
+function avoidKnownEnemyPointDump(state: GameState, player: PlayerId, chosen: Card): Card {
+  const r = state.round;
+  const trick = r.currentTrick;
+  if (!trick || trick.plays.length === 0) return chosen;
+  const led = trick.plays[0].card.suit;
+  if (chosen.suit === led || chosen.suit === r.trump || cardPoints(chosen) === 0) return chosen;
+
+  const team = knownCallerTeam(state, player);
+  if (!team) return chosen;
+  const iAmCallerTeam = team.has(player);
+  const currentWinner = trickWinner(trick, r.trump);
+  const winnerIsCallerTeam = team.has(currentWinner);
+  const enemyWinning = iAmCallerTeam ? !winnerIsCallerTeam : winnerIsCallerTeam;
+  if (!enemyWinning) return chosen;
+
+  const partnerCard = r.partnerCard;
+  const legal = legalPlays(r.hands[player], trick);
+  const cheaper = legal
+    .filter((c) => c.suit !== led)
+    .filter((c) => c.suit !== r.trump)
+    .filter((c) => cardPoints(c) < cardPoints(chosen))
+    .filter((c) => {
+      if (!partnerCard || player === r.bidder) return true;
+      const revealsPartner = c.suit === partnerCard.suit && c.rank === partnerCard.rank;
+      const chosenRevealsPartner = chosen.suit === partnerCard.suit && chosen.rank === partnerCard.rank;
+      return !revealsPartner || chosenRevealsPartner;
+    })
+    .sort((a, b) => cardPoints(a) - cardPoints(b) || a.rank - b.rank);
+  return cheaper[0] ?? chosen;
 }
 
 // =============================================================================

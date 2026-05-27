@@ -187,6 +187,14 @@ npx tsx src/game/_verify_personalities.ts    # confirms hard / hard-2 / hard-3 p
 npx tsx src/game/_mirror_arena.ts 500 hard-4 hard-3   # 500 seed pairs = 1000 games
 ```
 
+### Mixed-AI qualitative observer (true TS personalities)
+```bash
+HARD4_TIME_MS=80 npx tsx src/game/_observe_games.ts 4 53001 hard,hard-2,hard-3,hard-4 docs/game_traces
+```
+Use this for human review across Hard / Hard-2 / Hard-3 / Hard-4. The Rust
+`dump_game` tracer is only truthful for all-Hard-4; its mixed labels are
+budget-scaled Hard-4 variants, not the real TypeScript personalities.
+
 ### Hard-4 (Rust/WASM) operations
 ```bash
 # Native unit tests
