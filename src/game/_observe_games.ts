@@ -140,7 +140,7 @@ function playOneTrace(seats: AIPersonality[], seed: number): string {
         const t = r.currentTrick!;
         const winner = t.winner!;
         const winCard = t.plays.find((p) => p.player === winner)!.card;
-        out.push(`    -> WINNER P${winner} with ${cardLabel(winCard)} · trick points ${t.points}`);
+        out.push(`    -> WINNER P${winner} with ${cardLabel(winCard)} · round points ${t.points}`);
         out.push("");
         state = collectTrick(state);
         continue;
@@ -166,7 +166,7 @@ function playOneTrace(seats: AIPersonality[], seed: number): string {
       } else if (r.phase === "playing") {
         const p = r.toPlay;
         if (!r.currentTrick || r.currentTrick.plays.length === 0) {
-          out.push(`  -- Trick ${trickNo++} (led by P${p}) --`);
+          out.push(`  -- Round ${trickNo++} (led by P${p}) --`);
         }
         const legal = legalPlays(r.hands[p], r.currentTrick);
         const card = aiPlayDecision(state, p);

@@ -232,7 +232,7 @@ export function applyDeclare(state: GameState, trump: Suit, partnerCard: Card): 
       partnerRevealed: false,
       revealedPartners: [],
       phase: "playing",
-      toPlay: bidder, // bidder leads first trick
+      toPlay: bidder, // bidder leads the first round
       currentTrick: { leader: bidder, plays: [] },
     },
     log,
@@ -276,11 +276,11 @@ export function applyPlay(state: GameState, player: PlayerId, card: Card): GameS
     p.id === player ? { ...p, hand: newHand } : p,
   );
 
-  // Trick complete? Hold for UI pause.
+  // Round complete? Hold for UI pause.
   if (newTrick.plays.length === 5) {
     const winner = trickWinner(newTrick, r.trump);
     const pts = trickPoints(newTrick);
-    const trickLog = logEntry("trick", `${state.players[winner].name} wins the trick (+${pts} pts).`);
+    const trickLog = logEntry("trick", `${state.players[winner].name} wins the round (+${pts} pts).`);
     return {
       ...state,
       players,
@@ -297,7 +297,7 @@ export function applyPlay(state: GameState, player: PlayerId, card: Card): GameS
     };
   }
 
-  // Trick continues
+  // Round continues
   return {
     ...state,
     players,

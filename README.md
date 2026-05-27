@@ -1,6 +1,6 @@
 # Black Queen
 
-A 5-player trick-taking card game with hidden partnerships and bidding. One round per game: bid, declare trump + a hidden partner card, play 13 rounds, settle the score.
+A 5-player card game with hidden partnerships and bidding. One round per game: bid, declare trump + a hidden partner card, play 13 rounds, settle the score.
 
 Built as a polished single-page app with four AI personalities. Hard / Hard-2 / Hard-3 are utility-function-based, refined by evolutionary search over millions of simulated games. **Hard-4** is a different paradigm entirely — Information-Set Monte Carlo Tree Search with a hand-distribution belief tracker and opponent-intent Bayesian inference, written in Rust and shipped to the browser via WASM. Hard-4 beats Hard-3 by +3.92pp in mirror-replay (~4σ) and decisively beats every prior generation. All run client-side, no backend.
 

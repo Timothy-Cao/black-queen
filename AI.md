@@ -1,6 +1,6 @@
 # How the strongest AIs were built
 
-Black Queen is a 5-player trick-taking game with hidden partnerships, bidding, trump, and 300 card-points in the deck. Four AI generations live in production. Hard, Hard-2, and Hard-3 use a tuned utility function. Hard-4 uses Information-Set Monte Carlo Tree Search with a belief tracker, implemented in Rust and shipped to the browser through WebAssembly.
+Black Queen is a 5-player card game with hidden partnerships, bidding, trump, and 300 card-points in the deck. Four AI generations live in production. Hard, Hard-2, and Hard-3 use a tuned utility function. Hard-4 uses Information-Set Monte Carlo Tree Search with a belief tracker, implemented in Rust and shipped to the browser through WebAssembly.
 
 ## Hard through Hard-3: tuned utility play
 
@@ -10,7 +10,7 @@ The first three hard AIs share the same basic design: score every legal action, 
 
 Each move is scored as expected team points captured minus card spend cost, plus situational features:
 
-- smear high-point cards onto tricks a known ally is winning
+- smear high-point cards onto rounds a known ally is winning
 - avoid feeding points to known enemies
 - special handling for Q♠, including commit and dump thresholds
 - void-creation rewards when shedding a near-empty suit
@@ -45,17 +45,17 @@ The belief tracker records what each opponent can still hold. It uses hard const
 
 For each move, Hard-4 repeatedly samples a determinization: one complete assignment of unseen cards that fits the belief state. It then runs a UCB-guided rollout from the current position, using a tactical policy rather than random play. The rollout values the whole team's captured points, not just the searching player's pile.
 
-That team-aware backpropagation was a structural fix. In a partnership game, a trick lost to your partner can be good.
+That team-aware backpropagation was a structural fix. In a partnership game, a round lost to your partner can be good.
 
 ### Opponent-intent inference
 
-Hard-4 also maintains a log-likelihood ratio for each unknown player's team alignment. The tracker updates from voluntary signals such as point-feeds, Q♠ feeds, withholds, trumping a caller-winning trick, or stealing points from the opposing team. These signals bias the determinization sampler toward worlds where the partner card is in a likely ally's hand.
+Hard-4 also maintains a log-likelihood ratio for each unknown player's team alignment. The tracker updates from voluntary signals such as point-feeds, Q♠ feeds, withholds, trumping a caller-winning round, or stealing points from the opposing team. These signals bias the determinization sampler toward worlds where the partner card is in a likely ally's hand.
 
 This was the decisive lever. With intent inference off, Hard-4 is roughly tied with Hard-3. With it on, Hard-4 is the strongest AI in the lineup.
 
 ### Discard guards
 
-Qualitative trace review found a repeatable mistake: hard AIs sometimes dumped a non-trump point card onto a trick a known enemy was already winning, even when a cheaper non-trump discard was legal. Hard-4 now has a narrow Rust-side post-search guard for that case. Hard, Hard-2, and Hard-3 have the matching TypeScript guard.
+Qualitative trace review found a repeatable mistake: hard AIs sometimes dumped a non-trump point card onto a round a known enemy was already winning, even when a cheaper non-trump discard was legal. Hard-4 now has a narrow Rust-side post-search guard for that case. Hard, Hard-2, and Hard-3 have the matching TypeScript guard.
 
 This is a small cleanup, not a new generation. The TS guard matrix showed +0.30pp to +0.66pp against Normal, with no meaningful ordering change inside the hard family.
 

@@ -114,7 +114,7 @@ const TRIED: TriedItem[] = [
   { label: "Hard-5: ES-tune Hard-4 intent weights", result: "regress", note: "Two 20-gen runs (no gate, then with non-regression gate vs Default). Both converged on weights that look improved on training seeds but verify at −0.20pp on fresh seeds (within 1σ of noise). Hard-4's intent magnitudes are already near-optimal for this representation. Tuner infra retained for future use." },
   { label: "Threshold-optimization rollout backprop", result: "regress", note: "Replaced ISMCTS's EV-proxy (captured/300) with the true indicator, P(team makes bid). The theory was plausible, but pure binary value was −1.47pp at N=300. Hybrid value was +1.93pp at N=300, then −0.20pp at N=500. The smoother EV proxy already carries the useful signal at this search depth." },
   { label: "Partner-aware bidding adjustment",       result: "wash",    note: "Insight: weak hands with no aces/Q♠/kings are likely on the opposing team, so push the bid up to force the caller into failure territory. Symmetric version (also lower bid for partner-rich hands) regressed −2.00pp, strong hands should bid more, not less. Asymmetric fix (only raise for partner-poor): +0.87pp at N=300 → +0.07pp at N=600. The triggering window is <5% of games. Toggle retained for any future smarter bidder." },
-  { label: "Low-point enemy-discard guard",           result: "win",     note: "Qualitative trace review found hard AIs dumping point cards onto known enemy-winning tricks. Hard-4 has the Rust post-search guard, and Hard / Hard-2 / Hard-3 now have the same narrow TypeScript guard. Latest matrix: +0.30pp to +0.66pp vs Normal for the TS hard family, with no lineup reorder." },
+  { label: "Low-point enemy-discard guard",           result: "win",     note: "Qualitative trace review found hard AIs dumping point cards onto known enemy-winning rounds. Hard-4 has the Rust post-search guard, and Hard / Hard-2 / Hard-3 now have the same narrow TypeScript guard. Latest matrix: +0.30pp to +0.66pp vs Normal for the TS hard family, with no lineup reorder." },
 ];
 
 // Shuffle-intensity sweep (Hard-3 vs others at five intensities, 1500 pairs × 2 mirror).
@@ -129,7 +129,7 @@ const SHUFFLE_SWEEP: { t: number; label: string; vsNormal: number; vsHard: numbe
 const FUTURE: { label: string; note: string }[] = [
   { label: "Tree-structured ISMCTS",                       note: "Current implementation is single-rooted: UCB statistics live at the root only. Promoting to per-info-set statistics gets compounding improvement from every rollout. This is the highest-value direction now that intent tuning hit its ceiling." },
   { label: "Search-based bidder",                          note: "Hard-4 currently delegates bid + declare to Hard-3. Sampling N self-hand-consistent worlds and running mini-ISMCTS would close the holistic Hard-4 vs Hard-3 edge." },
-  { label: "ISMCTS-in-endgame (replaces minimax)",         note: "Minimax assumed optimal opponents and regressed −1pp. Running ISMCTS with full budget at ≤3 tricks instead matches the opponent model used everywhere else." },
+  { label: "ISMCTS-in-endgame (replaces minimax)",         note: "Minimax assumed optimal opponents and regressed −1pp. Running ISMCTS with full budget at ≤3 rounds instead matches the opponent model used everywhere else." },
   { label: "ES-tune Hard-4 search constants",              note: "Hard-4 has ~5 search scalars (UCB exploration, rollout count, endgame depth) still set by hand-tuned intuition. Lower priority than the architectural items now that intent ES showed the well is dry at this scale." },
 ];
 
@@ -239,7 +239,7 @@ export function AIInfoPage({ onBack }: Props) {
               Four generations of agents for Black Queen
             </h1>
             <p className="text-[14px] text-stone-400 leading-relaxed">
-              A trick-taking card game with hidden partnerships, played by an evolving series
+              A card game with hidden partnerships, played by an evolving series
               of AI agents. This page documents what each generation does, what worked, what didn't,
               and where the remaining headroom is.
             </p>
@@ -294,18 +294,18 @@ function OverviewTab() {
 
       <Section id="game" kicker="§2" title="The game">
         <p>
-          Black Queen is a 5-player trick-taking game with hidden partnerships. The 65-card deck
+          Black Queen is a 5-player card game with hidden partnerships. The 65-card deck
           (two standard decks minus 2 / 3 / 4 / 6 and all 7s except one 7♠) carries 300 total
           card-points: <span className="text-gold-400 font-medium">Q♠ = 30</span>, A = 15,
           10 = 10, 5 = 5. One player wins a bid (150–300), declares trump, and names a
           partner card by rank-and-suit; whoever holds it is on their team but stays hidden
           until they play that card. The caller's team must capture at least the bid in
-          card-points across 13 tricks to score the bid. If they fall short, they lose it.
+          card-points across 13 rounds to score the bid. If they fall short, they lose it.
         </p>
         <p>
           Two ingredients make this an interesting target for a computer player. First,
           the partner card creates a hidden-information layer on top of the usual
-          trick-taking. Every play is also a communication, and inferring who's on whose
+          follow-suit, trump, and point-capture rules. Every play is also a communication, and inferring who's on whose
           team from observed plays is its own sub-problem. Second, the point cards are
           concentrated (Q♠ alone is 10% of all points), so whether you fed the 30-pointer
           or held it back dominates the scoring.
@@ -344,7 +344,7 @@ function GenerationsTab() {
         <p>
           <span className="text-stone-100 font-medium">Hard-3 additions.</span> A Bayesian-style
           alliance prior tracks <em>P(player ∈ caller team)</em> for each opponent and updates
-          it whenever a player voluntarily feeds points to a trick they aren't winning. The
+          it whenever a player voluntarily feeds points to a round they aren't winning. The
           posterior promotes high-confidence unknowns (≥ 0.85) to "inferred ally" and feeds
           into the same binary smear/feed gates the AI already used. Void-creation rewards
           discards that bring a side suit toward a singleton or doubleton when the AI still
@@ -380,7 +380,7 @@ function GenerationsTab() {
           <span className="text-stone-100 font-medium">Opponent-intent inference.</span> Layered
           over the belief tracker, a log-likelihood-ratio (LLR) accumulator scores
           <em> voluntary</em> plays: a player who could have played a non-point card but fed
-          Q♠ to a caller-team-winning trick has emitted a strong "I'm on the caller's team"
+          Q♠ to a caller-team-winning round has emitted a strong "I'm on the caller's team"
           signal. Nine separately-tunable LLR magnitudes cover the symmetric cases
           (feed-to-caller, feed-to-opposing, withhold-from-each, voluntary trump, voluntary
           steal). The posterior P(team) biases the determinization sampler toward more-
@@ -389,7 +389,7 @@ function GenerationsTab() {
         <p>
           <span className="text-stone-100 font-medium">Discard guard.</span> After qualitative
           trace review, Hard-4 also has a narrow post-search guard for a clear tactical error:
-          dumping a non-trump point card onto a trick a known enemy is already winning when a
+          dumping a non-trump point card onto a round a known enemy is already winning when a
           cheaper non-trump discard is legal. The same guard now protects Hard, Hard-2, and
           Hard-3 in TypeScript. It is deliberately small, and recent matrix checks show it as
           a modest cleanup rather than a new generation.
@@ -705,7 +705,7 @@ const FAILURES: FailureEntry[] = [
   },
   {
     title: "Hard-4 minimax endgame solver",
-    hypothesis: "At ≤ 3 tricks remaining, the game is small enough to solve exactly with minimax.",
+    hypothesis: "At ≤ 3 rounds remaining, the game is small enough to solve exactly with minimax.",
     result: "Regressed by ~1pp in mirror replay vs Hard-3 opponent.",
     why: "Minimax assumes adversarially optimal opponents. The actual test opponent, Hard-3, plays heuristically. The solver picks moves that are best against perfect play but suboptimal against Hard-3's habits, so it over-defends against threats that the opponent is unlikely to find. It remains gated behind BQ_ENDGAME=1. The proper fix is ISMCTS-in-endgame, which uses the same opponent model as the rest of the search.",
     verdict: "regress",
@@ -856,8 +856,8 @@ interface GlossaryEntry { term: string; def: string; }
 
 const GLOSSARY: GlossaryEntry[] = [
   {
-    term: "Trick-taking game",
-    def: "A card game where each player plays one card per round and the highest-ranked card by some rule wins the round (the 'trick'). Bridge, Hearts, Spades, and Black Queen are all in this family.",
+    term: "Round",
+    def: "A card game where each player plays one card per round and the highest-ranked card by some rule wins the round. Bridge, Hearts, Spades, and Black Queen are all in this family.",
   },
   {
     term: "Trump",
@@ -909,7 +909,7 @@ const GLOSSARY: GlossaryEntry[] = [
   },
   {
     term: "Mirror replay",
-    def: "Variance-reduction trick: play the same deal twice but swap which player uses which AI at every seat. Effects of dealing luck and seat order cancel out across the pair. Lets you detect smaller edges with the same compute budget.",
+    def: "Variance-reduction technique: play the same deal twice but swap which player uses which AI at every seat. Effects of dealing luck and seat order cancel out across the pair. Lets you detect smaller edges with the same compute budget.",
   },
   {
     term: "Multi-opponent fitness",
@@ -933,11 +933,11 @@ const GLOSSARY: GlossaryEntry[] = [
   },
   {
     term: "Voluntariness",
-    def: "How freely a player could have made a different choice. A point card fed onto a winning trick when the player had legal alternatives is 'voluntary' and a strong signal. The same play forced by suit-following rules carries no information.",
+    def: "How freely a player could have made a different choice. A point card fed onto a winning round when the player had legal alternatives is 'voluntary' and a strong signal. The same play forced by suit-following rules carries no information.",
   },
   {
     term: "Smear",
-    def: "Deliberately playing a high-point card onto a trick a teammate is winning, to feed them points. The team gets the points either way; smearing also reveals that the smearer is on that teammate's side.",
+    def: "Deliberately playing a high-point card onto a round a teammate is winning, to feed them points. The team gets the points either way; smearing also reveals that the smearer is on that teammate's side.",
   },
   {
     term: "Void / void-creation",
@@ -945,7 +945,7 @@ const GLOSSARY: GlossaryEntry[] = [
   },
   {
     term: "Cut / cutting in / ruffing",
-    def: "Playing trump on a non-trump trick. Only possible if you're void in the led suit. The classical reason to engineer a void.",
+    def: "Playing trump on a non-trump round. Only possible if you're void in the led suit. The classical reason to engineer a void.",
   },
   {
     term: "Per-seat win rate",

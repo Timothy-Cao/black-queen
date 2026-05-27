@@ -78,7 +78,7 @@ export default function App() {
       if (e.text.includes("plays ")) sfx.cardPlay();
       else if (e.text.includes("bids ")) sfx.bidPlace();
       else if (e.text.includes("passes")) sfx.bidPass();
-      else if (e.text.includes("wins the trick")) sfx.trickWin();
+      else if (e.text.includes("wins the round")) sfx.trickWin();
       else if (e.text.includes("is the partner")) sfx.partnerReveal();
       else if (e.text.includes("MADE")) sfx.roundMade();
       else if (e.text.includes("FAILED")) sfx.roundFail();
@@ -95,7 +95,7 @@ export default function App() {
     if (state.phase === "game_end" || state.phase === "round_end") return;
     const r = state.round;
 
-    // Trick-completion is no longer auto-resolved by a timer. The player
+    // Round completion is no longer auto-resolved by a timer. The player
     // clicks "Continue" (rendered inside TrickArea) to advance.
     if (r.pendingTrickComplete) return;
 

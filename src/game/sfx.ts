@@ -167,7 +167,7 @@ export const sfx = {
       duration: 0.22, filterType: "lowpass", freq: 900, q: 0.5, gain: 0.07, sweepTo: 280,
     });
   },
-  /** Ascending chime arpeggio — winning a trick. */
+  /** Ascending chime arpeggio for winning a round. */
   trickWin: () => {
     const e = ensureCtx(); if (!e) return;
     const notes = [523.25, 659.25, 783.99]; // C5 E5 G5
