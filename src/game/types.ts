@@ -96,6 +96,8 @@ export interface GameState {
   shuffleMode: ShuffleMode;
   /** Continuous shuffle intensity. 0 = light (current default, biased hands), 1 = full random. */
   shuffleIntensity: number;
+  /** If true, intensity is re-rolled uniformly at random on every deal (initial deal + redeals + next-round). */
+  randomizeShuffle?: boolean;
 }
 
 export interface GameLogEntry {

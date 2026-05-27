@@ -20,5 +20,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["src/game/smoketest.ts", "src/game/arena.ts", "src/game/tune.ts", "src/game/_ab_void.ts", "src/game/_ab_infer.ts", "src/game/_tournament.ts", "src/game/_verify_personalities.ts", "src/game/tune2.ts", "src/game/_mirror_arena.ts"]
+  "exclude": ["src/game/smoketest.ts", "src/game/arena.ts", "src/game/tune.ts", "src/game/_ab_void.ts", "src/game/_ab_infer.ts", "src/game/_tournament.ts", "src/game/_verify_personalities.ts", "src/game/tune2.ts", "src/game/_mirror_arena.ts", "src/game/_shuffle_sweep.ts"]
 }

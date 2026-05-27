@@ -159,8 +159,13 @@ export default function App() {
     return (
       <>
         <Lobby
-          onStart={(cfgs, target, shuffleIntensity) =>
-            setState(freshGame(cfgs, target, shuffleIntensity >= 0.5 ? "full" : "light", shuffleIntensity))
+          onStart={(cfgs, target, shuffleIntensity, randomizeShuffle) =>
+            setState(freshGame(
+              cfgs, target,
+              shuffleIntensity >= 0.5 ? "full" : "light",
+              shuffleIntensity,
+              randomizeShuffle,
+            ))
           }
         />
         {showHelp && (

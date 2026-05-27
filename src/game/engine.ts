@@ -13,6 +13,7 @@ export function freshGame(
   targetScore = 300,
   shuffleMode: ShuffleMode = "light",
   shuffleIntensity?: number,
+  randomizeShuffle = false,
 ): GameState {
   if (playerConfigs.length !== 5) throw new Error("Need 5 players");
   const players: Player[] = playerConfigs.map((p, i) => ({
@@ -41,10 +42,17 @@ export function freshGame(
     history: [],
     targetScore,
     phase: round.phase,
-    log: [logEntry("info", `Game started — first to ${targetScore} points wins. Shuffle: ${intensityLabel}.`)],
+    log: [logEntry("info", `Game started — first to ${targetScore} points wins. Shuffle: ${randomizeShuffle ? "random per deal" : intensityLabel}.`)],
     shuffleMode,
     shuffleIntensity: intensity,
+    randomizeShuffle,
   };
+}
+
+/** Resolve the intensity for a mid-game re-deal: re-roll if the game is in randomize mode. */
+function resolveDealIntensity(state: GameState): number {
+  if (state.randomizeShuffle) return Math.random();
+  return state.shuffleIntensity ?? 0;
 }
 
 export function startRound(players: Player[], dealer: PlayerId, roundNumber: number, shuffleIntensity = 0): RoundState {
@@ -160,7 +168,7 @@ function advanceBidTurn(state: GameState): GameState {
 
 function redealRound(state: GameState): GameState {
   const log = [...state.log, logEntry("system", `Everyone passed. Redealing...`)];
-  const round = startRound(state.players, state.round.dealer, state.round.roundNumber, state.shuffleIntensity ?? 0);
+  const round = startRound(state.players, state.round.dealer, state.round.roundNumber, resolveDealIntensity(state));
   return { ...state, round, log, phase: round.phase };
 }
 
@@ -393,7 +401,7 @@ export function startNextRound(state: GameState): GameState {
   const history = [...state.history, state.round];
   // The caller of the round that just finished becomes the next dealer.
   const dealer: PlayerId = state.round.bidder ?? nextPlayer(state.round.dealer);
-  const round = startRound(state.players, dealer, state.round.roundNumber + 1, state.shuffleIntensity ?? 0);
+  const round = startRound(state.players, dealer, state.round.roundNumber + 1, resolveDealIntensity(state));
   return { ...state, history, round, phase: round.phase, log: [...state.log, logEntry("info", `--- Round ${round.roundNumber} ---`)] };
 }
 

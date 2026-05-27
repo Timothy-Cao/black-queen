@@ -5,7 +5,7 @@ import { Card, AIPersonality } from "../game/types";
 type Cfg = { name: string; isAI: boolean; aiPersonality?: AIPersonality };
 
 interface Props {
-  onStart: (configs: Cfg[], target: number, shuffleIntensity: number) => void;
+  onStart: (configs: Cfg[], target: number, shuffleIntensity: number, randomizeShuffle: boolean) => void;
 }
 
 const DEFAULTS: Cfg[] = [
@@ -30,6 +30,8 @@ export function Lobby({ onStart }: Props) {
   const [players, setPlayers] = useState<Cfg[]>(DEFAULTS);
   // Continuous shuffle intensity 0..1. 0 = light (current default, biased hands), 1 = full random.
   const [shuffleIntensity, setShuffleIntensity] = useState<number>(0);
+  // When checked, intensity is re-rolled uniformly at random for every dealt round.
+  const [randomizeShuffle, setRandomizeShuffle] = useState<boolean>(false);
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-6">
       <div className="glass rounded-2xl p-8 w-[640px] animate-floatIn relative overflow-visible">
@@ -114,7 +116,8 @@ export function Lobby({ onStart }: Props) {
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-sm text-stone-300">Shuffle</label>
               <span className="text-[10px] uppercase tracking-wider text-gold-400/70 font-mono">
-                {shuffleIntensity <= 0.025 ? "light"
+                {randomizeShuffle ? "random"
+                  : shuffleIntensity <= 0.025 ? "light"
                   : shuffleIntensity >= 0.975 ? "full"
                   : `${Math.round(shuffleIntensity * 100)}%`}
               </span>
@@ -126,17 +129,32 @@ export function Lobby({ onStart }: Props) {
               step={1}
               value={Math.round(shuffleIntensity * 100)}
               onChange={(e) => setShuffleIntensity(parseInt(e.target.value, 10) / 100)}
-              className="w-full accent-gold-500 cursor-pointer"
+              disabled={randomizeShuffle}
+              className={`w-full accent-gold-500 ${randomizeShuffle ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
               aria-label="Shuffle intensity"
             />
             <div className="flex justify-between text-[10px] text-stone-500 mt-1 select-none">
               <span>Light · dramatic hands</span>
               <span>Full · uniform</span>
             </div>
+            <label className="flex items-center gap-1.5 mt-2 text-xs text-stone-300 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={randomizeShuffle}
+                onChange={(e) => setRandomizeShuffle(e.target.checked)}
+                className="accent-gold-500"
+              />
+              <span>Randomize per round</span>
+              <span className="text-[10px] text-stone-500">(re-roll intensity each deal)</span>
+            </label>
           </div>
           <button
             className="btn btn-primary w-full text-lg py-3"
-            onClick={() => onStart(players, TARGET_SCORE, shuffleIntensity)}
+            onClick={() => onStart(
+              players, TARGET_SCORE,
+              randomizeShuffle ? Math.random() : shuffleIntensity,
+              randomizeShuffle,
+            )}
           >
             Deal &amp; Begin
           </button>
