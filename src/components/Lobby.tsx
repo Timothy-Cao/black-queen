@@ -52,12 +52,9 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
           ))}
         </div>
         <div className="pt-16">
-          <h1 className="font-display text-5xl text-gold-400 tracking-wide drop-shadow-[0_0_18px_rgba(245,196,107,0.25)]">
+          <h1 className="font-display text-5xl text-gold-400 tracking-wide drop-shadow-[0_0_18px_rgba(245,196,107,0.25)] mb-6">
             Black Queen
           </h1>
-          <p className="text-sm text-stone-300 mt-1 mb-6">
-            A 5-player game of hidden partnerships and bidding.
-          </p>
           <div className="text-[11px] uppercase tracking-widest text-gold-400/80 mb-2">Players</div>
           <div className="space-y-2 mb-5">
             {players.map((p, i) => (
@@ -113,35 +110,33 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
               </div>
             ))}
           </div>
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm text-stone-300">Shuffle</label>
-              <span className="text-[10px] uppercase tracking-wider text-gold-400/70 font-mono">
-                {randomizeShuffle ? "random"
-                  : shuffleIntensity <= 0.025 ? "light"
-                  : shuffleIntensity >= 0.975 ? "full"
-                  : `${Math.round(shuffleIntensity * 100)}%`}
-              </span>
-            </div>
+          <div className="mb-6 flex items-center gap-3 flex-wrap">
+            <label className="text-sm text-stone-300 w-14 shrink-0">Shuffle</label>
             <input
               type="range"
               min={0}
               max={100}
-              step={1}
+              step={5}
               value={Math.round(shuffleIntensity * 100)}
               onChange={(e) => setShuffleIntensity(parseInt(e.target.value, 10) / 100)}
               disabled={randomizeShuffle}
-              className={`w-full accent-gold-500 ${randomizeShuffle ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+              className={`accent-gold-500 w-44 ${randomizeShuffle ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
               aria-label="Shuffle intensity"
             />
-            <label className="flex items-center gap-1.5 mt-2 text-xs text-stone-300 select-none cursor-pointer">
+            <span className="text-[10px] uppercase tracking-wider text-gold-400/70 font-mono w-10 text-center shrink-0">
+              {randomizeShuffle ? "rand"
+                : shuffleIntensity <= 0.025 ? "light"
+                : shuffleIntensity >= 0.975 ? "full"
+                : `${Math.round(shuffleIntensity * 100)}%`}
+            </span>
+            <label className="flex items-center gap-1.5 ml-auto text-xs text-stone-300 select-none cursor-pointer shrink-0">
               <input
                 type="checkbox"
                 checked={randomizeShuffle}
                 onChange={(e) => setRandomizeShuffle(e.target.checked)}
                 className="accent-gold-500"
               />
-              <span>Randomize shuffle</span>
+              <span>Randomize</span>
             </label>
           </div>
           <button
