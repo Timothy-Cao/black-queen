@@ -1,0 +1,10 @@
+[package]
+name = "bq-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bq-engine = { path = "../bq-engine" }
+bq-ai = { path = "../bq-ai" }
+serde_json = { workspace = true }
+rand = { workspace = true }

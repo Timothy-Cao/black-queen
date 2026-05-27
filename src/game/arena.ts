@@ -122,7 +122,7 @@ function summarize(perSeat: Record<Personality, SeatStats>, totalGames: number) 
   console.log(`\nArena summary (${totalGames} games):`);
   console.log("personality   |  played  |  called  | call-made% | avg-bid | avg-cap | team-win%");
   console.log("-".repeat(86));
-  for (const key of ["hard", "hard-2", "normal", "random"] as Personality[]) {
+  for (const key of ["hard-4", "hard-3", "hard-2", "hard", "normal", "random"] as Personality[]) {
     const s = perSeat[key];
     if (!s || s.games === 0) continue;
     console.log(
@@ -137,7 +137,8 @@ const tokens = arg.split(",").map((t) => t.trim()) as Personality[];
 const fixedLayout = tokens.length === 5;
 
 const perSeat: Record<Personality, SeatStats> = {
-  hard: newStats(), normal: newStats(), random: newStats(), "hard-2": newStats(),
+  hard: newStats(), normal: newStats(), random: newStats(),
+  "hard-2": newStats(), "hard-3": newStats(), "hard-4": newStats(),
 };
 
 const t0 = Date.now();

@@ -96,6 +96,7 @@ export function Lobby({ onStart }: Props) {
                       setPlayers(a);
                     }}
                   >
+                    <option value="hard-4" className="text-black">Hard-4 (preview)</option>
                     <option value="hard-3" className="text-black">Hard-3</option>
                     <option value="hard-2" className="text-black">Hard-2</option>
                     <option value="hard" className="text-black">Hard</option>

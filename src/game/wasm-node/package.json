@@ -1,0 +1,11 @@
+{
+  "name": "bq-wasm",
+  "version": "0.1.0",
+  "files": [
+    "bq_wasm_bg.wasm",
+    "bq_wasm.js",
+    "bq_wasm.d.ts"
+  ],
+  "main": "bq_wasm.js",
+  "types": "bq_wasm.d.ts"
+}
