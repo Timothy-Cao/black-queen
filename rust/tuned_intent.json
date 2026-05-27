@@ -1,0 +1,11 @@
+{
+  "w_voluntary_feed_to_caller": 0.09166269227947663,
+  "w_voluntary_q_spades_to_caller": 0.33186927047857384,
+  "w_voluntary_feed_to_opposing": 0.8751798138450833,
+  "w_withhold_from_caller": 0.04094940528808145,
+  "w_withhold_from_opposing": 0.04978035376573532,
+  "w_voluntary_trump_caller": 0.0581587732918508,
+  "w_voluntary_trump_opposing": 0.0,
+  "w_voluntary_steal_from_caller": 0.0,
+  "llr_clamp": 1.543076013962981
+}
