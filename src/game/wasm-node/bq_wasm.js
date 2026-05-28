@@ -84,6 +84,56 @@ function hard4_play_json(state_json, self_id, time_ms, seed) {
 exports.hard4_play_json = hard4_play_json;
 
 /**
+ * A/B toggle for the follow-side discard guard (defaults ON).
+ * @param {boolean} enabled
+ */
+function set_follow_guard_wasm(enabled) {
+    wasm.set_follow_guard_wasm(enabled);
+}
+exports.set_follow_guard_wasm = set_follow_guard_wasm;
+
+/**
+ * A/B toggle for PUCT prior-guided root selection.
+ * enabled: on/off. c_x100: PUCT c × 100 (e.g. 150 = 1.5). conc_x100: prior
+ * concentration on greedy pick × 100 (e.g. 50 = 0.5 mass on greedy move).
+ * @param {boolean} enabled
+ * @param {number} c_x100
+ * @param {number} conc_x100
+ */
+function set_puct_wasm(enabled, c_x100, conc_x100) {
+    wasm.set_puct_wasm(enabled, c_x100, conc_x100);
+}
+exports.set_puct_wasm = set_puct_wasm;
+
+/**
+ * A/B selector for ISMCTS rollout policy. 0=Tactical, 1=Greedy (default), 2=Random.
+ * @param {number} policy
+ */
+function set_rollout_policy_wasm(policy) {
+    wasm.set_rollout_policy_wasm(policy);
+}
+exports.set_rollout_policy_wasm = set_rollout_policy_wasm;
+
+/**
+ * A/B toggle for tree-structured ISMCTS (SO-ISMCTS). depth = max tree depth in plays.
+ * @param {boolean} enabled
+ * @param {number} depth
+ */
+function set_tree_ismcts_wasm(enabled, depth) {
+    wasm.set_tree_ismcts_wasm(enabled, depth);
+}
+exports.set_tree_ismcts_wasm = set_tree_ismcts_wasm;
+
+/**
+ * A/B override for UCB exploration constant. c_x100 = c × 100 (0 = use default 1.4).
+ * @param {number} c_x100
+ */
+function set_ucb_c_wasm(c_x100) {
+    wasm.set_ucb_c_wasm(c_x100);
+}
+exports.set_ucb_c_wasm = set_ucb_c_wasm;
+
+/**
  * @returns {string}
  */
 function version() {

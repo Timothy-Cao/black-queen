@@ -12,7 +12,60 @@
 
 use crate::belief::BeliefState;
 use crate::endgame::{should_solve_endgame, solve_endgame};
-use crate::rollout::rollout_tactical;
+use crate::rollout::{rollout_tactical, rollout_greedy, rollout_random};
+
+/// Runtime-selectable rollout policy for ISMCTS leaf evaluation.
+/// Defaults to Tactical (production). Switchable via `set_rollout_policy`
+/// (native + wasm-bindgen) for A/B testing rollout sensitivity.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum RolloutPolicy { Tactical, Greedy, Random }
+
+// Default rollout policy = Greedy (Hard-4.1 increment, 2026-05-27).
+// A/B at 80ms N=5000 + 300ms N=2000 (pooled Z=-2.07, Δ=+0.78pp win-rate,
+// +5.7pp caller %made) shows greedy outperforms tactical. Tactical's team-aware
+// smearing biases ISMCTS estimates; greedy's neutrality gives less-biased
+// per-action statistics. Marginal but consistent — NOT a generation jump.
+// See docs/hard5_roadmap.md and docs/budget_sweep/rollout_ab_*.jsonl.
+#[cfg(target_arch = "wasm32")]
+static ROLLOUT_POLICY_WASM: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(1); // 1 = Greedy
+#[cfg(not(target_arch = "wasm32"))]
+thread_local! {
+    static ROLLOUT_POLICY_NATIVE: std::cell::RefCell<RolloutPolicy> = const { std::cell::RefCell::new(RolloutPolicy::Greedy) };
+}
+
+pub fn set_rollout_policy(p: RolloutPolicy) {
+    #[cfg(target_arch = "wasm32")]
+    ROLLOUT_POLICY_WASM.store(match p {
+        RolloutPolicy::Tactical => 0,
+        RolloutPolicy::Greedy => 1,
+        RolloutPolicy::Random => 2,
+    }, std::sync::atomic::Ordering::Relaxed);
+    #[cfg(not(target_arch = "wasm32"))]
+    ROLLOUT_POLICY_NATIVE.with(|c| *c.borrow_mut() = p);
+}
+
+fn rollout_policy() -> RolloutPolicy {
+    #[cfg(target_arch = "wasm32")]
+    {
+        match ROLLOUT_POLICY_WASM.load(std::sync::atomic::Ordering::Relaxed) {
+            0 => RolloutPolicy::Tactical,
+            2 => RolloutPolicy::Random,
+            _ => RolloutPolicy::Greedy, // default 1 = Greedy
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Native: env override for A/B testing.
+        if let Ok(s) = std::env::var("BQ_ROLLOUT") {
+            return match s.as_str() {
+                "tactical" => RolloutPolicy::Tactical,
+                "random" => RolloutPolicy::Random,
+                _ => RolloutPolicy::Greedy,
+            };
+        }
+        ROLLOUT_POLICY_NATIVE.with(|c| *c.borrow())
+    }
+}
 use std::collections::HashSet;
 use bq_engine::engine::apply_play;
 use bq_engine::rng::GameRng;
@@ -133,6 +186,16 @@ pub fn ismcts_play(
     let mut stats: HashMap<Card, ActionStats> = HashMap::new();
     for &c in &candidates { stats.insert(c, ActionStats::default()); }
 
+    // Optional PUCT prior over root candidates. When enabled, concentrates the
+    // limited iteration budget on heuristically-plausible moves. The prior gives
+    // the greedy-heuristic pick `puct_prior_concentration()` of the mass; the
+    // rest is uniform. Off by default (env BQ_PUCT=1 / wasm setter to enable).
+    let root_prior: Option<HashMap<Card, f64>> = if puct_enabled() {
+        Some(compute_root_prior(state, my_id, trick, &candidates))
+    } else {
+        None
+    };
+
     // On wasm32 we have no monotonic clock; time_budget is interpreted as
     // (min_iterations..max_iterations) effective range. Native paths use the
     // real deadline.
@@ -161,9 +224,13 @@ pub fn ismcts_play(
             }
         }
 
-        // 2. Select root action via UCB1.
+        // 2. Select root action via UCB1 or PUCT (prior-guided).
         let total_visits: u64 = stats.values().map(|s| s.visits).sum();
-        let chosen = pick_ucb1(&stats, &candidates, total_visits, params.ucb_c, rng);
+        let chosen = if let Some(prior) = root_prior.as_ref() {
+            pick_puct(&stats, &candidates, prior, total_visits, puct_c())
+        } else {
+            pick_ucb1(&stats, &candidates, total_visits, ucb_c_effective(params.ucb_c), rng)
+        };
 
         // 3. Apply at root, rollout to game end.
         let card_idx = sim.hands[my_id as usize].iter()
@@ -171,7 +238,11 @@ pub fn ismcts_play(
             .expect("chosen card must be in hand");
         apply_play(&mut sim, my_id, card_idx);
         if sim.phase == Phase::Playing {
-            rollout_tactical(&mut sim, rng);
+            match rollout_policy() {
+                RolloutPolicy::Tactical => rollout_tactical(&mut sim, rng),
+                RolloutPolicy::Greedy => rollout_greedy(&mut sim, rng),
+                RolloutPolicy::Random => rollout_random(&mut sim, rng),
+            }
         }
 
         // 4. Backprop. Black Queen scoring is an indicator function: my team
@@ -257,6 +328,123 @@ fn ismcts_endgame(
     }
 
     *votes.iter().max_by_key(|(_, &v)| v).map(|(c, _)| c).unwrap_or(&candidates[0])
+}
+
+// ---------------------------------------------------------------------------
+//  UCB exploration-constant override (A/B, 2026-05-27)
+//  Default 1.4. Lower = more exploitation (may help at tiny iter budgets).
+// ---------------------------------------------------------------------------
+#[cfg(target_arch = "wasm32")]
+static UCB_C_X100_WASM: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0); // 0 = use param default
+
+pub fn set_ucb_c(c_x100: u32) {
+    #[cfg(target_arch = "wasm32")]
+    UCB_C_X100_WASM.store(c_x100, std::sync::atomic::Ordering::Relaxed);
+    #[cfg(not(target_arch = "wasm32"))]
+    { let _ = c_x100; }
+}
+
+fn ucb_c_effective(default_c: f64) -> f64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let v = UCB_C_X100_WASM.load(std::sync::atomic::Ordering::Relaxed);
+        if v == 0 { default_c } else { v as f64 / 100.0 }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        match std::env::var("BQ_UCB_C").ok().and_then(|s| s.parse::<f64>().ok()) {
+            Some(c) if c > 0.0 => c,
+            _ => default_c,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+//  PUCT prior support (Tier A2 experiment, 2026-05-27)
+// ---------------------------------------------------------------------------
+
+#[cfg(target_arch = "wasm32")]
+static PUCT_ENABLED_WASM: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[cfg(target_arch = "wasm32")]
+static PUCT_C_X100_WASM: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(150);
+#[cfg(target_arch = "wasm32")]
+static PUCT_CONC_X100_WASM: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(50);
+
+pub fn set_puct(enabled: bool, c_x100: u32, conc_x100: u32) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        PUCT_ENABLED_WASM.store(enabled, std::sync::atomic::Ordering::Relaxed);
+        PUCT_C_X100_WASM.store(c_x100, std::sync::atomic::Ordering::Relaxed);
+        PUCT_CONC_X100_WASM.store(conc_x100, std::sync::atomic::Ordering::Relaxed);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    { let _ = (enabled, c_x100, conc_x100); }
+}
+
+fn puct_enabled() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    { PUCT_ENABLED_WASM.load(std::sync::atomic::Ordering::Relaxed) }
+    #[cfg(not(target_arch = "wasm32"))]
+    { std::env::var("BQ_PUCT").ok().filter(|s| !s.is_empty()).is_some() }
+}
+
+fn puct_c() -> f64 {
+    #[cfg(target_arch = "wasm32")]
+    { PUCT_C_X100_WASM.load(std::sync::atomic::Ordering::Relaxed) as f64 / 100.0 }
+    #[cfg(not(target_arch = "wasm32"))]
+    { std::env::var("BQ_PUCT_C").ok().and_then(|s| s.parse().ok()).unwrap_or(1.5) }
+}
+
+fn puct_prior_concentration() -> f64 {
+    #[cfg(target_arch = "wasm32")]
+    { PUCT_CONC_X100_WASM.load(std::sync::atomic::Ordering::Relaxed) as f64 / 100.0 }
+    #[cfg(not(target_arch = "wasm32"))]
+    { std::env::var("BQ_PUCT_CONC").ok().and_then(|s| s.parse().ok()).unwrap_or(0.5) }
+}
+
+/// Prior over root candidates: greedy-heuristic pick gets `concentration` of the
+/// mass, remainder spread uniformly. Mild by design so a bad prior can't dominate.
+fn compute_root_prior(
+    state: &GameState,
+    my_id: PlayerId,
+    trick: &bq_engine::types::Trick,
+    candidates: &[Card],
+) -> HashMap<Card, f64> {
+    let k = candidates.len() as f64;
+    let conc = puct_prior_concentration().clamp(0.0, 1.0);
+    let base = (1.0 - conc) / k;
+    let mut prior: HashMap<Card, f64> = HashMap::new();
+    for &c in candidates { prior.insert(c, base); }
+
+    let hand = &state.hands[my_id as usize];
+    let legal = legal_play_indices(hand, Some(trick));
+    if !legal.is_empty() {
+        let greedy_idx = crate::rollout::pick_greedy(hand, &legal, trick, state.trump);
+        let greedy_card = hand[greedy_idx];
+        if let Some(p) = prior.get_mut(&greedy_card) {
+            *p += conc;
+        }
+    }
+    prior
+}
+
+fn pick_puct(
+    stats: &HashMap<Card, ActionStats>,
+    candidates: &[Card],
+    prior: &HashMap<Card, f64>,
+    total_visits: u64,
+    c_puct: f64,
+) -> Card {
+    let sqrt_total = (total_visits as f64).sqrt();
+    candidates.iter().copied().max_by(|a, b| {
+        let sa = &stats[a];
+        let sb = &stats[b];
+        let qa = if sa.visits > 0 { sa.total_value / sa.visits as f64 } else { 0.0 };
+        let qb = if sb.visits > 0 { sb.total_value / sb.visits as f64 } else { 0.0 };
+        let ua = qa + c_puct * prior[a] * sqrt_total / (1.0 + sa.visits as f64);
+        let ub = qb + c_puct * prior[b] * sqrt_total / (1.0 + sb.visits as f64);
+        ua.partial_cmp(&ub).unwrap_or(std::cmp::Ordering::Equal)
+    }).expect("non-empty candidates")
 }
 
 fn pick_ucb1(

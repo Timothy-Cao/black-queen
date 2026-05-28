@@ -208,16 +208,19 @@ export function hard4Declare(state: GameState, selfId: PlayerId): { trump: Suit;
 // Per-move time budget in ms. Drives both the native deadline and the wasm
 // iteration cap. 300ms is the browser default (UI-friendly); arena.ts can
 // override via HARD4_TIME_MS env var for higher-quality but slower runs.
+// Runtime override via setHard4TimeMs() for paired-seed A/B sweeps.
 // @ts-ignore — process is Node-only; arena.ts runs in Node.
-const HARD4_TIME_MS = !isBrowser && typeof (globalThis as any).process !== "undefined"
+let hard4TimeMs = !isBrowser && typeof (globalThis as any).process !== "undefined"
   ? parseInt((globalThis as any).process.env?.HARD4_TIME_MS ?? "300", 10)
   : 300;
+export function setHard4TimeMs(ms: number): void { hard4TimeMs = ms; }
+export function getHard4TimeMs(): number { return hard4TimeMs; }
 
 export function hard4Play(state: GameState, selfId: PlayerId): Card {
   if (!bq) return hardTunedPlay(state, selfId);
   const seed = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
   const result = JSON.parse(
-    bq.hard4_play_json(JSON.stringify(toRustState(state)), selfId, HARD4_TIME_MS, seed),
+    bq.hard4_play_json(JSON.stringify(toRustState(state)), selfId, hard4TimeMs, seed),
   ) as { card: { suit: Suit; rank: number } };
   return reattachCardId(state.round.hands[selfId], result.card);
 }

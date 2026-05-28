@@ -53,3 +53,41 @@ pub fn hard4_play_json(state_json: &str, self_id: u8, time_ms: u32, seed: u64) -
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
+
+/// A/B toggle for the follow-side discard guard (defaults ON).
+#[wasm_bindgen]
+pub fn set_follow_guard_wasm(enabled: bool) {
+    bq_ai::hard4::set_follow_guard(enabled);
+}
+
+/// A/B selector for ISMCTS rollout policy. 0=Tactical, 1=Greedy (default), 2=Random.
+#[wasm_bindgen]
+pub fn set_rollout_policy_wasm(policy: u8) {
+    use bq_ai::ismcts::{set_rollout_policy, RolloutPolicy};
+    let p = match policy {
+        0 => RolloutPolicy::Tactical,
+        2 => RolloutPolicy::Random,
+        _ => RolloutPolicy::Greedy,
+    };
+    set_rollout_policy(p);
+}
+
+/// A/B toggle for tree-structured ISMCTS (SO-ISMCTS). depth = max tree depth in plays.
+#[wasm_bindgen]
+pub fn set_tree_ismcts_wasm(enabled: bool, depth: u32) {
+    bq_ai::tree_ismcts::set_tree_ismcts(enabled, depth);
+}
+
+/// A/B override for UCB exploration constant. c_x100 = c × 100 (0 = use default 1.4).
+#[wasm_bindgen]
+pub fn set_ucb_c_wasm(c_x100: u32) {
+    bq_ai::ismcts::set_ucb_c(c_x100);
+}
+
+/// A/B toggle for PUCT prior-guided root selection.
+/// enabled: on/off. c_x100: PUCT c × 100 (e.g. 150 = 1.5). conc_x100: prior
+/// concentration on greedy pick × 100 (e.g. 50 = 0.5 mass on greedy move).
+#[wasm_bindgen]
+pub fn set_puct_wasm(enabled: bool, c_x100: u32, conc_x100: u32) {
+    bq_ai::ismcts::set_puct(enabled, c_x100, conc_x100);
+}

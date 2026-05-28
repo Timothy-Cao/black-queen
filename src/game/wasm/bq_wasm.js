@@ -81,6 +81,22 @@ export function hard4_play_json(state_json, self_id, time_ms, seed) {
 }
 
 /**
+ * A/B toggle for the follow-side discard guard (defaults ON).
+ * @param {boolean} enabled
+ */
+export function set_follow_guard_wasm(enabled) {
+    wasm.set_follow_guard_wasm(enabled);
+}
+
+/**
+ * A/B selector for ISMCTS rollout policy. 0=Tactical (default), 1=Greedy, 2=Random.
+ * @param {number} policy
+ */
+export function set_rollout_policy_wasm(policy) {
+    wasm.set_rollout_policy_wasm(policy);
+}
+
+/**
  * @returns {string}
  */
 export function version() {

@@ -89,7 +89,7 @@ fn compute_caller_team(state: &GameState) -> HashSet<PlayerId> {
     team
 }
 
-fn pick_greedy(
+pub fn pick_greedy(
     hand: &[Card],
     legal_idx: &[usize],
     trick: &Trick,

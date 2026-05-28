@@ -248,6 +248,37 @@ fn discard_guard_enabled() -> bool {
     }
 }
 
+/// Toggle for the follow-side guard added 2026-05-27. Defaults ON.
+/// Native: set via BQ_FOLLOW_GUARD_OFF=1 or `set_follow_guard(false)`.
+/// WASM: set via the `set_follow_guard_wasm` bindgen export (used for A/B).
+#[cfg(not(target_arch = "wasm32"))]
+thread_local! {
+    static FOLLOW_GUARD_OVERRIDE: std::cell::RefCell<Option<bool>> = const { std::cell::RefCell::new(None) };
+}
+
+// Defaults OFF on WASM — null result in 2026-05-27 A/B (Δ=+0.55, Z=0.15 at N=2000).
+// Code retained for future re-A/B at higher search budgets where it may help.
+#[cfg(target_arch = "wasm32")]
+static FOLLOW_GUARD_WASM: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_follow_guard(enabled: bool) {
+    #[cfg(not(target_arch = "wasm32"))]
+    FOLLOW_GUARD_OVERRIDE.with(|c| *c.borrow_mut() = Some(enabled));
+    #[cfg(target_arch = "wasm32")]
+    FOLLOW_GUARD_WASM.store(enabled, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn follow_guard_enabled() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    { return FOLLOW_GUARD_WASM.load(std::sync::atomic::Ordering::Relaxed); }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Some(v) = FOLLOW_GUARD_OVERRIDE.with(|c| *c.borrow()) { return v; }
+        // Native: defaults OFF (null A/B 2026-05-27); set BQ_FOLLOW_GUARD_ON=1 to enable.
+        std::env::var("BQ_FOLLOW_GUARD_ON").ok().filter(|s| !s.is_empty()).is_some()
+    }
+}
+
 /// Decide trump suit and partner card.
 ///
 /// Trump: the suit our hand evaluator picks as strongest (not just longest).
@@ -381,12 +412,80 @@ pub fn hard4_play(
         value_players: value_players.clone(),
         ..Default::default()
     };
-    let chosen = ismcts_play(state, &belief, rng, &params);
-    if discard_guard_enabled() {
-        low_point_enemy_discard_guard(state, self_id, chosen, &value_players)
+    let chosen = if crate::tree_ismcts::tree_ismcts_enabled() {
+        crate::tree_ismcts::tree_ismcts_play(state, &belief, rng, &params)
     } else {
-        chosen
+        ismcts_play(state, &belief, rng, &params)
+    };
+    let g1 = if discard_guard_enabled() {
+        low_point_enemy_discard_guard(state, self_id, chosen, &value_players)
+    } else { chosen };
+    if follow_guard_enabled() {
+        low_point_enemy_follow_guard(state, self_id, g1, &value_players)
+    } else { g1 }
+}
+
+/// Sibling of `low_point_enemy_discard_guard` for the FOLLOW-suit case.
+/// Fires when ISMCTS picks a point-bearing follow that loses the trick to a
+/// known enemy AND a cheaper legal follow exists. Replaces with the
+/// strict-cheapest legal follow that either (a) wins the trick or (b) at
+/// minimum gives fewer points to the enemy.
+///
+/// Discovered via misplay review (G3 R5 in docs/game_traces/2026-05-27): hard-4
+/// followed with 10♥ to caller's known-winning A♥ when 8♥ was legal — gave
+/// 10pt to known enemy when 0pt was free.
+fn low_point_enemy_follow_guard(
+    state: &GameState,
+    self_id: PlayerId,
+    chosen: Card,
+    value_players: &[PlayerId],
+) -> Card {
+    let Some(trick) = state.current_trick.as_ref() else { return chosen };
+    let Some(led_suit) = trick.plays.first().map(|tp| tp.card.suit) else { return chosen };
+    // Only applies to follows of the led suit with non-zero points.
+    if chosen.suit != led_suit { return chosen; }
+    if chosen.points() == 0 { return chosen; }
+
+    let current_winner = trick_winner(trick, state.trump);
+    if value_players.iter().any(|&p| p == current_winner) {
+        return chosen; // ally winning — smear context, leave to ISMCTS
     }
+
+    // Does `chosen` itself win? Simulate appending and re-checking winner.
+    let beats = |card: Card| -> bool {
+        let mut sim = trick.clone();
+        sim.plays.push(TrickPlay { player: self_id, card });
+        trick_winner(&sim, state.trump) == self_id
+    };
+    if beats(chosen) { return chosen; }
+
+    let partner_card = state.partner_card;
+    let legal = legal_play_indices(&state.hands[self_id as usize], Some(trick));
+    let candidates: Vec<Card> = legal.iter()
+        .map(|&i| state.hands[self_id as usize][i])
+        .filter(|c| c.suit == led_suit)
+        // Don't reveal the partner card just to be cheap (unless chosen already would).
+        .filter(|c| {
+            Some(*c) != partner_card || Some(chosen) == partner_card || Some(self_id) == state.caller
+        })
+        .collect();
+
+    // Prefer any cheaper legal follow that WINS the trick — strict EV gain
+    // (we take the trick AND donate fewer pts than chosen).
+    if let Some(winning) = candidates.iter()
+        .filter(|&&c| c.points() < chosen.points() && beats(c))
+        .min_by_key(|c| (c.points(), c.rank))
+    {
+        return *winning;
+    }
+    // Otherwise: strict-cheapest follow that doesn't beat (saves vs chosen).
+    if let Some(cheapest) = candidates.iter()
+        .filter(|&&c| c.points() < chosen.points() && !beats(c))
+        .min_by_key(|c| (c.points(), c.rank))
+    {
+        return *cheapest;
+    }
+    chosen
 }
 
 fn low_point_enemy_discard_guard(
@@ -654,6 +753,76 @@ mod tests {
         };
         let chosen = Card { suit: Suit::D, rank: 14 };
         let guarded = low_point_enemy_discard_guard(&state, 0, chosen, &[0, 1]);
+        assert_eq!(guarded, chosen);
+    }
+
+    #[test]
+    fn follow_guard_swaps_point_follow_for_cheaper_when_cant_beat() {
+        // G3 R5 misplay: P1 led A♥. P4 has hearts {Q♥(0pt) 10♥(10pt) 8♥(0pt) 5♥(5pt)}.
+        // ISMCTS chose 10♥ (10pt to enemy P1). Guard should swap to 8♥ (0pt).
+        let state = GameState {
+            phase: Phase::Playing,
+            hands: vec![
+                vec![
+                    Card { suit: Suit::H, rank: 12 }, // Q♥ 0pt
+                    Card { suit: Suit::H, rank: 10 }, // 10♥ 10pt (chosen)
+                    Card { suit: Suit::H, rank: 8 },  // 8♥ 0pt
+                    Card { suit: Suit::H, rank: 5 },  // 5♥ 5pt
+                ],
+                vec![], vec![], vec![], vec![],
+            ],
+            bids: vec![],
+            caller: Some(1),
+            winning_bid: Some(235),
+            trump: Some(Suit::S),
+            partner_card: Some(Card { suit: Suit::D, rank: 14 }),
+            tricks: vec![],
+            current_trick: Some(Trick {
+                leader: 1,
+                plays: vec![TrickPlay { player: 1, card: Card { suit: Suit::H, rank: 14 } }],
+                winner: None,
+                points: None,
+            }),
+            next_to_act: 0,
+            captured_points: vec![0; 5],
+            passed: vec![false; 5],
+        };
+        let chosen = Card { suit: Suit::H, rank: 10 };
+        let guarded = low_point_enemy_follow_guard(&state, 0, chosen, &[0, 2, 3, 4]);
+        assert_eq!(guarded, Card { suit: Suit::H, rank: 8 });
+    }
+
+    #[test]
+    fn follow_guard_preserves_winning_follow() {
+        // P1 led 8♥. P4 has {Q♥, 10♥}. ISMCTS picks Q♥ (wins trick). Don't override.
+        let state = GameState {
+            phase: Phase::Playing,
+            hands: vec![
+                vec![
+                    Card { suit: Suit::H, rank: 12 }, // Q♥ — wins
+                    Card { suit: Suit::H, rank: 10 }, // 10♥ — also wins, cheaper... wait 10♥ has 10pt
+                ],
+                vec![], vec![], vec![], vec![],
+            ],
+            bids: vec![],
+            caller: Some(1),
+            winning_bid: Some(200),
+            trump: Some(Suit::S),
+            partner_card: Some(Card { suit: Suit::D, rank: 14 }),
+            tricks: vec![],
+            current_trick: Some(Trick {
+                leader: 1,
+                plays: vec![TrickPlay { player: 1, card: Card { suit: Suit::H, rank: 8 } }],
+                winner: None,
+                points: None,
+            }),
+            next_to_act: 0,
+            captured_points: vec![0; 5],
+            passed: vec![false; 5],
+        };
+        let chosen = Card { suit: Suit::H, rank: 12 };
+        let guarded = low_point_enemy_follow_guard(&state, 0, chosen, &[0, 2, 3, 4]);
+        // Q♥ wins. Don't touch (cheaper 10♥ also wins but actually has 10pt > Q♥'s 0pt — not cheaper).
         assert_eq!(guarded, chosen);
     }
 }

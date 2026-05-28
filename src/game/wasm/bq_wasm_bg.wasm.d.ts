@@ -4,6 +4,8 @@ export const memory: WebAssembly.Memory;
 export const hard4_bid_json: (a: number, b: number, c: number) => [number, number, number, number];
 export const hard4_declare_json: (a: number, b: number, c: number) => [number, number, number, number];
 export const hard4_play_json: (a: number, b: number, c: number, d: number, e: bigint) => [number, number, number, number];
+export const set_follow_guard_wasm: (a: number) => void;
+export const set_rollout_policy_wasm: (a: number) => void;
 export const version: () => [number, number];
 export const __wbindgen_externrefs: WebAssembly.Table;
 export const __wbindgen_malloc: (a: number, b: number) => number;
