@@ -101,7 +101,7 @@ All in `aiHard.ts` (except normal/random in `ai.ts`).
 | `hard` | Hard | `DEFAULT_HARD_WEIGHTS` | Locked rule-based baseline (gen 1) |
 | `hard-2` | Hard-2 | `gen2HardWeights` from `tuned_weights_gen2.json` | First evolutionary tuning (gen 2) |
 | `hard-3` | Hard-3 | `activeHardWeights` from `tuned_weights_gen3.json` | Tuned + alliance inference + void-creation (gen 3) |
-| `hard-4` | Hard-4 (preview) | Rust crate `bq-ai` (WASM) | Information-Set MCTS + belief tracker. Different paradigm: search over hidden-info determinizations, not utility scoring. **Rollout policy = greedy (default since 2026-05-27, was tactical).** Bid + declare delegate to Hard-3. |
+| `hard-4` | Hard-4 (preview) | Rust crate `bq-ai` (WASM) | Information-Set MCTS + belief tracker. Different paradigm: search over hidden-info determinizations, not utility scoring. Rollout policy = **tactical** (default; greedy was tried and reverted — see below). Bid + declare delegate to Hard-3. |
 
 Current strength ordering (mirror-replay verified):
 - Hard-4 vs Hard-3: **+3.92pp** (500 pairs, ~4σ) — Session 2 with intent inference
@@ -115,18 +115,22 @@ Current strength ordering (mirror-replay verified):
 
 Hard-4 is the strongest AI. Decisive lever was opponent-intent Bayesian inference (Session 2) — without it, Hard-4 ≈ Hard-3.
 
-**Greedy rollout (2026-05-27):** Hard-4's ISMCTS rollout default changed from
-`tactical` (team-aware smearing) to `greedy`. A/B (80ms N=5000 + 300ms N=2000,
-pooled Z=2.07): **+0.78pp win-rate, +5.7pp caller make-rate** vs hard-3. The
-team-aware tactical rollout was biasing ISMCTS estimates; greedy's neutrality
-gives less-biased per-action statistics. This is folded into `hard-4` (no
-separate personality) — there is NO "Hard-5" yet. Toggle: `BQ_ROLLOUT=tactical|greedy|random`.
+**Greedy rollout tried & REVERTED (2026-05-27 → 28):** briefly defaulted hard-4's
+ISMCTS rollout to `greedy` on a +0.78pp A/B vs hard-3. Re-measurement exposed it
+as **matchup-dependent, not a real gain**: at equal budget tactical beats greedy
+by **+1.27pp (Z=2.11) vs `hard`**, and the canonical mirror-arena collapsed
+(hard-4 vs hard +5.32pp → +0.40pp under greedy). Greedy only helped vs hard-3 —
+a "tuned to one opponent" artifact. **Default reverted to tactical** (the proven,
+robust config behind all the strength numbers above). Greedy kept selectable
+(`BQ_ROLLOUT=greedy`, `set_rollout_policy_wasm`) for experiments. Lesson: validate
+across ALL opponent tiers, not just one, before changing a default.
 
-**No Hard-5 exists.** A full session of lever-hunting (see `docs/hard5_roadmap.md`)
-produced only the marginal greedy-rollout gain. The architecture is at a strong
-local optimum bounded by iteration budget. The evidence-backed path to a real
-Hard-5 is **learned card-location inference** — Phase 1 de-risked (AUC 0.865,
-bidding signals the current IntentTracker ignores); see `docs/hard5_literature_plan.md`.
+**No Hard-5 exists, and no net improvement over the original Hard-4 shipped.**
+A full session of lever-hunting (see `docs/hard5_roadmap.md`) found every cheap
+lever null/negative. The architecture is at a strong local optimum bounded by
+iteration budget. The evidence-backed path to a real Hard-5 is **learned
+card-location inference** — Phase 1 de-risked (AUC 0.865, bidding signals the
+current IntentTracker ignores); see `docs/hard5_literature_plan.md`.
 
 **Important:** Hard-4 strength is highly sensitive to measurement. Regular arena (random seat assignment) can show ±3pp variance at 300-game N. Use `_mirror_arena.ts` for any measurement under ~5pp.
 
@@ -350,10 +354,10 @@ The Hard-4 intent-weight defaults are already at a plateau ES can't escape at th
 
 Full ledger in `docs/hard5_roadmap.md`; literature-grounded plan in `docs/hard5_literature_plan.md`. Summary:
 
-**Shipped (folded into hard-4, no new personality):**
-- **Greedy rollout** — see AI personalities section above. +0.78pp / +5.7pp make-rate.
+**Net result: NO improvement shipped. hard-4 is unchanged (tactical rollout).**
 
 **Tried, NULL/NEGATIVE — don't repeat (all kept behind default-OFF toggles for future use):**
+- **Greedy rollout** — briefly shipped then REVERTED. +0.78pp vs hard-3 but −1.27pp (Z=2.11) vs `hard`; matchup-dependent overfit. `BQ_ROLLOUT=greedy`.
 - **PUCT prior** (root selection guided by greedy-pick prior): −1.4pp, Z<−2. `BQ_PUCT`.
 - **UCB exploration constant** tuning (c ∈ 0.7–2.0): null. `BQ_UCB_C`.
 - **Tree-structured ISMCTS** (SO-ISMCTS, `tree_ismcts.rs`, depths 6/10/16): null even at equal-iteration (favorable) comparison. At ~240 iters a tree *starves* — Frank & Basin PIMC ceiling. `BQ_TREE`. Needs 10k+ iters to pay off.

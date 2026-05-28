@@ -20,17 +20,19 @@ use crate::rollout::{rollout_tactical, rollout_greedy, rollout_random};
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum RolloutPolicy { Tactical, Greedy, Random }
 
-// Default rollout policy = Greedy (Hard-4.1 increment, 2026-05-27).
-// A/B at 80ms N=5000 + 300ms N=2000 (pooled Z=-2.07, Δ=+0.78pp win-rate,
-// +5.7pp caller %made) shows greedy outperforms tactical. Tactical's team-aware
-// smearing biases ISMCTS estimates; greedy's neutrality gives less-biased
-// per-action statistics. Marginal but consistent — NOT a generation jump.
-// See docs/hard5_roadmap.md and docs/budget_sweep/rollout_ab_*.jsonl.
+// Default rollout policy = Tactical (the proven, robust config; restored 2026-05-28).
+// HISTORY: greedy was briefly defaulted (2026-05-27) on a +0.78pp A/B vs hard-3.
+// But it's MATCHUP-DEPENDENT: re-measurement at equal budget showed tactical
+// beats greedy by +1.27pp (Z=2.11) vs `hard` and the canonical mirror-arena
+// regressed (hard-4 vs hard +5.32pp → +0.40pp under greedy). Greedy only helped
+// vs hard-3 — a "tuned to one opponent" artifact, not a real improvement.
+// Tactical is reverted as default. Greedy kept selectable for experiments.
+// See docs/hard5_roadmap.md and docs/budget_sweep/rollout_vs_*.
 #[cfg(target_arch = "wasm32")]
-static ROLLOUT_POLICY_WASM: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(1); // 1 = Greedy
+static ROLLOUT_POLICY_WASM: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0); // 0 = Tactical
 #[cfg(not(target_arch = "wasm32"))]
 thread_local! {
-    static ROLLOUT_POLICY_NATIVE: std::cell::RefCell<RolloutPolicy> = const { std::cell::RefCell::new(RolloutPolicy::Greedy) };
+    static ROLLOUT_POLICY_NATIVE: std::cell::RefCell<RolloutPolicy> = const { std::cell::RefCell::new(RolloutPolicy::Tactical) };
 }
 
 pub fn set_rollout_policy(p: RolloutPolicy) {
