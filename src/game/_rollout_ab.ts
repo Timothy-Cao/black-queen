@@ -51,7 +51,8 @@ function runOne(seed: number, hard4Seat: PlayerId, policy: number): {
   hard4Won: boolean; hard4WasCaller: boolean; bid: number; made: boolean;
 } {
   wasmNode.set_rollout_policy_wasm(policy);
-  const seats: AIPersonality[] = ["hard-3","hard-3","hard-3","hard-3","hard-3"];
+  const opp = (process.env.OPP ?? "hard-3") as AIPersonality;
+  const seats: AIPersonality[] = [opp, opp, opp, opp, opp];
   seats[hard4Seat] = "hard-4";
   return withSeededRandom(seed, () => {
     let state = freshGame(

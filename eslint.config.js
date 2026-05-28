@@ -6,7 +6,18 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // Lint shipped app code only. Generated WASM bindings and CLI/research
+  // harnesses (Node globals, excluded from the app build) are not linted.
+  globalIgnores([
+    'dist',
+    'src/game/wasm/**',
+    'src/game/wasm-node/**',
+    'src/game/_*.ts',
+    'src/game/smoketest.ts',
+    'src/game/arena.ts',
+    'src/game/tune.ts',
+    'src/game/tune2.ts',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
