@@ -42,14 +42,20 @@ Client (React)                         Supabase
 
 ## Phase 0 — Decisions (YOU)
 
-These need product judgment before code:
+**DECISIONS LOCKED (2026-05-28):**
 
-- [ ] **Auth model:** anonymous sign-in (zero friction — recommended for "jump in and play") vs accounts (magic-link/OAuth, enables persistent identity/stats). Can start anon, add accounts later.
-- [ ] **Matchmaking:** room codes (create/share a 4-6 char code — simplest) vs public lobby/quick-match. Recommend **room codes first**.
-- [ ] **Empty seats:** fill with AI (hard-4) when <5 humans? (Strongly recommend yes — 5 humans is hard to coordinate.) This affects Phase 6 complexity.
-- [ ] **Disconnect policy:** pause & wait for reconnect, or substitute AI for a dropped player? Recommend **AI takeover after a timeout**.
-- [ ] **Scope of v1:** single game per room (matches current single-game model) vs multi-round sessions.
+- [x] **Auth:** **Google SSO** to create a lobby (no passwords — access is always by room code).
+- [x] **Matchmaking:** **room codes** (shareable, no password).
+- [x] **Empty seats:** **filled with AI** (hard-4).
+- [x] **Disconnect policy:** **disconnector replaced by AI** (AI takes over the seat).
+- [x] **Scope of v1:** single game per room (matches current single-game model).
 - [ ] Confirm Supabase **free tier** is fine for launch (200 concurrent realtime connections, 500K edge fn invocations/mo — plenty for early users).
+
+**One implication to confirm — do JOINERS need to sign in too?**
+RLS hand-secrecy requires every player to have an identity (`auth.uid()`), so joiners need *some* auth even though only creators need Google.
+- **Recommended for v1:** everyone signs in with **Google** (creators + joiners). Consistent identity, one-tap for invited friends, enables stats later. Simplest to build.
+- **Lower-friction alt:** creators = Google, joiners = **anonymous** auth (still yields `auth.uid()` for RLS). Slightly more code; can add later.
+- Default assumption unless you say otherwise: **everyone Google** for v1.
 
 ## Phase 1 — Supabase project setup (YOU)
 
@@ -57,7 +63,8 @@ These need product judgment before code:
 - [ ] Grab `SUPABASE_URL` and `SUPABASE_ANON_KEY` (public) and `SERVICE_ROLE_KEY` (secret — server only).
 - [ ] Add `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` to Vercel env vars (and `.env.local` for dev). Service-role key goes ONLY in Edge Function secrets, never client.
 - [ ] Enable Realtime on the `games` (and `game_players`) tables.
-- [ ] Decide auth providers in the Supabase dashboard (enable anonymous sign-ins if going that route).
+- [ ] Enable **Google** auth provider in the Supabase dashboard: create a Google OAuth client (Google Cloud Console → OAuth consent screen + credentials), set the Supabase callback URL as an authorized redirect URI, paste the client ID/secret into Supabase Auth → Providers → Google. (If allowing anonymous joiners later, also enable Anonymous sign-ins.)
+- [ ] Add the production domain + Vercel preview URLs to Supabase Auth → URL Configuration (redirect allow-list).
 
 ## Phase 2 — Schema + RLS (ME)
 
