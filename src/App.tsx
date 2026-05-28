@@ -11,6 +11,10 @@ import { DeclarePanel } from "./components/DeclarePanel";
 import { RoundEnd } from "./components/RoundEnd";
 import { HelpModal } from "./components/HelpModal";
 import { AIInfoPage } from "./components/AIInfoPage";
+import { MainMenu } from "./components/MainMenu";
+import { MultiplayerHost, MultiplayerJoin } from "./components/Multiplayer";
+import { SignIn } from "./components/SignIn";
+import { useAuth } from "./auth/AuthContext";
 import { PartnerRevealFlash } from "./components/PartnerRevealFlash";
 import { Confetti } from "./components/Confetti";
 import { SettingsBar } from "./components/SettingsBar";
@@ -26,6 +30,7 @@ import { sfx, setMuted } from "./game/sfx";
 const SEAT_POSITIONS: SeatPosition[] = ["bottom", "left", "topLeft", "topRight", "right"];
 
 export default function App() {
+  const { configured: authConfigured, loading: authLoading, session } = useAuth();
   const [state, setState] = useState<GameState | null>(null);
   const [me] = useState<PlayerId>(0);
   const [showHands, setShowHands] = useState(false);
@@ -170,45 +175,72 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [state, me, showHelp]);
 
+  // Auth gate — only enforced when Supabase is configured. Until env vars are
+  // set (Phase 1), the app runs un-gated so the live site keeps working.
+  if (authConfigured && authLoading) {
+    return (
+      <div className="w-screen h-screen felt flex items-center justify-center">
+        <div className="glass rounded-2xl px-6 py-4 text-stone-300/80 animate-floatIn">Loading…</div>
+      </div>
+    );
+  }
+  if (authConfigured && !session) {
+    return <SignIn />;
+  }
+
   // /ai route: render the AI Info page instead of the game (full page replacement).
   if (onAIInfoRoute) {
     return <AIInfoPage onBack={closeAIInfo} />;
   }
 
+  // No active game → menu system (route-based so back/forward + sharing work).
   if (!state) {
+    const help = showHelp && (
+      <HelpModal
+        onClose={() => setShowHelp(false)}
+        onOpenAIInfo={() => { setShowHelp(false); openAIInfo(); }}
+      />
+    );
+
+    if (route === "/host") return <><MultiplayerHost onBack={() => navigate("/")} />{help}</>;
+    if (route === "/join") return <><MultiplayerJoin onBack={() => navigate("/")} />{help}</>;
+
+    if (route === "/play") {
+      return (
+        <>
+          <button
+            className="fixed top-4 left-4 z-50 btn btn-ghost px-3 py-1.5 text-sm"
+            onClick={() => navigate("/")}
+          >
+            ← Menu
+          </button>
+          <Lobby
+            onStart={(cfgs, target, shuffleIntensity, randomizeShuffle) =>
+              setState(freshGame(
+                cfgs, target,
+                shuffleIntensity >= 0.5 ? "full" : "light",
+                shuffleIntensity,
+                randomizeShuffle,
+              ))
+            }
+            onOpenAIInfo={openAIInfo}
+          />
+          {help}
+        </>
+      );
+    }
+
+    // Default route "/" → main menu.
     return (
       <>
-        <Lobby
-          onStart={(cfgs, target, shuffleIntensity, randomizeShuffle) =>
-            setState(freshGame(
-              cfgs, target,
-              shuffleIntensity >= 0.5 ? "full" : "light",
-              shuffleIntensity,
-              randomizeShuffle,
-            ))
-          }
-          onOpenAIInfo={openAIInfo}
+        <MainMenu
+          onSinglePlayer={() => navigate("/play")}
+          onHost={() => navigate("/host")}
+          onJoin={() => navigate("/join")}
+          onAIInfo={openAIInfo}
+          onHowToPlay={() => setShowHelp(true)}
         />
-        {showHelp && (
-          <HelpModal
-            onClose={() => setShowHelp(false)}
-            onOpenAIInfo={() => { setShowHelp(false); openAIInfo(); }}
-          />
-        )}
-        <nav
-          aria-label="Legal links"
-          className="fixed bottom-4 left-4 z-50 flex gap-2 rounded-lg bg-black/35 px-2 py-1 text-[11px] text-stone-300/75 backdrop-blur-sm"
-        >
-          <a className="hover:text-stone-100" href="/privacy.html">Privacy</a>
-          <a className="hover:text-stone-100" href="mailto:timcao.support@gmail.com">Contact</a>
-        </nav>
-        <button
-          className="fixed bottom-4 right-4 w-9 h-9 rounded-full glass text-stone-200 hover:bg-white/20"
-          onClick={() => setShowHelp(true)}
-          title="Help & rules"
-        >
-          ?
-        </button>
+        {help}
       </>
     );
   }

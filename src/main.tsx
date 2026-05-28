@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import { CardSkinProvider } from "./components/CardSkinContext";
+import { AuthProvider } from "./auth/AuthContext";
 import { DEFAULT_HARD_WEIGHTS, setActiveHardWeights, setGen2HardWeights } from "./game/aiHard";
 import gen2Weights from "./game/tuned_weights_gen2.json";
 import gen3Weights from "./game/tuned_weights_gen3.json";
@@ -20,8 +21,10 @@ void warmWasm();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <CardSkinProvider>
-      <App />
-    </CardSkinProvider>
+    <AuthProvider>
+      <CardSkinProvider>
+        <App />
+      </CardSkinProvider>
+    </AuthProvider>
   </StrictMode>
 );
