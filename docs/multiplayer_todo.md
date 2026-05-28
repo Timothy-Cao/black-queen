@@ -1,0 +1,136 @@
+# Online Multiplayer — Setup TODO
+
+**Status:** planning. **Created:** 2026-05-28. Target stack: **Supabase** (Postgres + Realtime + Auth + Edge Functions) on the existing Vite + React + TS app, deployed on Vercel.
+
+Inspiration: indie web games (Supabase Realtime is the common "no dedicated server" pattern — broadcast/presence/postgres-changes over WebSockets). See refs at bottom.
+
+---
+
+## ⚠ The one design constraint that drives everything
+
+Black Queen is a **hidden-information** game (each player's 13-card hand is secret; the partner is hidden). Therefore:
+
+- **State must be server-authoritative.** Clients cannot be trusted to hold or validate the full game state — a cheater could read opponents' hands or play illegal/nonexistent cards.
+- **Per-hand secrecy via Row-Level Security (RLS):** each client may read ONLY its own hand + public info (trick on table, whose turn, scores, bids). Never all hands.
+- **Moves validated server-side** before being applied.
+
+**Key asset:** `src/game/engine.ts` is already a **pure reducer**. Supabase Edge Functions run TypeScript (Deno), so the *same* `engine.ts` runs server-side as the authority — single source of truth, no logic rewrite. The client keeps engine.ts only for optimistic rendering + offline-vs-AI practice mode.
+
+---
+
+## Architecture (recommended)
+
+```
+Client (React)                         Supabase
+  ├─ subscribe: Realtime on            ┌─ Postgres
+  │   public game state  ───────────►  │   ├─ games        (room, phase, trump, caller, turn, trick, scores)
+  │                                    │   ├─ game_players (seat, user_id, is_ai, connected)
+  ├─ read: my hand (RLS) ───────────►  │   ├─ hands        (game_id, user_id, cards[])  ← RLS: own row only
+  │                                    │   └─ moves        (append-only log; optional event-sourcing)
+  └─ POST move ──► Edge Function ────► │─ Edge Fn `play_move` (Deno)
+                   (validates w/        │     imports engine.ts, validates legality,
+                    engine.ts,          │     applies reducer, writes new state + hands,
+                    applies, writes)    │     advances turn / triggers AI seat
+                                        └─ Auth (anonymous or magic-link)
+```
+
+- **Public state** (`games` row) → readable by anyone in the room → Realtime pushes updates to all clients.
+- **Secret hands** (`hands` rows) → RLS `auth.uid() = user_id` → each client reads only its own.
+- **All mutations** go through Edge Functions (or Postgres RPC) that import `engine.ts`. Clients never write game tables directly.
+
+---
+
+## Phase 0 — Decisions (YOU)
+
+These need product judgment before code:
+
+- [ ] **Auth model:** anonymous sign-in (zero friction — recommended for "jump in and play") vs accounts (magic-link/OAuth, enables persistent identity/stats). Can start anon, add accounts later.
+- [ ] **Matchmaking:** room codes (create/share a 4-6 char code — simplest) vs public lobby/quick-match. Recommend **room codes first**.
+- [ ] **Empty seats:** fill with AI (hard-4) when <5 humans? (Strongly recommend yes — 5 humans is hard to coordinate.) This affects Phase 6 complexity.
+- [ ] **Disconnect policy:** pause & wait for reconnect, or substitute AI for a dropped player? Recommend **AI takeover after a timeout**.
+- [ ] **Scope of v1:** single game per room (matches current single-game model) vs multi-round sessions.
+- [ ] Confirm Supabase **free tier** is fine for launch (200 concurrent realtime connections, 500K edge fn invocations/mo — plenty for early users).
+
+## Phase 1 — Supabase project setup (YOU)
+
+- [ ] Create a Supabase project (note the region — pick closest to most users).
+- [ ] Grab `SUPABASE_URL` and `SUPABASE_ANON_KEY` (public) and `SERVICE_ROLE_KEY` (secret — server only).
+- [ ] Add `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` to Vercel env vars (and `.env.local` for dev). Service-role key goes ONLY in Edge Function secrets, never client.
+- [ ] Enable Realtime on the `games` (and `game_players`) tables.
+- [ ] Decide auth providers in the Supabase dashboard (enable anonymous sign-ins if going that route).
+
+## Phase 2 — Schema + RLS (ME)
+
+- [ ] Write SQL migrations: `games`, `game_players`, `hands`, `moves` tables (schema above).
+- [ ] RLS policies: `hands` → `auth.uid() = user_id` for SELECT; game tables → members of the game can SELECT public columns; **no client INSERT/UPDATE** on game state (only via service-role in Edge Fns).
+- [ ] Indexes on `game_id`, room code lookup.
+- [ ] Seed/test data + a script to spin a test game.
+
+## Phase 3 — Server-authoritative game logic (ME)
+
+- [ ] Make `engine.ts` importable by Deno (it's pure already; verify no browser-only deps — it's clean).
+- [ ] Edge Function `create_game` — make room, deal hands server-side (RNG server-side!), write `hands` + initial public state.
+- [ ] Edge Function `play_move` (and `bid`, `declare`, `pass`) — load state, validate legality via `legalPlays`/reducer, apply, persist new public state + updated hands, advance turn. Reject illegal/out-of-turn moves.
+- [ ] Trick collection + scoring server-side (reuse `collectTrick`, scoring).
+- [ ] Concurrency: guard against double-submits / race (optimistic version column or row lock).
+
+## Phase 4 — Client refactor (ME)
+
+The app currently drives the whole game locally via the `App.tsx` state machine. Refactor to a **two-mode** client:
+
+- [ ] **Online mode:** subscribe to Realtime public state + read own hand via RLS; render from *server* state; send moves to Edge Functions; show optimistic UI then reconcile.
+- [ ] **Offline/practice mode:** keep the current local engine + AI exactly as-is (no regression — important for solo play and as a fallback).
+- [ ] Supabase client setup (`@supabase/supabase-js`), auth bootstrap, reconnect handling.
+- [ ] Loading/turn/waiting-for-players UI states.
+
+## Phase 5 — Lobby & rooms (ME + YOU)
+
+- [ ] Create/join-by-code UI (extend existing `Lobby.tsx`).
+- [ ] Presence (Supabase Realtime presence): show who's connected, seat assignment, ready-up.
+- [ ] Start-game gate (host starts; fill remaining seats with AI per Phase 0 decision).
+- [ ] YOU: copy/share-link UX, basic styling pass.
+
+## Phase 6 — AI seats in multiplayer (ME)
+
+- [ ] Decide where AI runs: (a) Edge Function invokes hard-4 — but hard-4 is Rust/**WASM**; running WASM in Deno edge is feasible but heavier; (b) a lightweight **bot worker** (a small Node/Deno process or scheduled function) that polls for AI turns and submits moves; (c) host-client runs AI for empty seats (simplest, but ties AI to host being online).
+- [ ] Recommend starting with **(c) host-runs-AI** for v1 (reuses existing WASM path, zero new infra), migrate to (b) a server bot if hosts dropping is a problem.
+- [ ] Ensure AI only ever sees its own hand (same secrecy rule) — trivial if host runs it with full state, but if server-side, feed it only the legal info.
+
+## Phase 7 — Resilience & anti-cheat hardening (ME + YOU)
+
+- [ ] Reconnect: client re-subscribes and re-reads state on drop; server tolerates.
+- [ ] Timeout → AI takeover for idle/disconnected players.
+- [ ] Rate-limit Edge Functions; validate every move belongs to the acting player.
+- [ ] Never send hidden hands in any public payload (audit network responses).
+
+## Phase 8 — Test, deploy, monitor (ME + YOU)
+
+- [ ] Integration tests for the Edge Functions (legal-move enforcement, secrecy, full-game flow).
+- [ ] Multi-tab / multi-device manual playtests.
+- [ ] Deploy Edge Functions; wire Vercel env; smoke a real online game.
+- [ ] Basic logging/metrics (active rooms, errors), watch free-tier usage.
+
+---
+
+## Suggested ordering & effort
+
+1. Phase 0 (you, ~30 min of decisions) → unblocks everything.
+2. Phase 1 (you, ~30 min).
+3. Phases 2–3 (me, the authoritative core — biggest correctness work).
+4. Phase 4 (me, biggest client work).
+5. Phases 5–6 (rooms + AI).
+6. Phases 7–8 (hardening + ship).
+
+A thin **vertical slice** is the best first milestone: room code → 2 humans + 3 AI → one full game end-to-end, server-authoritative, hands secret. Get that working before polishing lobby/presence.
+
+## Hard rules (anti-cheat) — non-negotiable
+- Deal + shuffle happen **server-side** with server RNG.
+- A client can read only its **own** hand (RLS-enforced, verified in the network tab).
+- Every move is **validated server-side** against `legalPlays` before applying.
+- Clients never write game tables directly — only via Edge Functions using the service role.
+
+## References
+- [Supabase Realtime: Multiplayer Edition](https://supabase.com/blog/supabase-realtime-multiplayer-general-availability)
+- [Supabase Realtime with Multiplayer Features](https://supabase.com/blog/supabase-realtime-with-multiplayer-features)
+- [Real-time multiplayer browser game with Supabase + Next.js (no backend server)](https://dev.to/iakabu/i-built-a-real-time-multiplayer-browser-game-with-supabase-nextjs-no-backend-server-required-h28)
+- [Exploring Supabase Realtime by Building a Game](https://www.aleksandra.codes/supabase-game)
