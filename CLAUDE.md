@@ -101,7 +101,7 @@ All in `aiHard.ts` (except normal/random in `ai.ts`).
 | `hard` | Hard | `DEFAULT_HARD_WEIGHTS` | Locked rule-based baseline (gen 1) |
 | `hard-2` | Hard-2 | `gen2HardWeights` from `tuned_weights_gen2.json` | First evolutionary tuning (gen 2) |
 | `hard-3` | Hard-3 | `activeHardWeights` from `tuned_weights_gen3.json` | Tuned + alliance inference + void-creation (gen 3) |
-| `hard-4` | Hard-4 (preview) | Rust crate `bq-ai` (WASM) | Information-Set MCTS + belief tracker. Different paradigm: search over hidden-info determinizations, not utility scoring. Bid + declare currently delegate to Hard-3 (gated off in `hard4Driver.ts`). |
+| `hard-4` | Hard-4 (preview) | Rust crate `bq-ai` (WASM) | Information-Set MCTS + belief tracker. Different paradigm: search over hidden-info determinizations, not utility scoring. **Rollout policy = greedy (default since 2026-05-27, was tactical).** Bid + declare delegate to Hard-3. |
 
 Current strength ordering (mirror-replay verified):
 - Hard-4 vs Hard-3: **+3.92pp** (500 pairs, ~4σ) — Session 2 with intent inference
@@ -114,6 +114,19 @@ Current strength ordering (mirror-replay verified):
 - Hard-2 vs Hard:   +2.2–3.85pp
 
 Hard-4 is the strongest AI. Decisive lever was opponent-intent Bayesian inference (Session 2) — without it, Hard-4 ≈ Hard-3.
+
+**Greedy rollout (2026-05-27):** Hard-4's ISMCTS rollout default changed from
+`tactical` (team-aware smearing) to `greedy`. A/B (80ms N=5000 + 300ms N=2000,
+pooled Z=2.07): **+0.78pp win-rate, +5.7pp caller make-rate** vs hard-3. The
+team-aware tactical rollout was biasing ISMCTS estimates; greedy's neutrality
+gives less-biased per-action statistics. This is folded into `hard-4` (no
+separate personality) — there is NO "Hard-5" yet. Toggle: `BQ_ROLLOUT=tactical|greedy|random`.
+
+**No Hard-5 exists.** A full session of lever-hunting (see `docs/hard5_roadmap.md`)
+produced only the marginal greedy-rollout gain. The architecture is at a strong
+local optimum bounded by iteration budget. The evidence-backed path to a real
+Hard-5 is **learned card-location inference** — Phase 1 de-risked (AUC 0.865,
+bidding signals the current IntentTracker ignores); see `docs/hard5_literature_plan.md`.
 
 **Important:** Hard-4 strength is highly sensitive to measurement. Regular arena (random seat assignment) can show ±3pp variance at 300-game N. Use `_mirror_arena.ts` for any measurement under ~5pp.
 
@@ -332,6 +345,27 @@ Two 20-generation ES runs targeting `IntentWeights` (9 LLR magnitudes in `rust/c
 The Hard-4 intent-weight defaults are already at a plateau ES can't escape at this scale. Verification SE ≈ 1.77pp; the −0.20pp result is within 1σ of zero, meaning we are statistically indistinguishable from Default — not regressing, but not improving. Same kind of ceiling Hard-3 hit before Hard-4 broke into a new paradigm.
 
 **Future Hard-N work should be architectural**: tree-structured ISMCTS, search-based bidder, or ISMCTS-in-endgame (in roughly that order of EV). The tuner infrastructure (rayon-parallel ES, thread-local weight override, non-regression gate) remains useful for any new tunable surface that's added — but re-running it on the existing intent magnitudes is not worth the compute.
+
+### 2026-05-27 lever-hunting session — one marginal win + a mapped ceiling
+
+Full ledger in `docs/hard5_roadmap.md`; literature-grounded plan in `docs/hard5_literature_plan.md`. Summary:
+
+**Shipped (folded into hard-4, no new personality):**
+- **Greedy rollout** — see AI personalities section above. +0.78pp / +5.7pp make-rate.
+
+**Tried, NULL/NEGATIVE — don't repeat (all kept behind default-OFF toggles for future use):**
+- **PUCT prior** (root selection guided by greedy-pick prior): −1.4pp, Z<−2. `BQ_PUCT`.
+- **UCB exploration constant** tuning (c ∈ 0.7–2.0): null. `BQ_UCB_C`.
+- **Tree-structured ISMCTS** (SO-ISMCTS, `tree_ismcts.rs`, depths 6/10/16): null even at equal-iteration (favorable) comparison. At ~240 iters a tree *starves* — Frank & Basin PIMC ceiling. `BQ_TREE`. Needs 10k+ iters to pay off.
+- **Follow-side enemy-discard guard** (`low_point_enemy_follow_guard`): null. `BQ_FOLLOW_GUARD_ON`.
+- **bidCap raise** (240→270): helps hard-3 (+6pt) but **null on hard-4** (its bidder change is symmetric in self-play). See `docs/bid_calibration/`.
+- **Endgame solver on wasm**: found it was silently ON in browser (cfg gated it OFF only on native). A/B'd: NEUTRAL on wasm (−0.64pp Z=−1.46 to disable), not the native −1.1pp regression. Left ON. `set_endgame_enabled_wasm`.
+
+**KEY META-FINDING:** injecting hand-coded heuristics INTO the search (rollout policy, PUCT prior, belief bid-prior) **consistently HURTS** — Hard-4's ISMCTS statistics beat its own hand-coded guidance. Stop trying to make heuristics smarter; the wins come from learned components and (eventually) more raw search.
+
+**THE Hard-5 PATH (de-risked, not built):** learned card-location inference (Skat/Kermit recipe — `docs/hard5_literature_plan.md`). Phase 1 done: `_infer_datagen.ts` + `_infer_train.ts` show **AUC 0.865** predicting partner-card location from observable features, including **bidding signals the play-based `IntentTracker` ignores entirely**. Phase 2 = small MLP → JSON weights → forward pass in `belief.rs` replacing `apply_intent_prior`'s soft prior → A/B at N≥5000, gate Z>2/+2pp.
+
+**Measurement lesson:** never trust a Hard-5 candidate at N<3000 — the greedy-rollout effect looked like +1.6pp Z=−1.96 at N=1500 but regressed to +0.7pp at N=5000. Use N≥5000 paired-seed for any ship claim. Many new paired-seed A/B harnesses added (`_rollout_ab.ts`, `_puct_ab.ts`, `_tree_ab.ts`, `_budget_ab.ts`, etc. — raw `.jsonl` gitignored).
 
 ---
 
