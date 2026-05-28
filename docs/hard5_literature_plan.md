@@ -79,6 +79,34 @@ A bitboard/SIMD state representation for 5-10× more iterations/sec would: (1) d
 
 ---
 
+## Lever A — Phase 1 DONE: signal confirmed (2026-05-27)
+
+Built `_infer_datagen.ts` (logs observable features + ground-truth partner-card
+location from hard-3 self-play) and `_infer_train.ts` (logistic-regression signal
+check). 8000 games → 281k labeled rows in 7s — data generation is trivially fast.
+
+**Held-out results (logistic regression, a LINEAR model):**
+
+| model | AUC | log-loss | accuracy |
+|---|---:|---:|---:|
+| base rate | 0.500 | 0.597 | 71.5% |
+| LR, all features | **0.865** | 0.396 | 79.5% |
+| LR, void features removed (residual soft signal) | **0.843** | 0.425 | 78.5% |
+
+**Conclusions:**
+1. **Strong predictive signal exists** — AUC 0.865 from a linear model; an MLP will do better.
+2. **The signal is mostly SOFT** (AUC 0.843 even after removing void hard-constraints already enforced by the sampler) → a learned soft prior is a real improvement over the current uniform/narrow prior.
+3. **Bidding is highly predictive and currently UNUSED.** Top features include `targetPassed` (+0.73) and `targetWonBid`/`targetIsCaller` (−0.73) — the play-based `IntentTracker` ignores bidding entirely, so the learned model sees information the current system cannot. Strong reason to expect it beats the hand-rolled inference.
+4. Other top features (`targetPointsPlayed` +1.13) match what IntentTracker's LLR already captures — validates the data.
+
+**This de-risks Lever A.** Remaining Phase 2 steps:
+- (a) Train a small MLP (TS or PyTorch), confirm AUC > LR, extend label from "partner card" to all unseen card-types (full soft prior).
+- (b) Export weights to JSON (matches existing tuned-weight loading pattern).
+- (c) Forward pass in `belief.rs`, replace/augment `apply_intent_prior`'s soft prior; keep `cannot_hold` hard constraints absolute.
+- (d) A/B vs current inference, paired-seed, N≥5000; gate Z>2, +2pp to claim Hard-5.
+
+Risk now low: signal is proven, data is cheap, deploy path (JSON weights + Rust matmul) is known. The main work is the Rust forward-pass + the proper multi-card model.
+
 ## References
 - Frank & Basin (1998), *Search in Games with Incomplete Information: A Case Study Using Bridge Card Play* — PIMC pathologies (strategy fusion, non-locality).
 - Cowling, Powley, Whitehouse (2012), *Information Set Monte Carlo Tree Search* — Hard-4's algorithm.
