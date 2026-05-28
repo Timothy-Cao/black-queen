@@ -396,6 +396,35 @@ Code kept behind `BQ_TREE` toggle (default off, 27 tests green) — it would bec
 
 ---
 
+## ⚠ Endgame solver discrepancy — possible shipping regression (A/B in flight)
+
+While auditing, found that `should_solve_endgame` gates the ≤10-card minimax
+solver OFF on **native** (via `BQ_ENDGAME` env, default off — it A/B'd at −1.1pp)
+but the cfg **compiled that check out on wasm32**, leaving the solver **ON in the
+browser** (and in every wasm-node A/B harness this session). CLAUDE.md believed
+it was "default OFF" — true only on native.
+
+If the −1.1pp native result transfers to wasm, **disabling it on wasm is a free
+~+1pp recovery** — and it would mean all this session's wasm A/B baselines had
+the solver active (a constant across arms, so relative deltas still valid).
+
+Added `set_endgame_enabled_wasm` toggle. A/B (pid 11557, N=5000 at 80ms):
+
+| variant | hard-4 win% | Δ vs on | Z |
+|---|---:|---:|---:|
+| endgame_on (current wasm) | 55.46% | — | — |
+| endgame_off (matches native) | 54.82% | −0.64pp | −1.46 |
+
+**RESULT: NOT a regression.** Disabling the solver on wasm is −0.64pp (Z=−1.46,
+not significant) — i.e. the solver ON is neutral-to-slightly-helpful on wasm,
+the OPPOSITE of native's −1.1pp. Reason: native's −1.1pp used the old tactical
+rollout + the cfg path differs; on wasm the determinization-voting
+`ismcts_endgame` with greedy rollout is benign. **Decision: leave endgame ON in
+wasm (unchanged).** Toggle retained. No win, but we confirmed we are NOT shipping
+a regression — a real worry now closed.
+
+---
+
 # FINAL CONCLUSION — Hard-4 is at a strong local optimum
 
 After exhaustively testing every accessible lever this session:

@@ -84,6 +84,15 @@ function hard4_play_json(state_json, self_id, time_ms, seed) {
 exports.hard4_play_json = hard4_play_json;
 
 /**
+ * A/B toggle for the ≤10-card endgame minimax solver (historically ON in wasm).
+ * @param {boolean} enabled
+ */
+function set_endgame_enabled_wasm(enabled) {
+    wasm.set_endgame_enabled_wasm(enabled);
+}
+exports.set_endgame_enabled_wasm = set_endgame_enabled_wasm;
+
+/**
  * A/B toggle for the follow-side discard guard (defaults ON).
  * @param {boolean} enabled
  */

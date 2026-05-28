@@ -82,17 +82,34 @@ fn solve_recursive(
 /// Heuristic: do we have few enough cards left to enumerate?
 /// At ≤2 tricks (10 cards), full minimax is well under 1ms per determinization.
 /// Three-trick endgame is feasible but ~10x slower; gated to 2 for now.
+#[cfg(target_arch = "wasm32")]
+static ENDGAME_ENABLED_WASM: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+/// Toggle the endgame solver on wasm (A/B only). Native uses BQ_ENDGAME env.
+pub fn set_endgame_enabled(enabled: bool) {
+    #[cfg(target_arch = "wasm32")]
+    ENDGAME_ENABLED_WASM.store(enabled, std::sync::atomic::Ordering::Relaxed);
+    #[cfg(not(target_arch = "wasm32"))]
+    { let _ = enabled; }
+}
+
 pub fn should_solve_endgame(state: &GameState) -> bool {
-    // Default OFF: minimax in this solver assumes adversarial-optimal opponents,
-    // but Hard-3 (and the real-world opponents we test against) plays a fixed
-    // heuristic that's exploitable in ways minimax penalties against. A/B test
-    // showed -1.1pp from enabling. Kept in the codebase for a future variant
-    // that models heuristic opponents (e.g., ISMCTS-in-endgame with deeper
-    // search rather than worst-case minimax). Enable for experiments with
-    // BQ_ENDGAME=1.
+    // Minimax in this solver assumes adversarial-optimal opponents, but Hard-3
+    // (and real-world opponents) play a fixed heuristic that minimax penalizes
+    // against. Native A/B showed -1.1pp from enabling — gated OFF on native via
+    // BQ_ENDGAME. NOTE: historically the cfg compiled this check out on wasm,
+    // leaving the solver ON in the browser. Now wasm has an explicit runtime
+    // toggle (`set_endgame_enabled`) so it can be A/B'd and disabled to match
+    // native. See docs/hard5_roadmap.md.
     #[cfg(not(target_arch = "wasm32"))]
     {
         if std::env::var("BQ_ENDGAME").ok().filter(|s| !s.is_empty()).is_none() {
+            return false;
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        if !ENDGAME_ENABLED_WASM.load(std::sync::atomic::Ordering::Relaxed) {
             return false;
         }
     }

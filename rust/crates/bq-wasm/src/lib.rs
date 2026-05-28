@@ -72,6 +72,12 @@ pub fn set_rollout_policy_wasm(policy: u8) {
     set_rollout_policy(p);
 }
 
+/// A/B toggle for the ≤10-card endgame minimax solver (historically ON in wasm).
+#[wasm_bindgen]
+pub fn set_endgame_enabled_wasm(enabled: bool) {
+    bq_ai::endgame::set_endgame_enabled(enabled);
+}
+
 /// A/B toggle for tree-structured ISMCTS (SO-ISMCTS). depth = max tree depth in plays.
 #[wasm_bindgen]
 pub fn set_tree_ismcts_wasm(enabled: bool, depth: u32) {
