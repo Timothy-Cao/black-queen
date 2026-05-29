@@ -279,6 +279,38 @@ fn follow_guard_enabled() -> bool {
     }
 }
 
+// ---------------------------------------------------------------------------
+//  Hard-4B variant flag (experiment — docs/hard4b_experiment.md).
+//  Set per-decision before calling the play/bid/declare entry points. When ON,
+//  hard4_play applies the Hard-4B improvements. v0 SCAFFOLD: identical to Hard-4
+//  (no behavior change) — confirms the clone wires onto the ladder ≈ Hard-4.
+//  Subsequent iterations branch on `hard4b_enabled()` to add targeted fixes.
+// ---------------------------------------------------------------------------
+#[cfg(not(target_arch = "wasm32"))]
+thread_local! {
+    static HARD4B_OVERRIDE: std::cell::RefCell<bool> = const { std::cell::RefCell::new(false) };
+}
+#[cfg(target_arch = "wasm32")]
+static HARD4B_WASM: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_hard4b(enabled: bool) {
+    #[cfg(not(target_arch = "wasm32"))]
+    HARD4B_OVERRIDE.with(|c| *c.borrow_mut() = enabled);
+    #[cfg(target_arch = "wasm32")]
+    HARD4B_WASM.store(enabled, std::sync::atomic::Ordering::Relaxed);
+}
+
+#[allow(dead_code)] // read by future Hard-4B iterations; scaffold is a no-op.
+pub fn hard4b_enabled() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    { return HARD4B_WASM.load(std::sync::atomic::Ordering::Relaxed); }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if HARD4B_OVERRIDE.with(|c| *c.borrow()) { return true; }
+        std::env::var("BQ_HARD4B").ok().filter(|s| !s.is_empty()).is_some()
+    }
+}
+
 /// Decide trump suit and partner card.
 ///
 /// Trump: the suit our hand evaluator picks as strongest (not just longest).

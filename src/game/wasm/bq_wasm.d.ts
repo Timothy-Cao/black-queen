@@ -18,6 +18,12 @@ export function set_endgame_enabled_wasm(enabled: boolean): void;
 export function set_follow_guard_wasm(enabled: boolean): void;
 
 /**
+ * Hard-4B variant toggle. Set per-decision before a play/bid/declare call.
+ * v0 scaffold: no behavior change (identical to Hard-4).
+ */
+export function set_hard4b_wasm(enabled: boolean): void;
+
+/**
  * A/B toggle for PUCT prior-guided root selection.
  * enabled: on/off. c_x100: PUCT c × 100 (e.g. 150 = 1.5). conc_x100: prior
  * concentration on greedy pick × 100 (e.g. 50 = 0.5 mass on greedy move).
@@ -50,6 +56,7 @@ export interface InitOutput {
     readonly hard4_play_json: (a: number, b: number, c: number, d: number, e: bigint) => [number, number, number, number];
     readonly set_endgame_enabled_wasm: (a: number) => void;
     readonly set_follow_guard_wasm: (a: number) => void;
+    readonly set_hard4b_wasm: (a: number) => void;
     readonly set_puct_wasm: (a: number, b: number, c: number) => void;
     readonly set_rollout_policy_wasm: (a: number) => void;
     readonly set_tree_ismcts_wasm: (a: number, b: number) => void;

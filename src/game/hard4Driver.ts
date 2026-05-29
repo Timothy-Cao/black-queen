@@ -34,6 +34,7 @@ interface BqApi {
   hard4_bid_json(state_json: string, self_id: number): string;
   hard4_declare_json(state_json: string, self_id: number): string;
   hard4_play_json(state_json: string, self_id: number, time_ms: number, seed: bigint): string;
+  set_hard4b_wasm?(enabled: boolean): void;
 }
 
 let bq: BqApi | null = null;
@@ -216,11 +217,30 @@ let hard4TimeMs = !isBrowser && typeof (globalThis as any).process !== "undefine
 export function setHard4TimeMs(ms: number): void { hard4TimeMs = ms; }
 export function getHard4TimeMs(): number { return hard4TimeMs; }
 
-export function hard4Play(state: GameState, selfId: PlayerId): Card {
+function hard4PlayVariant(state: GameState, selfId: PlayerId, hard4b: boolean): Card {
   if (!bq) return hardTunedPlay(state, selfId);
+  bq.set_hard4b_wasm?.(hard4b); // select Hard-4 vs Hard-4B path (scaffold: no-op)
   const seed = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
   const result = JSON.parse(
     bq.hard4_play_json(JSON.stringify(toRustState(state)), selfId, hard4TimeMs, seed),
   ) as { card: { suit: Suit; rank: number } };
   return reattachCardId(state.round.hands[selfId], result.card);
+}
+
+export function hard4Play(state: GameState, selfId: PlayerId): Card {
+  return hard4PlayVariant(state, selfId, false);
+}
+
+// ---- Hard-4B (experiment variant — docs/hard4b_experiment.md) ----
+// Bid/declare inherit Hard-4's (= Hard-3 tuned) logic for now. Play routes
+// through the Hard-4B WASM path (scaffold: identical to Hard-4 until the
+// observe→diagnose→fix iterations add gated improvements).
+export function hard4bBid(state: GameState, selfId: PlayerId): { bid: number | "pass" } {
+  return hardTunedBid(state, selfId);
+}
+export function hard4bDeclare(state: GameState, selfId: PlayerId): { trump: Suit; partnerCard: Card } {
+  return hardTunedDeclare(state, selfId);
+}
+export function hard4bPlay(state: GameState, selfId: PlayerId): Card {
+  return hard4PlayVariant(state, selfId, true);
 }

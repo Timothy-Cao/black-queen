@@ -60,6 +60,13 @@ pub fn set_follow_guard_wasm(enabled: bool) {
     bq_ai::hard4::set_follow_guard(enabled);
 }
 
+/// Hard-4B variant toggle. Set per-decision before a play/bid/declare call.
+/// v0 scaffold: no behavior change (identical to Hard-4).
+#[wasm_bindgen]
+pub fn set_hard4b_wasm(enabled: bool) {
+    bq_ai::hard4::set_hard4b(enabled);
+}
+
 /// A/B selector for ISMCTS rollout policy. 0=Tactical, 1=Greedy (default), 2=Random.
 #[wasm_bindgen]
 pub fn set_rollout_policy_wasm(policy: u8) {
