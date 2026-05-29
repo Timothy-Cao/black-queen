@@ -51,11 +51,7 @@ Client (React)                         Supabase
 - [x] **Scope of v1:** single game per room (matches current single-game model).
 - [ ] Confirm Supabase **free tier** is fine for launch (200 concurrent realtime connections, 500K edge fn invocations/mo — plenty for early users).
 
-**One implication to confirm — do JOINERS need to sign in too?**
-RLS hand-secrecy requires every player to have an identity (`auth.uid()`), so joiners need *some* auth even though only creators need Google.
-- **Recommended for v1:** everyone signs in with **Google** (creators + joiners). Consistent identity, one-tap for invited friends, enables stats later. Simplest to build.
-- **Lower-friction alt:** creators = Google, joiners = **anonymous** auth (still yields `auth.uid()` for RLS). Slightly more code; can add later.
-- Default assumption unless you say otherwise: **everyone Google** for v1.
+- [x] **Do JOINERS sign in too? → YES. Everyone (hosts + joiners) signs in with Google for v1.** (LOCKED 2026-05-28.) RLS hand-secrecy requires every player to have an `auth.uid()` identity; universal Google sign-in is the simplest way to guarantee it. Anonymous-joiner auth was the lower-friction alt — deferred, can add later.
 
 ## Phase 1 — Supabase project setup (YOU)
 

@@ -9,7 +9,7 @@ Last updated: 2026-05-28. Everything below is committed & pushed to `origin/main
 
 ```bash
 git clone https://github.com/Timothy-Cao/black-queen.git
-cd black-queen/repo        # NOTE: the app lives in the repo/ subdirectory
+cd black-queen            # the app lives at the repo ROOT (package.json is here)
 npm install
 npm run dev                # http://localhost:5173 — runs un-gated until Supabase env is set
 npm run build              # sanity check (should pass)
@@ -44,7 +44,7 @@ To resume the work with Claude, point it at **this file** and say which phase to
 
 Full details: `docs/auth_setup.md`. Decisions are locked in `docs/multiplayer_todo.md` Phase 0.
 
-**One open decision (default chosen, change if you want):** joiners also need an identity for hand-secrecy (RLS). Default for v1 = **everyone signs in with Google** (matches your "everyone must sign in"). Alt = anonymous auth for joiners (more code, add later).
+**Decision (LOCKED 2026-05-28):** **everyone signs in with Google** (hosts + joiners). Every player gets an `auth.uid()` identity, which RLS needs for hand-secrecy. (Anonymous-joiner auth was the alt; not doing it for v1.)
 
 ---
 

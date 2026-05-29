@@ -60,7 +60,7 @@ Two different redirect settings matter, don't mix them up:
 
 ## 4. Local dev (optional)
 
-Create `repo/.env.local` (gitignored):
+Create `.env.local` at the repo root (gitignored):
 ```
 VITE_SUPABASE_URL=https://<PROJECT_REF>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key>
