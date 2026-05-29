@@ -38,6 +38,44 @@ Ordered by value-per-effort within each tier. (Multiplayer itself: see `docs/HAN
 
 - [ ] **Learned card-location inference** — the evidence-backed path, Phase 1 de-risked (AUC 0.865). See `docs/hard5_literature_plan.md`. Multi-week (data pipeline → MLP → Rust forward-pass → A/B). Not a quick win; only if AI strength becomes a priority.
 
+---
+
+# Post-multiplayer roadmap (features that need MP to exist first)
+
+Once online play ships, the priority order shifts. Social card games live or die on
+**retention loops**, not feature count. Recommended sequencing:
+
+## Phase A — Stabilize & measure (do FIRST, before any new features)
+- [ ] **Analytics** — basic event tracking (games created/joined/completed, drop-off points, single vs multiplayer split). You can't prioritize features without knowing where players actually fall off. Privacy-light (Plausible/Umami, or Supabase table).
+- [ ] **Error monitoring** — wire the ErrorBoundary + a logger (Sentry free tier) to catch real-world crashes you can't reproduce.
+- [ ] **Load/cost watch** — confirm Supabase free-tier limits hold under real concurrent rooms; add alerts before hitting caps.
+- [ ] **Real concurrent playtest** — 5 humans across devices, plus disconnect/reconnect/AI-takeover under real network conditions.
+
+## Phase B — Retention loops (highest value; cheap once MP exists)
+- [ ] **Rematch / party persistence** ⭐ — after a game, one-click "Play again" with the same group (keep the room, redeal). THE single biggest retention lever for social games. Cheap on top of MP.
+- [ ] **Profile + stats + simple rating** ⭐ — everyone's signed in with Google → you already have identity. Show games played / win-rate / bid-make-rate, and a lightweight ELO. Progression = return visits. (Supersedes the solo-only "persistent stats" in Tier 2.)
+- [ ] **Share/OG meta** — was deferred; now genuinely high-value because you're sharing **room invite links**. A rich preview card (title, image, "Join my Black Queen game") drives joins. Add `og:*` + `twitter:card` + a share image.
+- [ ] **Lightweight emotes / reactions** — social glue (a few canned reactions: 👍😅🎉). Much safer than free-text chat (no moderation burden) and fits a card game's social loop.
+
+## Phase C — Growth
+- [ ] **Quick-match / public lobbies** — v1 is room-codes only (friends). Public matchmaking lets strangers play → grows beyond existing friend groups. NEEDS abuse/moderation basics first (report/block, display-name handling, since names come from Google).
+- [ ] **Multi-round series** — v1 is single-game per room. "First to N points over multiple deals" or a best-of series → longer, stickier sessions.
+- [ ] **Spectator mode** — watch an in-progress online game (also useful for sharing/streaming).
+
+## Phase D — Depth / long-term
+- [ ] **Ranked matchmaking + leaderboards** — once there's a rating and enough players. Needs anti-smurf / fairness thought.
+- [ ] **PWA / installable** (from Tier 4) — "add to home screen" + offline single-player; more compelling once players are returning regularly.
+- [ ] **Learned-inference Hard-5** (Tier 5) — stronger AI matters more once AI fills seats in real multiplayer games.
+
+## Cross-cutting / ops (ongoing once live)
+- [ ] **Moderation & safety** — report/block, profanity handling on any user-visible text (display names, room names), a path to ban abusive accounts.
+- [ ] **Privacy/ToS update** — multiplayer + accounts + analytics changes what data you collect; update `public/privacy.html` accordingly.
+- [ ] **Account management** — sign-out everywhere, delete-my-data (GDPR-friendly), since you now store identity + stats.
+
+**My one-line recommendation:** ship MP → **stabilize + add analytics** → **rematch + profile/stats** (retention) → **share-link previews** (growth) → then quick-match/series/ranked as the player base justifies. Resist piling features on before you can measure where players drop off.
+
+---
+
 ## Notes / known edge cases (low priority)
 - **All-`random` bidding stalls in redeal loop**: if a user sets all 5 AI personalities to "Random" (which always passes), every bid round all-passes → engine redeals indefinitely (no game starts). Unreachable by default; only via deliberate all-Random config. Guard idea: after N consecutive redeals, force the dealer to bid the minimum. Don't touch `engine.ts` reducer casually (used by the ES tuner).
 - **Service-role key discipline** (multiplayer): never expose it client-side; Edge Functions only. Already documented in `docs/auth_setup.md` + `docs/multiplayer_todo.md`.
