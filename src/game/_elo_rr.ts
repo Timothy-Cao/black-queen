@@ -189,13 +189,29 @@ if (!placeMode) {
     perRef.push({ elo: rb.elo, recs });
     console.error(`  vs ${rb.bot} (${rb.elo}): done (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
   }
-  // fit only the new bot's Elo: maximize logistic likelihood of its wins vs fixed-Elo refs
+  // Fit only the new bot's Elo: maximize the (concave) logistic log-likelihood
+  // of its wins vs fixed-Elo refs. Damped Newton with step-clamp + bounds + a
+  // sane init at the field mean — a plain Newton step diverges when the win prob
+  // saturates (Hessian → 0) and the step blows up.
   const fitNew = (data: { elo: number; nw: number; rw: number }[]): number => {
-    let r = 1500;
-    for (let iter = 0; iter < 200; iter++) {
+    const live = data.filter((d) => d.nw + d.rw > 0);
+    if (!live.length) return 1000;
+    let r = live.reduce((s, d) => s + d.elo, 0) / live.length; // init near the field
+    for (let iter = 0; iter < 500; iter++) {
       let g = 0, h = 0;
-      for (const d of data) { const nGames = d.nw + d.rw; if (!nGames) continue; const pExp = 1 / (1 + Math.pow(10, -(r - d.elo) / 400)); const c = Math.log(10) / 400; g += c * (d.nw - nGames * pExp); h += -c * c * nGames * pExp * (1 - pExp); }
-      if (Math.abs(h) < 1e-12) break; const step = g / h; r -= step; if (Math.abs(step) < 1e-4) break;
+      for (const d of live) {
+        const nGames = d.nw + d.rw;
+        const pExp = 1 / (1 + Math.pow(10, -(r - d.elo) / 400));
+        const c = Math.log(10) / 400;
+        g += c * (d.nw - nGames * pExp);
+        h += -c * c * nGames * pExp * (1 - pExp);
+      }
+      if (Math.abs(h) < 1e-9) break;
+      let step = g / h;
+      step = Math.max(-200, Math.min(200, step)); // clamp: avoid divergence when Hessian ~0
+      r -= step;
+      r = Math.max(400, Math.min(3000, r));        // bound to a sane Elo range
+      if (Math.abs(step) < 1e-3) break;
     }
     return r;
   };
