@@ -35,7 +35,7 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
   const [randomizeShuffle, setRandomizeShuffle] = useState<boolean>(false);
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-6">
-      <div className="glass rounded-2xl p-8 w-[640px] animate-floatIn relative overflow-visible">
+      <div className="glass rounded-2xl p-5 sm:p-8 w-full max-w-[640px] animate-floatIn relative overflow-visible">
         <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex pointer-events-none">
           {HERO_CARDS.map((c, i) => (
             <div
@@ -52,7 +52,7 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
           ))}
         </div>
         <div className="pt-16">
-          <h1 className="font-display text-5xl text-gold-400 tracking-wide drop-shadow-[0_0_18px_rgba(245,196,107,0.25)] mb-6">
+          <h1 className="font-display text-4xl sm:text-5xl text-gold-400 tracking-wide drop-shadow-[0_0_18px_rgba(245,196,107,0.25)] mb-6">
             Black Queen
           </h1>
           <div className="text-[11px] uppercase tracking-widest text-gold-400/80 mb-2">Players</div>
@@ -61,7 +61,7 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
               <div key={i} className="flex items-center gap-3">
                 <div className="w-6 text-stone-400 text-sm font-mono">{i + 1}</div>
                 <input
-                  className="flex-1 bg-white/5 rounded-lg px-3 py-2 text-stone-100 border border-white/10 outline-none focus:border-gold-500"
+                  className="flex-1 min-w-0 bg-white/5 rounded-lg px-3 py-2 text-stone-100 border border-white/10 outline-none focus:border-gold-500"
                   value={p.name}
                   onChange={(e) => {
                     const a = players.slice();

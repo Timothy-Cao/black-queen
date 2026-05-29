@@ -1,8 +1,8 @@
 // Auth context: tracks the Supabase session, exposes Google sign-in / sign-out.
 // When Supabase isn't configured (`configured: false`), the app skips the gate.
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase, isAuthConfigured } from "../lib/supabase";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import type { Session, User, SupabaseClient } from "@supabase/supabase-js";
+import { getSupabase, isAuthConfigured } from "../lib/supabase";
 
 interface AuthState {
   configured: boolean;
@@ -26,28 +26,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   // Only "loading" while we resolve an existing session — and only if configured.
   const [loading, setLoading] = useState<boolean>(isAuthConfigured);
+  const clientRef = useRef<SupabaseClient | null>(null);
 
   useEffect(() => {
-    // When unconfigured, `loading` already initialised to false — nothing to do.
-    if (!supabase) return;
+    // When unconfigured, `loading` already initialised to false — nothing to do
+    // and supabase-js is never imported.
+    if (!isAuthConfigured) return;
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      setLoading(false);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
+    let unsub: (() => void) | undefined;
+    getSupabase().then((client) => {
+      if (!client || !mounted) return;
+      clientRef.current = client;
+      client.auth.getSession().then(({ data }) => {
+        if (!mounted) return;
+        setSession(data.session);
+        setLoading(false);
+      });
+      const { data: sub } = client.auth.onAuthStateChange((_event, s) => setSession(s));
+      unsub = () => sub.subscription.unsubscribe();
     });
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      unsub?.();
     };
   }, []);
 
   const signInWithGoogle = async () => {
-    if (!supabase) return;
-    await supabase.auth.signInWithOAuth({
+    const client = clientRef.current ?? (await getSupabase());
+    if (!client) return;
+    await client.auth.signInWithOAuth({
       provider: "google",
       // Return to the app root; supabase-js (detectSessionInUrl) exchanges the
       // ?code=... for a session on load.
@@ -56,7 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    if (supabase) await supabase.auth.signOut();
+    const client = clientRef.current ?? (await getSupabase());
+    if (client) await client.auth.signOut();
     setSession(null);
   };
 

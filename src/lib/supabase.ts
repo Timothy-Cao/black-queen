@@ -1,23 +1,34 @@
-// Supabase client. Lazily configured from Vite env vars. If the env is absent
-// (e.g. local dev before Phase 1, or any deploy without the keys), `supabase`
-// is null and `isAuthConfigured` is false — the app then runs WITHOUT the
-// sign-in gate (current behaviour) so the live site never breaks before the
-// backend is wired. Once VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are set,
-// sign-in becomes required automatically.
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+// Supabase client — lazily code-split. The heavy `@supabase/supabase-js` bundle
+// (~200KB) is loaded via a dynamic import ONLY when auth is configured and the
+// client is first needed. When env vars are absent (current live site, and any
+// single-player-only user), supabase-js is never downloaded at all.
+//
+// `import type` below is erased at build time — no runtime dependency, so it
+// does NOT pull supabase-js into the main chunk.
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const isAuthConfigured: boolean = Boolean(url && anonKey);
 
-export const supabase: SupabaseClient | null = isAuthConfigured
-  ? createClient(url!, anonKey!, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true, // handles the ?code=... OAuth callback automatically
-        flowType: "pkce",
-      },
-    })
-  : null;
+let clientPromise: Promise<SupabaseClient | null> | null = null;
+
+/** Resolve the Supabase client (null if unconfigured). Memoized; triggers the
+ *  dynamic import on first call. */
+export function getSupabase(): Promise<SupabaseClient | null> {
+  if (!isAuthConfigured) return Promise.resolve(null);
+  if (!clientPromise) {
+    clientPromise = import("@supabase/supabase-js").then(({ createClient }) =>
+      createClient(url!, anonKey!, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true, // handles the ?code=... OAuth callback automatically
+          flowType: "pkce",
+        },
+      }),
+    );
+  }
+  return clientPromise;
+}

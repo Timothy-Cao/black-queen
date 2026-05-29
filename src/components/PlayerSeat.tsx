@@ -65,7 +65,7 @@ export function PlayerSeat({
               When this player is the round's dealer (and thus starts the round) we
               tint the pill with a warm amber accent so it's instantly readable. */}
           <div
-            className={`glass rounded-r-xl ${capturedPts === 0 && player.tricksWon.length === 0 ? "rounded-l-xl" : ""} px-3 flex items-center gap-2.5 whitespace-nowrap ${
+            className={`glass rounded-r-xl ${capturedPts === 0 && player.tricksWon.length === 0 ? "rounded-l-xl" : ""} px-2 gap-1.5 sm:px-3 sm:gap-2.5 flex items-center whitespace-nowrap ${
               isActive ? "ring-2 ring-gold-400 animate-pulseGlow" : ""
             } ${
               isDealer && !isActive ? "ring-1 ring-amber-300/45 shadow-[0_0_18px_rgba(245,196,107,0.18)]" : ""
@@ -74,7 +74,7 @@ export function PlayerSeat({
           >
             <div className="relative">
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-2xl leading-none"
+                className="w-8 h-8 text-xl sm:w-10 sm:h-10 sm:text-2xl rounded-full flex items-center justify-center leading-none"
                 style={{
                   background: player.isAI ? avatarColor(player.id) : "#e0a93a",
                   boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.12)",
@@ -88,7 +88,7 @@ export function PlayerSeat({
               {/* Dealer is signaled by the amber accent on the name pill. */}
             </div>
             <div className="flex flex-col leading-tight">
-              <div className="font-semibold text-base text-stone-100 flex items-center">
+              <div className="font-semibold text-sm sm:text-base text-stone-100 flex items-center">
                 {player.name}
                 {isBidder && <span className="ml-1 text-gold-400" title="Caller">★</span>}
                 {isPartner && <span className="ml-1 text-amber-300" title="Revealed partner">◆</span>}
