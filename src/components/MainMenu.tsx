@@ -5,11 +5,12 @@ interface Props {
   onSinglePlayer: () => void;
   onHost: () => void;
   onJoin: () => void;
+  onLeaderboard: () => void;
   onAIInfo: () => void;
   onHowToPlay: () => void;
 }
 
-export function MainMenu({ onSinglePlayer, onHost, onJoin, onAIInfo, onHowToPlay }: Props) {
+export function MainMenu({ onSinglePlayer, onHost, onJoin, onLeaderboard, onAIInfo, onHowToPlay }: Props) {
   const { configured, user, signOut } = useAuth();
 
   return (
@@ -32,6 +33,8 @@ export function MainMenu({ onSinglePlayer, onHost, onJoin, onAIInfo, onHowToPlay
               <button className="btn btn-ghost flex-1 py-2.5" onClick={onJoin}>Join</button>
             </div>
           </div>
+
+          <button className="btn btn-ghost w-full py-2.5" onClick={onLeaderboard}>🏆 Leaderboard</button>
 
           <div className="flex gap-3">
             <button className="btn btn-ghost flex-1 py-2.5" onClick={onAIInfo}>AI Notes</button>

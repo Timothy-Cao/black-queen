@@ -12,6 +12,7 @@ import { RoundEnd } from "./components/RoundEnd";
 import { HelpModal } from "./components/HelpModal";
 import { AIInfoPage } from "./components/AIInfoPage";
 import { MainMenu } from "./components/MainMenu";
+import { Leaderboard } from "./components/Leaderboard";
 import { MultiplayerHost, MultiplayerJoin } from "./components/Multiplayer";
 import { SignIn } from "./components/SignIn";
 import { useAuth } from "./auth/AuthContext";
@@ -202,6 +203,8 @@ export default function App() {
     );
 
     // Multiplayer requires sign-in (only when Supabase is configured).
+    if (route === "/leaderboard") return <><Leaderboard onBack={() => navigate("/")} />{help}</>;
+
     if (route === "/host" || route === "/join") {
       if (authConfigured && authLoading) {
         return (
@@ -257,6 +260,7 @@ export default function App() {
           onSinglePlayer={() => navigate("/play")}
           onHost={() => navigate("/host")}
           onJoin={() => navigate("/join")}
+          onLeaderboard={() => navigate("/leaderboard")}
           onAIInfo={openAIInfo}
           onHowToPlay={() => setShowHelp(true)}
         />
