@@ -175,18 +175,9 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [state, me, showHelp]);
 
-  // Auth gate — only enforced when Supabase is configured. Until env vars are
-  // set (Phase 1), the app runs un-gated so the live site keeps working.
-  if (authConfigured && authLoading) {
-    return (
-      <div className="w-screen h-screen felt flex items-center justify-center">
-        <div className="glass rounded-2xl px-6 py-4 text-stone-300/80 animate-floatIn">Loading…</div>
-      </div>
-    );
-  }
-  if (authConfigured && !session) {
-    return <SignIn />;
-  }
+  // Auth is required ONLY for online multiplayer (see the /host & /join branches
+  // below). Single player, AI Notes, and How to Play never require sign-in.
+  const needsAuthGate = authConfigured && !session;
 
   // /ai route: render the AI Info page instead of the game (full page replacement).
   if (onAIInfoRoute) {
@@ -202,8 +193,22 @@ export default function App() {
       />
     );
 
-    if (route === "/host") return <><MultiplayerHost onBack={() => navigate("/")} />{help}</>;
-    if (route === "/join") return <><MultiplayerJoin onBack={() => navigate("/")} />{help}</>;
+    // Multiplayer requires sign-in (only when Supabase is configured).
+    if (route === "/host" || route === "/join") {
+      if (authConfigured && authLoading) {
+        return (
+          <div className="w-screen h-screen felt flex items-center justify-center">
+            <div className="glass rounded-2xl px-6 py-4 text-stone-300/80 animate-floatIn">Loading…</div>
+          </div>
+        );
+      }
+      if (needsAuthGate) {
+        return <SignIn onBack={() => navigate("/")} reason="Sign in with Google to play online." />;
+      }
+      return route === "/host"
+        ? <><MultiplayerHost onBack={() => navigate("/")} />{help}</>
+        : <><MultiplayerJoin onBack={() => navigate("/")} />{help}</>;
+    }
 
     if (route === "/play") {
       return (
@@ -215,14 +220,21 @@ export default function App() {
             ← Menu
           </button>
           <Lobby
-            onStart={(cfgs, target, shuffleIntensity, randomizeShuffle) =>
+            onStart={(cfgs, target, shuffleIntensity, randomizeShuffle) => {
+              // Single-player has exactly one local controller (seat 0). Force
+              // every other seat to AI so a non-seat-0 human can never stall the
+              // game (no input UI exists for them). Seat 0 may be human OR AI
+              // (AI seat 0 = spectate / all-AI mode).
+              const safe = cfgs.map((c, i) =>
+                i === 0 ? c : { ...c, isAI: true, aiPersonality: c.aiPersonality ?? "hard-3" },
+              );
               setState(freshGame(
-                cfgs, target,
+                safe, target,
                 shuffleIntensity >= 0.5 ? "full" : "light",
                 shuffleIntensity,
                 randomizeShuffle,
-              ))
-            }
+              ));
+            }}
             onOpenAIInfo={openAIInfo}
           />
           {help}

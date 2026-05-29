@@ -70,16 +70,22 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
                   }}
                   placeholder="Name"
                 />
-                <label className="flex items-center gap-1.5 text-xs text-stone-300 select-none cursor-pointer w-12 justify-end">
+                <label
+                  className={`flex items-center gap-1.5 text-xs text-stone-300 select-none w-12 justify-end ${i === 0 ? "cursor-pointer" : "cursor-default opacity-60"}`}
+                  title={i === 0 ? "Toggle off to spectate (AI plays your seat)" : "Opponents are always AI in single player"}
+                >
                   <input
                     type="checkbox"
-                    checked={p.isAI}
+                    // Seats 1-4 are always AI (single player has one local seat).
+                    checked={i === 0 ? p.isAI : true}
+                    disabled={i !== 0}
                     onChange={(e) => {
+                      if (i !== 0) return;
                       const a = players.slice();
                       a[i] = {
                         ...a[i],
                         isAI: e.target.checked,
-                        aiPersonality: e.target.checked ? (a[i].aiPersonality ?? "normal") : undefined,
+                        aiPersonality: e.target.checked ? (a[i].aiPersonality ?? "hard-3") : undefined,
                       };
                       setPlayers(a);
                     }}

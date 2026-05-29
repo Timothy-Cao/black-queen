@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 
-export function SignIn() {
+export function SignIn({ onBack, reason }: { onBack?: () => void; reason?: string }) {
   const { signInWithGoogle } = useAuth();
   const [busy, setBusy] = useState(false);
 
@@ -21,7 +21,7 @@ export function SignIn() {
       <div className="glass rounded-2xl p-8 w-[min(92vw,420px)] text-center animate-floatIn">
         <h1 className="text-3xl font-semibold text-gold-400 tracking-wide">Black Queen</h1>
         <p className="mt-2 text-sm text-stone-300/80">
-          Sign in to play single-player or with friends online.
+          {reason ?? "Sign in to play online with friends."}
         </p>
         <button
           className="btn btn-primary mt-6 w-full flex items-center justify-center gap-2"
@@ -34,6 +34,11 @@ export function SignIn() {
         <p className="mt-4 text-[11px] text-stone-400/70">
           We use your Google account only to identify you in games. No posting, no spam.
         </p>
+        {onBack && (
+          <button className="mt-4 text-xs text-stone-300/80 hover:text-stone-100 underline" onClick={onBack}>
+            ← Back to menu
+          </button>
+        )}
         <nav className="mt-4 flex justify-center gap-3 text-[11px] text-stone-300/70">
           <a className="hover:text-stone-100" href="/privacy.html">Privacy</a>
           <a className="hover:text-stone-100" href="mailto:timcao.support@gmail.com">Contact</a>
