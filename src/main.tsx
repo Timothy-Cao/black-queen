@@ -4,6 +4,7 @@ import "./index.css";
 import App from "./App";
 import { CardSkinProvider } from "./components/CardSkinContext";
 import { AuthProvider } from "./auth/AuthContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DEFAULT_HARD_WEIGHTS, setActiveHardWeights, setGen2HardWeights } from "./game/aiHard";
 import gen2Weights from "./game/tuned_weights_gen2.json";
 import gen3Weights from "./game/tuned_weights_gen3.json";
@@ -24,10 +25,12 @@ else setTimeout(warm, 1200);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <AuthProvider>
-      <CardSkinProvider>
-        <App />
-      </CardSkinProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <CardSkinProvider>
+          <App />
+        </CardSkinProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   </StrictMode>
 );
