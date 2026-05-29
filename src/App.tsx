@@ -52,9 +52,17 @@ export default function App() {
   const openAIInfo = () => navigate("/ai");
   const closeAIInfo = () => navigate("/");
   const onAIInfoRoute = route === "/ai";
-  const [muted, setMutedState] = useState(false);
+  const [muted, setMutedState] = useState<boolean>(() => {
+    try { return localStorage.getItem("bq:muted") === "1"; } catch { return false; }
+  });
   const [sidebarOpen, setSidebarOpen] = useState(typeof window === "undefined" || window.innerWidth >= 1100);
-  const [speed, setSpeed] = useState<"slow" | "normal" | "fast">("normal");
+  const [speed, setSpeed] = useState<"slow" | "normal" | "fast">(() => {
+    try { const v = localStorage.getItem("bq:speed"); return v === "slow" || v === "fast" ? v : "normal"; } catch { return "normal"; }
+  });
+  // Apply persisted mute to the SFX engine on load; persist mute/speed on change.
+  useEffect(() => { setMuted(muted); }, [muted]);
+  useEffect(() => { try { localStorage.setItem("bq:muted", muted ? "1" : "0"); } catch { /* ignore */ } }, [muted]);
+  useEffect(() => { try { localStorage.setItem("bq:speed", speed); } catch { /* ignore */ } }, [speed]);
   const speedMul = speed === "slow" ? 1.6 : speed === "fast" ? 0.55 : 1;
   const aiTimerRef = useRef<number | null>(null);
   const lastLogIdRef = useRef<number>(0);
