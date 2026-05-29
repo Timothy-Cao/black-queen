@@ -14,10 +14,13 @@ import { warmWasm } from "./game/hard4Driver";
 setGen2HardWeights({ ...DEFAULT_HARD_WEIGHTS, ...gen2Weights });
 setActiveHardWeights({ ...DEFAULT_HARD_WEIGHTS, ...gen3Weights });
 
-// Eagerly load Hard-4 WASM. Fire-and-forget — the driver falls back to Hard-3
-// on the rare cold-start race where the AI is called before WASM finishes
-// loading (~50–200 ms after this line).
-void warmWasm();
+// Warm Hard-4 WASM (290KB) in the BACKGROUND after first paint, so it doesn't
+// compete with the initial menu render. Fire-and-forget — the driver falls back
+// to Hard-3 on the rare cold-start race where the AI is called before WASM is
+// ready. By the time a user navigates the menu + lobby, it's warm.
+const warm = () => { void warmWasm(); };
+if (typeof requestIdleCallback === "function") requestIdleCallback(warm, { timeout: 3000 });
+else setTimeout(warm, 1200);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
