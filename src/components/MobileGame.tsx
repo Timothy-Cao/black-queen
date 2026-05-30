@@ -30,6 +30,10 @@ interface Props {
 
 const SUIT_ORDER: Record<Suit, number> = { S: 0, H: 1, C: 2, D: 3 };
 
+// Hand fan: bigger cards that overlap, so ~8-9 are visible at once (swipe for more).
+const HAND_CARD_W = 80;
+const HAND_OVERLAP = 44; // ~36px of each card shows
+
 // Where each played card sits on the table, by seat-offset from "me" (0 = me at
 // the bottom, then clockwise: left, top-left, top-right, right).
 const TRICK_POS: React.CSSProperties[] = [
@@ -150,14 +154,17 @@ export function MobileGame(p: Props) {
         {/* Card play area — rounded rectangle, behind everything */}
         <div className="absolute inset-x-4 inset-y-5 rounded-3xl border border-white/[0.08] bg-white/[0.02] pointer-events-none" />
         {trickPlays.length > 0 ? (
-          trickPlays.map((tp) => {
+          trickPlays.map((tp, idx) => {
             const rel = (tp.player - me + 5) % 5;
             const done = r.pendingTrickComplete;
             const isWinner = done && r.currentTrick?.winner === tp.player;
+            const isLead = idx === 0; // first card played led the round
             return (
               <div key={`${tp.player}-${tp.card.id}`} className="absolute z-10 flex flex-col items-center transition-all" style={TRICK_POS[rel]}>
-                <span className="text-[10px] text-stone-200/85 mb-0.5 max-w-[68px] truncate">{state.players[tp.player].name}</span>
-                <div className={`rounded-lg ${done && !isWinner ? "opacity-30 grayscale" : ""} ${isWinner ? "ring-2 ring-gold-400" : ""}`}>
+                <span className="text-[10px] mb-0.5 max-w-[80px] truncate text-stone-200/85">
+                  {state.players[tp.player].name}{isLead && <span className="text-sky-300/90"> · led</span>}
+                </span>
+                <div className={`rounded-lg ${done && !isWinner ? "opacity-30 grayscale" : ""} ${isWinner ? "ring-2 ring-gold-400" : isLead ? "ring-1 ring-sky-300/60" : ""}`}>
                   <CardView card={tp.card} size={72} staticView />
                 </div>
               </div>
@@ -200,11 +207,11 @@ export function MobileGame(p: Props) {
         </div>
       )}
 
-      {/* My hand — swipeable strip of bigger cards (scroll left/right) */}
+      {/* My hand — overlapped fan, swipeable (scroll left/right for the rest) */}
       {!showRoundEnd && (
         <div className="w-full overflow-x-auto overflow-y-hidden no-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
-          <div className="flex gap-2 px-3 py-2 items-end justify-center" style={{ minWidth: "100%", width: "max-content" }}>
-            {hand.map((c) => {
+          <div className="flex px-3 py-2 items-end" style={{ minWidth: "100%", width: "max-content", justifyContent: "safe center" as "center" }}>
+            {hand.map((c, i) => {
               const isSel = c.id === selected;
               const dimmed = myTurnToPlay && !legalIds.has(c.id);
               return (
@@ -212,9 +219,10 @@ export function MobileGame(p: Props) {
                   key={c.id}
                   role="button"
                   onClick={() => tapCard(c)}
+                  style={{ marginLeft: i === 0 ? 0 : -HAND_OVERLAP, zIndex: isSel ? 100 : i }}
                   className={`shrink-0 rounded-lg transition ${isSel ? "ring-2 ring-gold-400" : ""} ${dimmed ? "opacity-35" : ""}`}
                 >
-                  <CardView card={c} size={72} />
+                  <CardView card={c} size={HAND_CARD_W} />
                 </div>
               );
             })}

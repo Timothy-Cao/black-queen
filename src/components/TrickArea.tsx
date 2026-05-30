@@ -33,11 +33,12 @@ export function TrickArea({ state, seatPosition, onContinue }: Props) {
   if (!trick || trick.plays.length === 0) return null;
   return (
     <>
-      {trick.plays.map((tp) => {
+      {trick.plays.map((tp, idx) => {
         const pos = seatPosition[tp.player];
         const p = PLAY[pos];
         const origin = SLIDE_FROM[pos];
         const isWinner = r.pendingTrickComplete && trick.winner === tp.player;
+        const isLead = idx === 0; // first card played led the round
         return (
           <div
             key={`play-${tp.player}-${tp.card.id}`}
@@ -52,7 +53,11 @@ export function TrickArea({ state, seatPosition, onContinue }: Props) {
               zIndex: isWinner ? 25 : 22,
             }}
           >
+            {isLead && !isWinner && (
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-widest text-sky-300/90 whitespace-nowrap">led</div>
+            )}
             <div
+              className={isLead && !isWinner ? "rounded-xl ring-2 ring-sky-300/50" : ""}
               style={{
                 animation: "slideToCenter 360ms cubic-bezier(0.2, 0.7, 0.2, 1) both",
                 ["--from-x" as any]: `${origin.x}px`,
