@@ -16,8 +16,8 @@ interface Props {
 
 const DEFAULTS: Cfg[] = [
   { name: "Player", isAI: false },
-  { name: "Adam", isAI: true, aiPersonality: "hard-3" },
-  { name: "Bravo", isAI: true, aiPersonality: "hard-3" },
+  { name: "Adam", isAI: true, aiPersonality: "hard-4" },
+  { name: "Bravo", isAI: true, aiPersonality: "hard-4" },
   { name: "Charlie", isAI: true, aiPersonality: "hard-3" },
   { name: "Delta", isAI: true, aiPersonality: "hard-3" },
 ];
@@ -68,6 +68,10 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
                 <input
                   className="flex-1 min-w-0 bg-white/5 rounded-lg px-3 py-2 text-stone-100 border border-white/10 outline-none focus:border-gold-500"
                   value={p.name}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   onChange={(e) => {
                     const a = players.slice();
                     a[i] = { ...a[i], name: e.target.value };
@@ -81,6 +85,7 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
                 >
                   <input
                     type="checkbox"
+                    autoComplete="off"
                     // Seats 1-4 are always AI (single player has one local seat).
                     checked={i === 0 ? p.isAI : true}
                     disabled={i !== 0}
@@ -123,6 +128,7 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
             <label className="text-sm text-stone-300 w-14 shrink-0">Shuffle</label>
             <input
               type="range"
+              autoComplete="off"
               min={0}
               max={100}
               step={5}
@@ -141,6 +147,7 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
             <label className="flex items-center gap-1.5 ml-auto text-xs text-stone-300 select-none cursor-pointer shrink-0">
               <input
                 type="checkbox"
+                autoComplete="off"
                 checked={randomizeShuffle}
                 onChange={(e) => setRandomizeShuffle(e.target.checked)}
                 className="accent-gold-500"

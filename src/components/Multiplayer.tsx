@@ -47,6 +47,10 @@ export function MultiplayerJoin({ onBack }: { onBack: () => void }) {
           placeholder="CODE"
           maxLength={6}
           value={code}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="characters"
+          spellCheck={false}
           onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
         />
         <button
