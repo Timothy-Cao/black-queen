@@ -12,7 +12,7 @@ import { BiddingPanel } from "./BiddingPanel";
 import { DeclarePanel } from "./DeclarePanel";
 import { RoundEnd } from "./RoundEnd";
 import { legalPlays } from "../game/rules";
-import { avatarColor, avatarEmoji, aiCharacter } from "./PlayerSeat";
+import { avatarColor, seatIcon } from "./PlayerSeat";
 import { sfx } from "../game/sfx";
 
 interface Props {
@@ -114,7 +114,7 @@ export function MobileGame(p: Props) {
             <div key={pl.id} className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded-xl ${active ? "ring-2 ring-gold-400 bg-gold-500/10" : ""}`}>
               <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-lg"
                 style={{ background: pl.isAI ? avatarColor(pl.id) : "#e0a93a", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.12)" }}>
-                {pl.isAI ? <img src={aiCharacter(pl.id)} alt="" className="w-full h-full object-cover" /> : <span>{avatarEmoji(pl.id)}</span>}
+                <img src={seatIcon(pl.id)} alt="" className="w-full h-full object-cover" />
                 <span className="absolute -bottom-0.5 -right-0.5 bg-black/85 text-[9px] leading-none px-1 py-0.5 rounded-full text-stone-200 font-mono">{pl.hand.length}</span>
               </div>
               <div className="text-[10px] text-stone-200 truncate max-w-[70px] leading-tight">

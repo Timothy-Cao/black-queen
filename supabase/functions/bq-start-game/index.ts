@@ -7,7 +7,7 @@ import { freshGame } from "../_shared/engine/engine.ts";
 import { advance } from "../_shared/advance.ts";
 import { saveState } from "../_shared/persist.ts";
 
-const AI_NAMES = ["Seer", "Envoy", "Darwin", "Rulebook", "Greedy"];
+const AI_NAME_POOL = ["Magnus", "Faker", "Nigel", "Erwin", "L", "Nietzsche", "Confucius", "Plato", "Euler"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -30,13 +30,16 @@ Deno.serve(async (req) => {
   const pers = aiPersonality || "hard-4";
   const newAi: Record<string, unknown>[] = [];
   const configs: { name: string; isAI: boolean; aiPersonality?: string }[] = [];
+  // Random unique AI names for the filled seats.
+  const namePool = [...AI_NAME_POOL].sort(() => Math.random() - 0.5);
+  let nameIdx = 0;
 
   for (let seat = 0; seat < 5; seat++) {
     const p = bySeat.get(seat);
     if (p) {
       configs.push({ name: p.display_name, isAI: p.is_ai, aiPersonality: p.is_ai ? pers : undefined });
     } else {
-      const name = AI_NAMES[seat % AI_NAMES.length];
+      const name = namePool[nameIdx++ % namePool.length];
       newAi.push({ game_id: gameId, seat, user_id: null, is_ai: true, ai_personality: pers, display_name: name });
       configs.push({ name, isAI: true, aiPersonality: pers });
     }

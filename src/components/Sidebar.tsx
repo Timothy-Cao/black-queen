@@ -1,16 +1,12 @@
 import { GameState, SUIT_GLYPHS, RANK_LABEL, PlayerId, cardPoints } from "../game/types";
 import { ScoreCell } from "./ScoreCell";
-import { aiCharacter } from "./PlayerSeat";
+import { seatIcon } from "./PlayerSeat";
 
 interface Props {
   state: GameState;
   onHelp?: () => void;
   onHistory?: () => void;
 }
-
-// Cute emoji faces per player slot — mirrors PlayerSeat.
-const AVATAR_EMOJI = ["🦊", "🐱", "🐻", "🐼", "🐶"];
-function emojiOf(id: number) { return AVATAR_EMOJI[id % AVATAR_EMOJI.length]; }
 
 /** How many times this player has played the partner card so far (0, 1 or 2). */
 function partnerCardPlays(state: GameState, playerId: PlayerId): number {
@@ -120,11 +116,7 @@ export function Sidebar({ state, onHelp, onHistory }: Props) {
             const rowColor = onTeam ? "text-gold-400" : opts?.dim ? "text-stone-300" : "text-stone-200";
             return (
               <div key={p.id} className={`flex items-center py-1 ${rowColor}`}>
-                {p.isAI ? (
-                  <img src={aiCharacter(p.id)} alt="" draggable={false} className="w-5 h-5 mr-1.5 rounded-full object-cover shrink-0" />
-                ) : (
-                  <span className="mr-1.5">{emojiOf(p.id)}</span>
-                )}
+                <img src={seatIcon(p.id)} alt="" draggable={false} className="w-5 h-5 mr-1.5 rounded-full object-cover shrink-0" />
                 <span className="flex-1 truncate">
                   {p.name}
                   {p.isAI && <span className="ml-1 text-[10px] text-stone-500">AI</span>}

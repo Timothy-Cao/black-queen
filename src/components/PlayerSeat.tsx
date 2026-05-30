@@ -8,13 +8,15 @@ export type SeatPosition = "bottom" | "left" | "topLeft" | "topRight" | "right";
 const AVATAR_COLORS = ["#5b4eb6", "#3a7a8a", "#5a7b3c", "#a14552", "#b87333"];
 export function avatarColor(id: number) { return AVATAR_COLORS[id % AVATAR_COLORS.length]; }
 
-// Cute emoji faces per player slot (used for the human).
-const AVATAR_EMOJI = ["🦊", "🐱", "🐻", "🐼", "🐶"];
-export function avatarEmoji(id: number) { return AVATAR_EMOJI[id % AVATAR_EMOJI.length]; }
-
-// Illustrated character portraits for the AI seats.
-const AI_CHARACTERS = ["/characters/fox.png", "/characters/owl.png", "/characters/rabbit.png", "/characters/dragon.png"];
-export function aiCharacter(id: number) { return AI_CHARACTERS[id % AI_CHARACTERS.length]; }
+// One unique illustrated icon per seat (0..4) — humans and AI alike.
+const SEAT_ICONS = [
+  "/characters/fox.png",
+  "/characters/cat.png",
+  "/characters/bunny.png",
+  "/characters/frog.png",
+  "/characters/otter.png",
+];
+export function seatIcon(id: number) { return SEAT_ICONS[id % SEAT_ICONS.length]; }
 
 interface Props {
   player: Player;
@@ -78,25 +80,14 @@ export function PlayerSeat({
           >
             <div className="relative">
               <div
-                className="w-8 h-8 text-xl sm:w-10 sm:h-10 sm:text-2xl rounded-full flex items-center justify-center leading-none overflow-hidden"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center leading-none overflow-hidden"
                 style={{
                   background: player.isAI ? avatarColor(player.id) : "#e0a93a",
                   boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.12)",
                 }}
                 title={player.isAI ? `AI · ${player.name}` : "Human"}
               >
-                {player.isAI ? (
-                  <img
-                    src={aiCharacter(player.id)}
-                    alt=""
-                    draggable={false}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.4))" }}>
-                    {avatarEmoji(player.id)}
-                  </span>
-                )}
+                <img src={seatIcon(player.id)} alt="" draggable={false} className="w-full h-full object-cover" />
               </div>
               {/* Dealer is signaled by the amber accent on the name pill. */}
             </div>

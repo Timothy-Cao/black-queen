@@ -9,12 +9,16 @@ import { corsHeaders, json, err } from "../_shared/cors.ts";
 import { admin, getUserId } from "../_shared/supa.ts";
 import type { PlayerId } from "../_shared/engine/types.ts";
 import {
-  applyBid, applyPass, applyDeclare, applyPlay, legalBidAmount,
+  applyBid, applyPass, applyDeclare, applyPlay, legalBidAmount, collectTrick,
 } from "../_shared/engine/engine.ts";
 import { legalPlays } from "../_shared/engine/rules.ts";
 import { deserializeState } from "../_shared/codec.ts";
-import { advance } from "../_shared/advance.ts";
+import { aiMove } from "../_shared/serverai.ts";
 import { saveState, seatUserMap } from "../_shared/persist.ts";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const AI_DELAY_MS = 850;     // "thinking" pause before each AI action
+const TRICK_PAUSE_MS = 1300; // hold a completed trick before sweeping it
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -80,16 +84,34 @@ Deno.serve(async (req) => {
     return err("Move rejected: " + ((e as Error)?.message ?? "invalid"));
   }
 
-  state = advance(state);
-
   const seatUser = await seatUserMap(db, gameId);
-  const version = (game.version ?? 0) + 1;
-  const status = state.phase === "game_end" ? "done" : "playing";
-  await saveState(db, gameId, state, seatUser, status, version);
+  const statusOf = (s: typeof state) => (s.phase === "game_end" ? "done" : "playing");
+  let version = (game.version ?? 0) + 1;
 
-  await db.from("bq_moves").insert({
-    game_id: gameId, seat, type: action.type, payload: action, version,
-  });
+  // 1) Persist the human's move immediately (no delay on your own action).
+  await saveState(db, gameId, state, seatUser, statusOf(state), version);
+  await db.from("bq_moves").insert({ game_id: gameId, seat, type: action.type, payload: action, version });
+
+  // 2) Step through AI plays + trick collection with pauses, pushing each step
+  //    over realtime so the table animates naturally instead of jumping.
+  for (let i = 0; i < 80; i++) {
+    if (state.phase === "game_end" || state.phase === "round_end") break;
+    const rr = state.round;
+    if (rr.pendingTrickComplete) {
+      await sleep(TRICK_PAUSE_MS);
+      state = collectTrick(state);
+    } else {
+      let actor: PlayerId | undefined;
+      if (rr.phase === "bidding") actor = rr.bidTurn;
+      else if (rr.phase === "declaring") actor = rr.bidder;
+      else if (rr.phase === "playing") actor = rr.toPlay;
+      if (actor === undefined || !state.players[actor].isAI) break; // hand back to a human
+      await sleep(AI_DELAY_MS);
+      state = aiMove(state, actor);
+    }
+    version += 1;
+    await saveState(db, gameId, state, seatUser, statusOf(state), version);
+  }
 
   return json({ ok: true, version });
 });
