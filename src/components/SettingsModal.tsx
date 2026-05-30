@@ -11,8 +11,6 @@ interface Props {
   setSpeed: (s: "slow" | "normal" | "fast") => void;
   showHands: boolean;
   setShowHands: (v: boolean | ((p: boolean) => boolean)) => void;
-  sidebarOpen: boolean;
-  setSidebarOpen: (v: boolean | ((p: boolean) => boolean)) => void;
   onHelp: () => void;
   onQuit: () => void;
 }
@@ -71,9 +69,6 @@ export function SettingsModal(p: Props) {
                   </button>
                 ))}
               </div>
-            </Field>
-            <Field label="Info panel">
-              <Toggle on={p.sidebarOpen} onClick={() => { sfx.uiClick(); p.setSidebarOpen((v) => !v); }} onLabel="Open" offLabel="Closed" />
             </Field>
           </Section>
 

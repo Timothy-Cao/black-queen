@@ -61,18 +61,19 @@ export default function App() {
     try {
       const v = localStorage.getItem("bq:musicVol");
       if (v !== null) return Math.max(0, Math.min(1, parseFloat(v)));
-      return localStorage.getItem("bq:muted") === "1" ? 0 : 0.6;
-    } catch { return 0.6; }
+      return localStorage.getItem("bq:muted") === "1" ? 0 : 0.3;
+    } catch { return 0.3; }
   });
   const [sfxVol, setSfxVol] = useState<number>(() => {
     try {
       const v = localStorage.getItem("bq:sfxVol");
       if (v !== null) return Math.max(0, Math.min(1, parseFloat(v)));
-      return localStorage.getItem("bq:muted") === "1" ? 0 : 0.85;
-    } catch { return 0.85; }
+      return localStorage.getItem("bq:muted") === "1" ? 0 : 0.8;
+    } catch { return 0.8; }
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(typeof window === "undefined" || window.innerWidth >= 1100);
+  // Info panel is always open for now (no toggle exposed).
+  const sidebarOpen = true;
   const [speed, setSpeed] = useState<"slow" | "normal" | "fast">(() => {
     try { const v = localStorage.getItem("bq:speed"); return v === "slow" || v === "fast" ? v : "normal"; } catch { return "normal"; }
   });
@@ -202,7 +203,9 @@ export default function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // Ignore typing in fields — but always let Escape through (e.g. to close
+      // Settings even while a volume slider is focused).
+      if ((e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) && e.key !== "Escape") return;
       if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
         setShowHelp((v) => !v);
         return;
@@ -476,8 +479,6 @@ export default function App() {
             setSpeed={setSpeed}
             showHands={showHands}
             setShowHands={setShowHands}
-            sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
             onHelp={() => { setSettingsOpen(false); setShowHelp(true); }}
             onQuit={() => { setSettingsOpen(false); setState(null); }}
           />

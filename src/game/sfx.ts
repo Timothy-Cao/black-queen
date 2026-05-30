@@ -149,10 +149,6 @@ export function setSfxVolume(v: number) {
 }
 export function getSfxVolume() { return sfxVolume; }
 
-// Back-compat shim: treat mute as volume 0 / restore to default.
-export function setMuted(v: boolean) { setSfxVolume(v ? 0 : 0.85); }
-export function isMuted() { return sfxVolume <= 0; }
-
 export const sfx = {
   /** Card hitting the felt: short paper "swish" + tiny tap. */
   cardPlay: () => {

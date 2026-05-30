@@ -1,5 +1,6 @@
 import { GameState, SUIT_GLYPHS, RANK_LABEL, PlayerId, cardPoints } from "../game/types";
 import { ScoreCell } from "./ScoreCell";
+import { aiCharacter } from "./PlayerSeat";
 
 interface Props {
   state: GameState;
@@ -119,7 +120,11 @@ export function Sidebar({ state, onHelp, onHistory }: Props) {
             const rowColor = onTeam ? "text-gold-400" : opts?.dim ? "text-stone-300" : "text-stone-200";
             return (
               <div key={p.id} className={`flex items-center py-1 ${rowColor}`}>
-                <span className="mr-1.5">{emojiOf(p.id)}</span>
+                {p.isAI ? (
+                  <img src={aiCharacter(p.id)} alt="" draggable={false} className="w-5 h-5 mr-1.5 rounded-full object-cover shrink-0" />
+                ) : (
+                  <span className="mr-1.5">{emojiOf(p.id)}</span>
+                )}
                 <span className="flex-1 truncate">
                   {p.name}
                   {p.isAI && <span className="ml-1 text-[10px] text-stone-500">AI</span>}
