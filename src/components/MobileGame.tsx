@@ -12,7 +12,7 @@ import { RoundEnd } from "./RoundEnd";
 import { HelpModal } from "./HelpModal";
 import { legalPlays } from "../game/rules";
 import { legalBidAmount } from "../game/engine";
-import { sortHandByColor } from "../game/handSort";
+import { sortHandByColor, suitOrder } from "../game/handSort";
 import { avatarColor, seatIcon } from "./PlayerSeat";
 import { sfx, setSfxVolume, getSfxVolume } from "../game/sfx";
 import { setMusicVolume, getMusicVolume } from "../game/music";
@@ -163,9 +163,13 @@ export function MobileGame(p: Props) {
                 <span className="text-[10px] mb-0.5 max-w-[80px] truncate text-stone-200/85">
                   {state.players[tp.player].name}{isLead && <span className="text-sky-300/90"> · led</span>}
                 </span>
-                <div className={`rounded-lg ${done && !isWinner ? "opacity-30 grayscale" : ""} ${isWinner ? "ring-2 ring-gold-400" : isLead ? "ring-1 ring-sky-300/60" : ""}`}>
-                  <CardView card={tp.card} size={72} staticView />
-                </div>
+                <CardView
+                  card={tp.card}
+                  size={72}
+                  staticView
+                  dim={done && !isWinner}
+                  className={`block ${isWinner ? "ring-2 ring-gold-400" : isLead ? "ring-1 ring-sky-300/60" : ""}`}
+                />
               </div>
             );
           })
@@ -213,9 +217,9 @@ export function MobileGame(p: Props) {
             const isSel = c.id === selected;
             const dimmed = myTurnToPlay && !legalIds.has(c.id);
             return (
-              <div key={c.id} role="button" onClick={() => tapCard(c)}
-                className={`rounded-md transition ${isSel ? "ring-2 ring-gold-400" : ""} ${dimmed ? "opacity-35" : ""}`}>
-                <CardView card={c} size={50} />
+              <div key={c.id} role="button" onClick={() => tapCard(c)}>
+                <CardView card={c} size={50} dim={dimmed}
+                  className={`block transition-transform ${isSel ? "ring-2 ring-gold-400 -translate-y-1" : ""}`} />
               </div>
             );
           })}
@@ -232,9 +236,10 @@ export function MobileGame(p: Props) {
                   role="button"
                   onClick={() => tapCard(c)}
                   style={{ marginLeft: i === 0 ? 0 : -HAND_OVERLAP, zIndex: isSel ? 100 : i }}
-                  className={`shrink-0 rounded-lg transition ${isSel ? "ring-2 ring-gold-400" : ""} ${dimmed ? "opacity-35" : ""}`}
+                  className="shrink-0"
                 >
-                  <CardView card={c} size={HAND_CARD_W} />
+                  <CardView card={c} size={HAND_CARD_W} dim={dimmed}
+                    className={`block transition-transform ${isSel ? "ring-2 ring-gold-400 -translate-y-2" : ""}`} />
                 </div>
               );
             })}
@@ -392,30 +397,34 @@ function MobileDeclarePanel({ state, me, onDeclare }: {
       <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Partner card · suit</div>
       <div className="flex gap-2 mb-5">{SUITS.map((s) => <SuitBtn key={s} s={s} active={pSuit === s} onClick={() => { setPSuit(s); setPRank(undefined); }} />)}</div>
 
-      {pSuit && (
-        <>
-          <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Partner card · rank <span className="text-stone-600">(dimmed = you own all copies)</span></div>
-          <div className="flex gap-1.5 flex-wrap mb-5">
-            {ranksFor(pSuit).map((r) => {
-              const blocked = ownsAll(pSuit, r);
-              const sel = pRank === r;
-              return (
-                <button
-                  key={r}
-                  disabled={blocked}
-                  onClick={() => { sfx.uiClick(); setPRank(r); }}
-                  className={`w-9 h-11 rounded-md text-sm transition ${sel ? "bg-gold-500 text-stone-900 font-bold" : blocked ? "bg-white/5 text-stone-600 border border-rose-700/30" : "bg-white/5 text-stone-200 border border-white/10"}`}
-                >{RANK_LABEL[r]}</button>
-              );
-            })}
-          </div>
-        </>
-      )}
+      {/* Rank row is always rendered (reserves its height) so picking a suit/rank
+          never pushes the hand below it down. */}
+      <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Partner card · rank <span className="text-stone-600">(dimmed = you own all copies)</span></div>
+      <div className="flex gap-1.5 flex-wrap items-center mb-5 min-h-[44px]">
+        {pSuit ? ranksFor(pSuit).map((r) => {
+          const blocked = ownsAll(pSuit, r);
+          const sel = pRank === r;
+          return (
+            <button
+              key={r}
+              disabled={blocked}
+              onClick={() => { sfx.uiClick(); setPRank(r); }}
+              className={`w-9 h-11 rounded-md text-sm transition ${sel ? "bg-gold-500 text-stone-900 font-bold" : blocked ? "bg-white/5 text-stone-600 border border-rose-700/30" : "bg-white/5 text-stone-200 border border-white/10"}`}
+            >{RANK_LABEL[r]}</button>
+          );
+        }) : <span className="text-stone-600 text-xs">Pick a partner suit first.</span>}
+      </div>
 
-      {/* Your hand, for reference while choosing — wrapped so all 13 show */}
+      {/* Your hand, for reference while choosing — one row per suit. */}
       <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Your hand</div>
-      <div className="flex flex-wrap gap-1.5 pb-1">
-        {sortHandByColor(hand, trump).map((c) => <CardView key={c.id} card={c} size={52} staticView />)}
+      <div className="space-y-1.5 pb-1">
+        {suitOrder([...new Set(hand.map((c) => c.suit))], trump).map((s) => (
+          <div key={s} className="flex gap-1.5">
+            {hand.filter((c) => c.suit === s).sort((a, b) => b.rank - a.rank).map((c) => (
+              <CardView key={c.id} card={c} size={52} staticView className="block" />
+            ))}
+          </div>
+        ))}
       </div>
 
       <div className="mt-auto pt-3">
