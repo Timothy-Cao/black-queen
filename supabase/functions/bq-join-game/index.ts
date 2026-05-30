@@ -40,5 +40,9 @@ Deno.serve(async (req) => {
     game_id: game.id, seat, user_id: uid, is_ai: false, display_name: name,
   });
 
+  // Keep the lobby "fresh" so the stale-room reaper (30 min idle) doesn't prune an
+  // actively-filling lobby — joins don't otherwise touch bq_games.
+  await db.from("bq_games").update({ updated_at: new Date().toISOString() }).eq("id", game.id);
+
   return json({ gameId: game.id, seat });
 });

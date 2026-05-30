@@ -15,6 +15,27 @@ Deno.serve(async (req) => {
   const { displayName } = await req.json().catch(() => ({}));
   const db = admin();
 
+  // --- Self-healing cleanup so abandoned rooms can't permanently fill the cap ---
+  // 1. Time-based: any game with no activity (bq_games.updated_at, bumped on every
+  //    move) for 30+ minutes is a ghost (abandoned lobby or stalled game). Cascade
+  //    deletes players/hands/secrets/moves.
+  const STALE_CUTOFF = new Date(Date.now() - 30 * 60_000).toISOString();
+  await db.from("bq_games").delete().lt("updated_at", STALE_CUTOFF);
+
+  // 2. Caller-owned lobbies: a user clicking "Create room" intends a fresh lobby,
+  //    so drop any lobby they're still sitting in (e.g. a previous create where the
+  //    tab closed before leaveGame fired). Delete the room if no humans remain.
+  const { data: myRows } = await db.from("bq_game_players").select("game_id").eq("user_id", uid);
+  const myGameIds = [...new Set((myRows ?? []).map((r) => r.game_id))];
+  if (myGameIds.length) {
+    const { data: myGames } = await db.from("bq_games").select("id,status").in("id", myGameIds);
+    for (const g of (myGames ?? []).filter((x) => x.status === "lobby")) {
+      await db.from("bq_game_players").delete().eq("game_id", g.id).eq("user_id", uid);
+      const { data: rem } = await db.from("bq_game_players").select("user_id").eq("game_id", g.id);
+      if (!(rem ?? []).some((p) => p.user_id)) await db.from("bq_games").delete().eq("id", g.id);
+    }
+  }
+
   // Cap: at most 3 active games at once.
   const { count } = await db.from("bq_games")
     .select("id", { count: "exact", head: true })

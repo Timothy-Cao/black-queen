@@ -10,6 +10,9 @@ Deno.serve(async (req) => {
   if (!isAdmin(caller.email)) return err("Admins only", 403);
 
   const db = admin();
+  // Auto-prune ghosts (no activity in 30+ min) before listing.
+  await db.from("bq_games").delete().lt("updated_at", new Date(Date.now() - 30 * 60_000).toISOString());
+
   const { data: games } = await db.from("bq_games")
     .select("id,room_code,status,created_at")
     .order("created_at", { ascending: false });
