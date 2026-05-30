@@ -61,3 +61,22 @@ weakest decision point rather than overriding it generally.
 ## Next step
 Implement the gated caller-opening-trump-draw rule in the `hard-4b` path, rebuild,
 and A/B. The observation gave a concrete, falsifiable hypothesis — the A/B decides.
+
+## v1 RESULT — budget reallocation (not the trump heuristic)
+
+Implemented the *principled* version instead of the trump heuristic: **budget
+reallocation** (`hard4_play`, gated by `hard4b_enabled()`) — same total ISMCTS
+iterations, but `factor = 0.5 + h/13` front-loads ~1.5× onto trick 1 (the noisy
+opening) tapering to ~0.58× on the near-solved endgame.
+
+A/B `_mirror_arena 500 hard-4b hard-4` (HARD4_TIME_MS=80, equal budget):
+- hard-4b 53.64% vs hard-4 52.96% → **+0.68pp**.
+
+**Verdict: marginal, NOT significant** (~1 SE at N=500; even if real, ≈4–5 Elo —
+within Hard-4's CI). Consistent with the session-wide finding that no cheap lever
+moves Hard-4 >1pp. Kept gated/OFF (default Hard-4 unaffected); not shipped.
+
+This says the opening-lead miss in 770001 was largely **search noise**, not a
+systematic exploitable flaw that front-loading meaningfully fixes. → Iteration 2:
+hunt for a *clearer* systematic mistake against stronger opponents (which punish
+errors), rather than chase sub-1pp tweaks.
