@@ -46,3 +46,24 @@ Reuse hard-3's existing infrastructure rather than greenfield:
 1. Land the v2 value-players bugfix (improves the whole hard family) → re-run ladder.
 2. Confirm codenames with the user → wire `BOT_PROFILES` into Lobby + Leaderboard.
 3. Begin the hard-3 hardening iterations.
+
+## Outcome (2026-05-28) — the cheap levers are exhausted, data-proven
+
+- The observe→fix loop found **two real team-identification bugs** (hard-4
+  value-players: +14 Elo; hard/hard-2/hard-3 knownCallerTeam: correctness-neutral).
+  These were genuine wins where they mattered.
+- The **counterfactual regret census** (`_regret_miner.ts`, 1,575 of Seer's
+  decisions; see `docs/regret/FINDINGS.md`) then proved there is **no
+  dominated-move pattern left** — every high-regret bucket has alt-better% of only
+  ~30–50% (a better move existed only *some* of the time → heuristic/inference/
+  variance, NOT dominance). So **sound guardrails can't help and heuristic
+  overrides hurt** — both data-confirmed.
+- **Hard-3 hardening = marginal/correctness-only.** Same conclusion as hard-4: the
+  rule-based bots are decent; only actual bugs move Elo, and those are now found.
+- **The one remaining lever = learned card-location inference** (architectural,
+  multi-week; `docs/hard5_literature_plan.md`, AUC 0.865). Realistic gain ~+1–4pp
+  (a true "Hard-5"), bounded by the 5-player team-game compression (~230 Elo total
+  range). Not a cheap tweak.
+- **Recommendation:** the AI suite is strong and well-validated (Seer 1220); the
+  cheap AI work has hit diminishing returns *by data*. Highest-EV for the game is
+  **multiplayer**; keep learned inference as the single R&D bet for a future jump.
