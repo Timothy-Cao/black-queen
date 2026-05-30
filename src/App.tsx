@@ -22,6 +22,8 @@ import { PartnerRevealFlash } from "./components/PartnerRevealFlash";
 import { Confetti } from "./components/Confetti";
 import { SettingsBar } from "./components/SettingsBar";
 import { SettingsModal } from "./components/SettingsModal";
+import { MobileGame } from "./components/MobileGame";
+import { useIsMobile } from "./hooks/useIsMobile";
 import { CollectionDeck } from "./components/CollectionDeck";
 import { HistoryModal } from "./components/HistoryModal";
 import {
@@ -36,6 +38,7 @@ const SEAT_POSITIONS: SeatPosition[] = ["bottom", "left", "topLeft", "topRight",
 
 export default function App() {
   const { configured: authConfigured, loading: authLoading, session } = useAuth();
+  const isMobile = useIsMobile();
   const [state, setState] = useState<GameState | null>(null);
   const [me] = useState<PlayerId>(0);
   const [showHands, setShowHands] = useState(false);
@@ -361,6 +364,24 @@ export default function App() {
       .reduce<number>((s, p) => s + (rr.roundPoints?.[p] ?? 0), 0);
   })();
   const isPerfect300 = isGameOver && callerTeamPoints === 300;
+
+  // Mobile: vertical layout (shared with online play). Single-player handlers
+  // drive the local reducer directly.
+  if (isMobile && !meIsAI) {
+    return (
+      <MobileGame
+        state={state}
+        me={me}
+        onPlay={(c) => setState((s) => s && applyPlay(s, me, c))}
+        onBid={(amt) => setState((s) => s && applyBid(s, me, amt))}
+        onPass={() => setState((s) => s && applyPass(s, me))}
+        onDeclare={(t, pc) => setState((s) => s && applyDeclare(s, t, pc))}
+        onContinue={() => setState((s) => s && collectTrick(s))}
+        onRoundNext={() => { if (isGameOver) setState(null); else setState((s) => s && startNextRound(s)); }}
+        onExit={() => setState(null)}
+      />
+    );
+  }
 
   return (
     <div className="w-screen h-screen overflow-hidden flex">

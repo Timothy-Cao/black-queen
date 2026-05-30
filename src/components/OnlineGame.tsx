@@ -15,6 +15,8 @@ import { Sidebar } from "./Sidebar";
 import { PartnerRevealFlash } from "./PartnerRevealFlash";
 import { sendMove } from "../multiplayer/api";
 import type { OnlineState } from "../multiplayer/useOnlineGame";
+import { MobileGame } from "./MobileGame";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 const SEAT_POSITIONS: SeatPosition[] = ["bottom", "left", "topLeft", "topRight", "right"];
 
@@ -39,6 +41,7 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
   const me = mySeat as PlayerId;
   const [err, setErr] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const isMobile = useIsMobile();
 
   const state = useMemo(
     () => (online.gameState ? withOpponentCounts(online.gameState, me) : null),
@@ -66,6 +69,27 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
     catch (e) { setErr(e instanceof Error ? e.message : "Move failed"); }
     setSending(false);
   };
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileGame
+          state={state}
+          me={me}
+          onPlay={(c) => send({ type: "play", card: c })}
+          onBid={(amt) => send({ type: "bid", amount: amt })}
+          onPass={() => send({ type: "pass" })}
+          onDeclare={(t, pc) => send({ type: "declare", trump: t, partnerCard: pc })}
+          onExit={onLeave}
+          onRoundNext={onLeave}
+          banner={`Room ${roomCode}`}
+        />
+        {err && (
+          <div className="fixed bottom-2 left-1/2 -translate-x-1/2 z-50 glass rounded-lg px-4 py-2 text-sm text-rose-300">{err}</div>
+        )}
+      </>
+    );
+  }
 
   const r = state.round;
   const showRoundEnd = state.phase === "round_end" || state.phase === "game_end";

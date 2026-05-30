@@ -6,11 +6,11 @@ export type SeatPosition = "bottom" | "left" | "topLeft" | "topRight" | "right";
 
 // Calmer, more refined palette — deep jewel tones instead of saturated primaries.
 const AVATAR_COLORS = ["#5b4eb6", "#3a7a8a", "#5a7b3c", "#a14552", "#b87333"];
-function avatarColor(id: number) { return AVATAR_COLORS[id % AVATAR_COLORS.length]; }
+export function avatarColor(id: number) { return AVATAR_COLORS[id % AVATAR_COLORS.length]; }
 
 // Cute emoji faces per player slot (used for the human).
 const AVATAR_EMOJI = ["🦊", "🐱", "🐻", "🐼", "🐶"];
-function avatarEmoji(id: number) { return AVATAR_EMOJI[id % AVATAR_EMOJI.length]; }
+export function avatarEmoji(id: number) { return AVATAR_EMOJI[id % AVATAR_EMOJI.length]; }
 
 // Illustrated character portraits for the AI seats.
 const AI_CHARACTERS = ["/characters/fox.png", "/characters/owl.png", "/characters/rabbit.png", "/characters/dragon.png"];
