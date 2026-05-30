@@ -70,7 +70,9 @@ export function MobileGame(p: Props) {
     if (showRoundEnd) return null;
     if (r.phase === "bidding") return r.bidTurn === me ? "Your turn to bid" : `${state.players[r.bidTurn ?? me].name} is bidding`;
     if (r.phase === "declaring") return r.bidder === me ? "Choose trump & partner" : `${state.players[r.bidder!].name} is declaring`;
-    if (r.pendingTrickComplete) return "Trick complete";
+    if (r.pendingTrickComplete) {
+      return r.currentTrick?.winner !== undefined ? `${state.players[r.currentTrick.winner].name} won the round` : "Round complete";
+    }
     if (r.phase === "playing") return r.toPlay === me ? "Your turn — pick a card" : `${state.players[r.toPlay].name}'s turn`;
     return null;
   })();
@@ -143,17 +145,21 @@ export function MobileGame(p: Props) {
         </div>
       )}
 
-      {/* Center: the table + the current trick, positioned around it */}
+      {/* Center: the play area + the current round's cards, around the table */}
       <div className="flex-1 min-h-0 relative">
-        {/* Table surface (behind everything) */}
-        <div className="absolute inset-x-5 inset-y-3 rounded-[50%] border border-white/[0.06] bg-gradient-to-b from-white/[0.025] to-transparent pointer-events-none" />
+        {/* Card play area — rounded rectangle, behind everything */}
+        <div className="absolute inset-x-4 inset-y-5 rounded-3xl border border-white/[0.08] bg-white/[0.02] pointer-events-none" />
         {trickPlays.length > 0 ? (
           trickPlays.map((tp) => {
             const rel = (tp.player - me + 5) % 5;
+            const done = r.pendingTrickComplete;
+            const isWinner = done && r.currentTrick?.winner === tp.player;
             return (
-              <div key={`${tp.player}-${tp.card.id}`} className="absolute z-10 flex flex-col items-center" style={TRICK_POS[rel]}>
+              <div key={`${tp.player}-${tp.card.id}`} className="absolute z-10 flex flex-col items-center transition-all" style={TRICK_POS[rel]}>
                 <span className="text-[10px] text-stone-200/85 mb-0.5 max-w-[68px] truncate">{state.players[tp.player].name}</span>
-                <CardView card={tp.card} size={72} staticView />
+                <div className={`rounded-lg ${done && !isWinner ? "opacity-30 grayscale" : ""} ${isWinner ? "ring-2 ring-gold-400" : ""}`}>
+                  <CardView card={tp.card} size={72} staticView />
+                </div>
               </div>
             );
           })
@@ -181,6 +187,16 @@ export function MobileGame(p: Props) {
             Play {SUIT_GLYPHS[selectedCard.suit]}{rankLabel(selectedCard.rank)}
           </button>
           <button className="btn btn-ghost py-2.5 px-3" onClick={() => setSelected(null)}>✕</button>
+        </div>
+      )}
+
+      {/* My status: own captured points + role */}
+      {!showRoundEnd && (
+        <div className="flex items-center justify-center gap-1.5 text-[11px] pb-0.5">
+          <span className="text-stone-400">You</span>
+          {r.bidder === me && <span className="text-gold-400" title="Caller">★</span>}
+          {(r.revealedPartners ?? []).includes(me) && <span className="text-amber-300" title="Partner">◆</span>}
+          <span className="text-gold-400 font-mono">{state.players[me].tricksWon.reduce((s, c) => s + cardPoints(c), 0)} pts</span>
         </div>
       )}
 
@@ -315,6 +331,14 @@ function MobileDeclarePanel({ state, me, onDeclare }: {
           </div>
         </>
       )}
+
+      {/* Your hand, for reference while choosing */}
+      <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Your hand</div>
+      <div className="overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+        <div className="flex gap-1 w-max">
+          {sortForHand(hand, trump).map((c) => <CardView key={c.id} card={c} size={50} staticView />)}
+        </div>
+      </div>
 
       <div className="mt-auto pt-3">
         <button

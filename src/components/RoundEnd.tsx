@@ -11,6 +11,8 @@ interface Props {
 
 export function RoundEnd({ state, onNext, onHide }: Props) {
   const [showTricks, setShowTricks] = useState(false);
+  // Focus a single player to highlight only their cards across the review.
+  const [focusPlayer, setFocusPlayer] = useState<PlayerId | null>(null);
   const r = state.round;
   const caller = state.players[r.bidder!];
   const partners = (r.partners ?? []).map((id) => state.players[id]);
@@ -125,27 +127,50 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
             {showTricks ? "▼" : "▶"} Review {r.tricks.length} rounds
           </button>
           {showTricks && (
-            <div className="mt-2 space-y-2 max-h-72 overflow-auto pr-1">
-              {r.tricks.map((t, i) => {
-                const winner = t.winner !== undefined ? state.players[t.winner] : undefined;
-                return (
-                  <div key={`round-${i}`} className="flex items-center gap-2 text-xs">
-                    <div className="text-stone-500 w-8">#{i + 1}</div>
-                    <div className="flex gap-0.5">
-                      {t.plays.map((tp) => (
-                        <div key={`r${i}-${tp.player}-${tp.card.id}`} className={tp.player === t.winner ? "ring-1 ring-gold-400 rounded-md" : ""}>
-                          <CardView card={tp.card} small staticView />
-                        </div>
-                      ))}
+            <>
+              {/* Tap a player to spotlight only their cards across every round. */}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {state.players.map((pl) => (
+                  <button
+                    key={pl.id}
+                    onClick={() => setFocusPlayer((f) => (f === pl.id ? null : pl.id))}
+                    className={`text-[11px] px-2 py-1 rounded-md transition-colors ${focusPlayer === pl.id ? "bg-gold-500/30 text-gold-200" : "bg-white/5 text-stone-400 hover:bg-white/10"}`}
+                  >
+                    {pl.name}
+                  </button>
+                ))}
+                {focusPlayer !== null && (
+                  <button onClick={() => setFocusPlayer(null)} className="text-[11px] px-2 py-1 rounded-md text-stone-400 hover:text-stone-100">clear</button>
+                )}
+              </div>
+              <div className="mt-2 space-y-2 max-h-72 overflow-auto pr-1">
+                {r.tricks.map((t, i) => {
+                  const winner = t.winner !== undefined ? state.players[t.winner] : undefined;
+                  return (
+                    <div key={`round-${i}`} className="flex items-center gap-2 text-xs">
+                      <div className="text-stone-500 w-8">#{i + 1}</div>
+                      <div className="flex gap-0.5">
+                        {t.plays.map((tp) => {
+                          const dimmed = focusPlayer !== null && tp.player !== focusPlayer;
+                          return (
+                            <div
+                              key={`r${i}-${tp.player}-${tp.card.id}`}
+                              className={`rounded-md transition ${tp.player === t.winner ? "ring-1 ring-gold-400" : ""} ${dimmed ? "opacity-25 grayscale" : ""}`}
+                            >
+                              <CardView card={tp.card} small staticView />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="ml-auto text-right">
+                        <div className="text-stone-300">{winner?.name}</div>
+                        <div className="text-gold-400 font-mono">+{t.points}</div>
+                      </div>
                     </div>
-                    <div className="ml-auto text-right">
-                      <div className="text-stone-300">{winner?.name}</div>
-                      <div className="text-gold-400 font-mono">+{t.points}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
 

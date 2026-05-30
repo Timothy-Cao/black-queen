@@ -128,7 +128,7 @@ function Overview() {
           ))}
         </div>
         <p className="mt-2 text-[12px] text-stone-400">
-          Only these cards score. Everything else is just for winning tricks.
+          Only these cards score. Everything else is just for winning rounds.
         </p>
       </div>
 
@@ -185,12 +185,12 @@ function Play() {
   ];
   return (
     <div className="space-y-4">
-      <Lead>13 tricks. Each player plays one card per trick.</Lead>
+      <Lead>13 rounds. Each player plays one card per round.</Lead>
       <Bullets
         items={[
           <><b>Follow the led suit</b> if you can. If you can’t, play anything, including trump.</>,
           <>Winner = highest <b>trump</b>; if no trump, highest card of the <b>led suit</b>.</>,
-          <>The winner leads the next trick.</>,
+          <>The winner leads the next round.</>,
         ]}
       />
       <div>
@@ -216,7 +216,7 @@ function Play() {
 function Score() {
   return (
     <div className="space-y-4">
-      <Lead>After 13 tricks, add up the team’s captured points.</Lead>
+      <Lead>After 13 rounds, add up the team’s captured points.</Lead>
       <div className="rounded-lg border border-white/10 overflow-hidden">
         <div className="grid grid-cols-2 text-sm">
           <div className="px-4 py-3 bg-emerald-500/10">
