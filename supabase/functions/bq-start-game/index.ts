@@ -7,7 +7,13 @@ import { freshGame } from "../_shared/engine/engine.ts";
 import { advance } from "../_shared/advance.ts";
 import { saveState } from "../_shared/persist.ts";
 
-const AI_NAME_POOL = ["Magnus", "Faker", "Nigel", "Erwin", "L", "Nietzsche", "Confucius", "Plato", "Euler"];
+const AI_NAME_POOL = [
+  "Socrates", "Plato", "Aristotle", "Descartes", "Kant", "Hume", "Nietzsche",
+  "Hegel", "Spinoza", "Locke", "Leibniz", "Rousseau", "Confucius", "Laozi",
+  "Aquinas", "Augustine", "Heraclitus", "Epicurus", "Seneca", "Wittgenstein",
+  "Schopenhauer", "Kierkegaard", "Sartre", "Camus", "Hobbes", "Voltaire",
+  "Diogenes", "Hypatia", "Avicenna", "Pythagoras", "Montaigne", "Russell",
+];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });

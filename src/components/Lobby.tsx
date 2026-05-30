@@ -73,13 +73,28 @@ interface Props {
   onOpenAIInfo?: () => void;
 }
 
-const DEFAULTS: Cfg[] = [
-  { name: "Player", isAI: false },
-  { name: "Adam", isAI: true, aiPersonality: "hard-4" },
-  { name: "Bravo", isAI: true, aiPersonality: "hard-4" },
-  { name: "Charlie", isAI: true, aiPersonality: "hard-3" },
-  { name: "Delta", isAI: true, aiPersonality: "hard-3" },
+// Famous philosophers — the AI seats get 4 random distinct names each new lobby.
+const PHILOSOPHERS = [
+  "Socrates", "Plato", "Aristotle", "Descartes", "Kant", "Hume", "Nietzsche",
+  "Hegel", "Spinoza", "Locke", "Leibniz", "Rousseau", "Confucius", "Laozi",
+  "Aquinas", "Augustine", "Heraclitus", "Epicurus", "Seneca", "Wittgenstein",
+  "Schopenhauer", "Kierkegaard", "Sartre", "Camus", "Hobbes", "Voltaire",
+  "Diogenes", "Hypatia", "Avicenna", "Pythagoras", "Montaigne", "Russell",
 ];
+
+const AI_SEAT_PERSONALITIES: AIPersonality[] = ["hard-4", "hard-4", "hard-3", "hard-3"];
+
+function makeDefaults(): Cfg[] {
+  const pool = [...PHILOSOPHERS];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return [
+    { name: "Player", isAI: false },
+    ...AI_SEAT_PERSONALITIES.map((p, i) => ({ name: pool[i], isAI: true, aiPersonality: p } as Cfg)),
+  ];
+}
 
 const HERO_CARDS: Card[] = [
   { suit: "S", rank: 12, id: "S12" },
@@ -92,7 +107,7 @@ const HERO_CARDS: Card[] = [
 const TARGET_SCORE = 300; // Always 300 — matches total points in the 65-card deck.
 
 export function Lobby({ onStart, onOpenAIInfo }: Props) {
-  const [players, setPlayers] = useState<Cfg[]>(DEFAULTS);
+  const [players, setPlayers] = useState<Cfg[]>(makeDefaults);
   // Shuffle is chosen from 4 discrete stops (see SHUFFLE_STOPS). Default = Fun.
   const [shuffleStep, setShuffleStep] = useState<number>(1);
   // When checked, intensity is re-rolled uniformly at random for every dealt round.
