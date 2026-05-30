@@ -14,10 +14,14 @@ import { DeclarePanel } from "./DeclarePanel";
 import { RoundEnd } from "./RoundEnd";
 import { Sidebar } from "./Sidebar";
 import { PartnerRevealFlash } from "./PartnerRevealFlash";
+import { SettingsModal } from "./SettingsModal";
+import { HelpModal } from "./HelpModal";
 import { sendMove } from "../multiplayer/api";
 import type { OnlineState } from "../multiplayer/useOnlineGame";
 import { MobileGame } from "./MobileGame";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { sfx, getSfxVolume, setSfxVolume } from "../game/sfx";
+import { getMusicVolume, setMusicVolume } from "../game/music";
 
 const SEAT_POSITIONS: SeatPosition[] = ["bottom", "left", "topLeft", "topRight", "right"];
 
@@ -43,6 +47,12 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
   const [err, setErr] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [musicVol, setMusicVolState] = useState(() => getMusicVolume());
+  const [sfxVol, setSfxVolState] = useState(() => getSfxVolume());
+  const changeMusic = (v: number) => { setMusicVolState(v); setMusicVolume(v); try { localStorage.setItem("bq:musicVol", String(v)); } catch { /* ignore */ } };
+  const changeSfx = (v: number) => { setSfxVolState(v); setSfxVolume(v); try { localStorage.setItem("bq:sfxVol", String(v)); } catch { /* ignore */ } };
   const isMobile = useIsMobile();
 
   const state = useMemo(
@@ -134,6 +144,7 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
         {/* Top bar */}
         <div className="absolute top-2 left-2 z-30 flex items-center gap-2">
           <button className="glass rounded-full px-3 h-9 text-sm text-stone-200 hover:bg-white/10" onClick={onLeave}>← Leave</button>
+          <button className="glass rounded-full w-9 h-9 flex items-center justify-center text-base text-stone-200 hover:bg-white/10" onClick={() => { sfx.uiClick(); setShowSettings(true); }} title="Settings">⚙</button>
           <div className="glass rounded-full px-3 h-9 flex items-center text-xs uppercase tracking-widest text-gold-300/90">Room {roomCode}</div>
           {secondsLeft != null && (
             <div className={`glass rounded-full px-3 h-9 flex items-center text-sm font-mono ${secondsLeft <= 5 ? "text-rose-400" : "text-stone-200"}`}>⏱ {secondsLeft}s</div>
@@ -186,6 +197,18 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
         {err && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 glass rounded-lg px-4 py-2 text-sm text-rose-300 animate-floatIn">{err}</div>
         )}
+
+        {showSettings && (
+          <SettingsModal
+            onClose={() => setShowSettings(false)}
+            subtitle={`Room ${roomCode}`}
+            musicVol={musicVol} setMusicVol={changeMusic}
+            sfxVol={sfxVol} setSfxVol={changeSfx}
+            onHelp={() => { setShowSettings(false); setShowHelp(true); }}
+            onQuit={onLeave}
+          />
+        )}
+        {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       </div>
 
       <div className="w-72 flex-shrink-0 border-l border-white/10 bg-black/30 p-3 hidden md:flex flex-col">
