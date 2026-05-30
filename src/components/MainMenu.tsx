@@ -58,13 +58,13 @@ export function MainMenu({
 
           <div className="flex gap-3">
             <button
-              className="btn flex-1 py-2.5 bg-emerald-500/15 text-emerald-200 border border-emerald-400/30 hover:bg-emerald-500/25 transition-colors"
+              className="btn flex-1 py-2.5 bg-black/30 text-gold-200/90 border border-gold-500/25 hover:bg-black/45 hover:border-gold-400/45 transition-colors"
               onClick={click(onHost)}
             >
               Host
             </button>
             <button
-              className="btn flex-1 py-2.5 bg-sky-500/15 text-sky-200 border border-sky-400/30 hover:bg-sky-500/25 transition-colors"
+              className="btn flex-1 py-2.5 bg-black/30 text-gold-200/90 border border-gold-500/25 hover:bg-black/45 hover:border-gold-400/45 transition-colors"
               onClick={click(onJoin)}
             >
               Join
