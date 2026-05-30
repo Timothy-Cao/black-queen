@@ -121,6 +121,19 @@ export function duckMusic(durationMs = 1800, depth = 0.35) {
 
 export function stopMusic() { void playScene(null); }
 
+/** Introspection for manual verification (wired to window only in dev). */
+export function debugMusicState() {
+  const ctx = getSharedAudioContext();
+  return {
+    scene: currentScene,
+    ctxState: ctx ? ctx.state : "none",
+    musicVolume,
+    masterGain: masterMusicGain ? Number(masterMusicGain.gain.value.toFixed(3)) : null,
+    activeVoices: Object.keys(voices),
+    buffersLoaded: Object.entries(buffers).filter(([, v]) => v instanceof AudioBuffer).map(([k]) => k),
+  };
+}
+
 /** Resume the audio context after a user gesture (browsers block autoplay until then). */
 export async function resumeAudio() {
   const ctx = getSharedAudioContext();

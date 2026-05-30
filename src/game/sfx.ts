@@ -149,6 +149,15 @@ export function setSfxVolume(v: number) {
 }
 export function getSfxVolume() { return sfxVolume; }
 
+/** Introspection for manual verification (wired to window only in dev). */
+export function debugSfxState() {
+  return {
+    sfxVolume: Number(sfxVolume.toFixed(3)),
+    ctxState: ctx ? ctx.state : "none",
+    masterGain: masterGain ? Number(masterGain.gain.value.toFixed(3)) : null,
+  };
+}
+
 export const sfx = {
   /** Card hitting the felt: short paper "swish" + tiny tap. */
   cardPlay: () => {

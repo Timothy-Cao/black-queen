@@ -9,6 +9,17 @@ import { DEFAULT_HARD_WEIGHTS, setActiveHardWeights, setGen2HardWeights } from "
 import gen2Weights from "./game/tuned_weights_gen2.json";
 import gen3Weights from "./game/tuned_weights_gen3.json";
 import { warmWasm } from "./game/hard4Driver";
+import { debugMusicState } from "./game/music";
+import { debugSfxState } from "./game/sfx";
+
+// Dev-only audio introspection: `__bqAudio()` in the console returns the live
+// Web Audio graph state. Stripped from production builds (import.meta.env.DEV).
+if (import.meta.env.DEV) {
+  (window as unknown as { __bqAudio: () => unknown }).__bqAudio = () => ({
+    music: debugMusicState(),
+    sfx: debugSfxState(),
+  });
+}
 
 // Install tuned generations so Hard-2 / Hard-3 use their real trained weights
 // in the browser (they only existed in CLI sim tools before).
