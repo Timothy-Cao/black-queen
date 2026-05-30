@@ -13,7 +13,7 @@ export interface BotProfile {
 }
 
 export const BOT_PROFILES: Record<string, BotProfile> = {
-  random:   { codename: "Wildcard", tech: "Random", tagline: "Plays a random legal card. The floor." },
+  random:   { codename: "Wildcard", tech: "Random", tagline: "Plays random cards but never bids, so it never risks a failed contract." },
   normal:   { codename: "Greedy",   tech: "Normal", tagline: "Greedy grab + smear-to-ally heuristic." },
   hard:     { codename: "Rulebook", tech: "Hard",   tagline: "Fixed rule-based scoring baseline." },
   "hard-2": { codename: "Darwin",   tech: "Hard-2", tagline: "Evolutionary-tuned scoring weights." },
