@@ -24,7 +24,9 @@ export function getSupabase(): Promise<SupabaseClient | null> {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
-          detectSessionInUrl: true, // handles the ?code=... OAuth callback automatically
+          // We exchange the ?code=... ourselves in AuthContext so errors are
+          // visible and we avoid a double-exchange race.
+          detectSessionInUrl: false,
           flowType: "pkce",
         },
       }),

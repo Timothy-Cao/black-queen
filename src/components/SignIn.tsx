@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 
 export function SignIn({ onBack, reason }: { onBack?: () => void; reason?: string }) {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, authError } = useAuth();
   const [busy, setBusy] = useState(false);
 
   const onClick = async () => {
@@ -31,6 +31,11 @@ export function SignIn({ onBack, reason }: { onBack?: () => void; reason?: strin
           <GoogleGlyph />
           {busy ? "Redirecting…" : "Sign in with Google"}
         </button>
+        {authError && (
+          <p className="mt-3 text-[12px] text-rose-300 break-words">
+            Sign-in failed: {authError}
+          </p>
+        )}
         <p className="mt-4 text-[11px] text-stone-400/70">
           We use your Google account only to identify you in games. No posting, no spam.
         </p>

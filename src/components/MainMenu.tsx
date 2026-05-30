@@ -21,7 +21,7 @@ export function MainMenu({
   onSinglePlayer, onHost, onJoin, onLeaderboard, onAIInfo, onHowToPlay,
   musicVol, setMusicVol, sfxVol, setSfxVol,
 }: Props) {
-  const { configured, user, signOut } = useAuth();
+  const { configured, user, signOut, authError } = useAuth();
   const click = (fn: () => void) => () => { sfx.uiClick(); fn(); };
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -86,6 +86,9 @@ export function MainMenu({
             <button className="hover:text-stone-100 underline shrink-0" onClick={() => { sfx.uiClick(); signOut(); }}>Sign out</button>
           )}
         </div>
+        {authError && (
+          <p className="mt-2 text-[11px] text-rose-300 break-words">Sign-in failed: {authError}</p>
+        )}
 
         <nav className="mt-3 flex justify-center gap-3 text-[11px] text-stone-300/60">
           <a className="hover:text-stone-100" href="/privacy.html">Privacy</a>

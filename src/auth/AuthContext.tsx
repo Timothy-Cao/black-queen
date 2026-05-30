@@ -9,6 +9,7 @@ interface AuthState {
   loading: boolean;
   session: Session | null;
   user: User | null;
+  authError: string | null;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -18,6 +19,7 @@ const AuthCtx = createContext<AuthState>({
   loading: false,
   session: null,
   user: null,
+  authError: null,
   signInWithGoogle: async () => {},
   signOut: async () => {},
 });
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   // Only "loading" while we resolve an existing session — and only if configured.
   const [loading, setLoading] = useState<boolean>(isAuthConfigured);
+  const [authError, setAuthError] = useState<string | null>(null);
   const clientRef = useRef<SupabaseClient | null>(null);
 
   useEffect(() => {
@@ -34,15 +37,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isAuthConfigured) return;
     let mounted = true;
     let unsub: (() => void) | undefined;
-    getSupabase().then((client) => {
+    getSupabase().then(async (client) => {
       if (!client || !mounted) return;
       clientRef.current = client;
-      client.auth.getSession().then(({ data }) => {
-        if (!mounted) return;
-        setSession(data.session);
-        setLoading(false);
+
+      // OAuth callback: exchange ?code=... for a session ourselves so any error
+      // is visible (detectSessionInUrl would swallow it). Strip the code after.
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const oauthErr = params.get("error_description") || params.get("error");
+        const code = params.get("code");
+        if (oauthErr) {
+          setAuthError(oauthErr);
+        } else if (code) {
+          const { error } = await client.auth.exchangeCodeForSession(code);
+          if (error) setAuthError(error.message);
+          window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+        }
+      } catch (e) {
+        setAuthError(e instanceof Error ? e.message : "Sign-in failed.");
+      }
+      if (!mounted) return;
+
+      const { data } = await client.auth.getSession();
+      if (!mounted) return;
+      setSession(data.session);
+      setLoading(false);
+      const { data: sub } = client.auth.onAuthStateChange((_event, s) => {
+        setSession(s);
+        if (s) setAuthError(null);
       });
-      const { data: sub } = client.auth.onAuthStateChange((_event, s) => setSession(s));
       unsub = () => sub.subscription.unsubscribe();
     });
     return () => {
@@ -75,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         session,
         user: session?.user ?? null,
+        authError,
         signInWithGoogle,
         signOut,
       }}
