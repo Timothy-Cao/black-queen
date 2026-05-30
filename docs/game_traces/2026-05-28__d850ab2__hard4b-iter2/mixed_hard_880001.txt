@@ -1,0 +1,209 @@
+=== GAME ===
+seed=880001  seats=P0:hard-4 P1:hard-3 P2:hard-4 P3:hard-2 P4:hard-3
+
+INITIAL HANDS:
+  P0 (hard-4): ♠5 ♥AKQJJ1095 ♦Q10 ♣98
+  P1 (hard-3): ♠AKJ1075 ♥AK8 ♦K108 ♣K
+  P2 (hard-4): ♠AQ ♥5 ♣AAKQJJ10855
+  P3 (hard-2): ♠KQJ109988 ♦A99 ♣Q9
+  P4 (hard-3): ♥Q1098 ♦AKQJJ855 ♣10
+
+BIDDING:
+  P2 (hard-4) bids 150
+  P3 (hard-2) bids 155
+  P4 (hard-3) bids 160
+  P0 (hard-4) bids 165
+  P1 (hard-3) bids 170
+  P2 (hard-4) bids 175
+  P3 (hard-2) bids 180
+  P4 (hard-3) bids 185
+  P0 (hard-4) bids 190
+  P1 (hard-3) passes
+  P2 (hard-4) bids 195
+  P3 (hard-2) bids 200
+  P4 (hard-3) bids 205
+  P0 (hard-4) bids 210
+  P2 (hard-4) bids 215
+  P3 (hard-2) bids 220
+  P4 (hard-3) bids 225
+  P0 (hard-4) passes
+  P2 (hard-4) bids 230
+  P3 (hard-2) bids 235
+  P4 (hard-3) bids 240
+  P2 (hard-4) bids 245
+  P3 (hard-2) passes
+  P4 (hard-3) passes
+  -> CALLER P2 (hard-4) at 245
+
+DECLARE:
+  P2 declares trump=♣, partner-card=A♥ (hidden partners: P0 P1)
+
+TRICKS:
+  -- Round 1 (led by P2) --
+    P2 (hard-4) K♣ [lead] (from 13 legal · alts: A♠ Q♠ 5♥ A♣ A♣ Q♣ J♣ J♣ 10♣ 8♣ 5♣ 5♣)
+    P3 (hard-2) 9♣ [follow] (from 2 legal · alts: Q♣)
+      note: current winner before play: P2, table pts 0
+    P4 (hard-3) 10♣ [follow] (forced)
+      note: current winner before play: P2, table pts 0
+    P0 (hard-4) 8♣ [follow] (from 2 legal · alts: 9♣)
+      note: current winner before play: P2, table pts 10
+    P1 (hard-3) K♣ [follow] (forced)
+      note: current winner before play: P2, table pts 10
+    -> WINNER P2 with K♣ · round points 10
+
+  -- Round 2 (led by P2) --
+    P2 (hard-4) A♠ [lead] (from 12 legal · alts: Q♠ 5♥ A♣ A♣ Q♣ J♣ J♣ 10♣ 8♣ 5♣ 5♣)
+    P3 (hard-2) J♠ [follow] (from 8 legal · alts: K♠ Q♠ 10♠ 9♠ 9♠ 8♠ 8♠)
+      note: current winner before play: P2, table pts 15
+    P4 (hard-3) 9♥ [discard] (from 12 legal · alts: Q♥ 10♥ 8♥ A♦ K♦ Q♦ J♦ J♦ 8♦ 5♦ 5♦)
+      note: current winner before play: P2, table pts 15
+    P0 (hard-4) 5♠ [follow] (forced)
+      note: current winner before play: P2, table pts 15
+    P1 (hard-3) 10♠ [follow] (from 6 legal · alts: A♠ K♠ J♠ 7♠ 5♠)
+      note: current winner before play: P2, table pts 20
+    -> WINNER P2 with A♠ · round points 30
+
+  -- Round 3 (led by P2) --
+    P2 (hard-4) A♣ [lead] (from 11 legal · alts: Q♠ 5♥ A♣ Q♣ J♣ J♣ 10♣ 8♣ 5♣ 5♣)
+    P3 (hard-2) Q♣ [follow] (forced)
+      note: current winner before play: P2, table pts 15
+    P4 (hard-3) 8♥ [discard] (from 11 legal · alts: Q♥ 10♥ A♦ K♦ Q♦ J♦ J♦ 8♦ 5♦ 5♦)
+      note: current winner before play: P2, table pts 15
+    P0 (hard-4) 9♣ [follow] (forced)
+      note: current winner before play: P2, table pts 15
+    P1 (hard-3) 10♦ [discard] (from 11 legal · alts: A♠ K♠ J♠ 7♠ 5♠ A♥ K♥ 8♥ K♦ 8♦)
+      note: FLAG point discard: 10♦ (10 pts), zero non-trump alts K♠ J♠ 7♠ K♥ 8♥ K♦ 8♦
+      note: current winner before play: P2, table pts 15
+    -> WINNER P2 with A♣ · round points 25
+
+  -- Round 4 (led by P2) --
+    P2 (hard-4) J♣ [lead] (from 10 legal · alts: Q♠ 5♥ A♣ Q♣ J♣ 10♣ 8♣ 5♣ 5♣)
+    P3 (hard-2) 9♠ [discard] (from 10 legal · alts: K♠ Q♠ 10♠ 9♠ 8♠ 8♠ A♦ 9♦ 9♦)
+      note: current winner before play: P2, table pts 0
+    P4 (hard-3) J♦ [discard] (from 10 legal · alts: Q♥ 10♥ A♦ K♦ Q♦ J♦ 8♦ 5♦ 5♦)
+      note: current winner before play: P2, table pts 0
+    P0 (hard-4) Q♦ [discard] (from 10 legal · alts: A♥ K♥ Q♥ J♥ J♥ 10♥ 9♥ 5♥ 10♦)
+      note: current winner before play: P2, table pts 0
+    P1 (hard-3) A♠ [discard] (from 10 legal · alts: K♠ J♠ 7♠ 5♠ A♥ K♥ 8♥ K♦ 8♦)
+      note: FLAG point discard: A♠ (15 pts), zero non-trump alts K♠ J♠ 7♠ K♥ 8♥ K♦ 8♦
+      note: current winner before play: P2, table pts 0
+    -> WINNER P2 with J♣ · round points 15
+
+  -- Round 5 (led by P2) --
+    P2 (hard-4) 5♣ [lead] (from 9 legal · alts: Q♠ 5♥ A♣ Q♣ J♣ 10♣ 8♣ 5♣)
+    P3 (hard-2) 9♠ [discard] (from 9 legal · alts: K♠ Q♠ 10♠ 8♠ 8♠ A♦ 9♦ 9♦)
+      note: current winner before play: P2, table pts 5
+    P4 (hard-3) J♦ [discard] (from 9 legal · alts: Q♥ 10♥ A♦ K♦ Q♦ 8♦ 5♦ 5♦)
+      note: current winner before play: P2, table pts 5
+    P0 (hard-4) 9♥ [discard] (from 9 legal · alts: A♥ K♥ Q♥ J♥ J♥ 10♥ 5♥ 10♦)
+      note: current winner before play: P2, table pts 5
+    P1 (hard-3) A♥ [discard] (from 9 legal · alts: K♠ J♠ 7♠ 5♠ K♥ 8♥ K♦ 8♦)
+      note: FLAG point discard: A♥ (15 pts), zero non-trump alts K♠ J♠ 7♠ K♥ 8♥ K♦ 8♦
+      note: partner reveal
+      note: current winner before play: P2, table pts 5
+    -> WINNER P2 with 5♣ · round points 20
+
+  -- Round 6 (led by P2) --
+    P2 (hard-4) A♣ [lead] (from 8 legal · alts: Q♠ 5♥ Q♣ J♣ 10♣ 8♣ 5♣)
+    P3 (hard-2) 8♠ [discard] (from 8 legal · alts: K♠ Q♠ 10♠ 8♠ A♦ 9♦ 9♦)
+      note: current winner before play: P2, table pts 15
+    P4 (hard-3) 8♦ [discard] (from 8 legal · alts: Q♥ 10♥ A♦ K♦ Q♦ 5♦ 5♦)
+      note: current winner before play: P2, table pts 15
+    P0 (hard-4) 10♦ [discard] (from 8 legal · alts: A♥ K♥ Q♥ J♥ J♥ 10♥ 5♥)
+      note: FLAG point discard: 10♦ (10 pts), zero non-trump alts K♥ Q♥ J♥ J♥
+      note: current winner before play: P2, table pts 15
+    P1 (hard-3) J♠ [discard] (from 8 legal · alts: K♠ 7♠ 5♠ K♥ 8♥ K♦ 8♦)
+      note: current winner before play: P2, table pts 25
+    -> WINNER P2 with A♣ · round points 25
+
+  -- Round 7 (led by P2) --
+    P2 (hard-4) 10♣ [lead] (from 7 legal · alts: Q♠ 5♥ Q♣ J♣ 8♣ 5♣)
+    P3 (hard-2) 8♠ [discard] (from 7 legal · alts: K♠ Q♠ 10♠ A♦ 9♦ 9♦)
+      note: current winner before play: P2, table pts 10
+    P4 (hard-3) Q♥ [discard] (from 7 legal · alts: 10♥ A♦ K♦ Q♦ 5♦ 5♦)
+      note: current winner before play: P2, table pts 10
+    P0 (hard-4) K♥ [discard] (from 7 legal · alts: A♥ Q♥ J♥ J♥ 10♥ 5♥)
+      note: current winner before play: P2, table pts 10
+    P1 (hard-3) 7♠ [discard] (from 7 legal · alts: K♠ 5♠ K♥ 8♥ K♦ 8♦)
+      note: current winner before play: P2, table pts 10
+    -> WINNER P2 with 10♣ · round points 10
+
+  -- Round 8 (led by P2) --
+    P2 (hard-4) J♣ [lead] (from 6 legal · alts: Q♠ 5♥ Q♣ 8♣ 5♣)
+    P3 (hard-2) 9♦ [discard] (from 6 legal · alts: K♠ Q♠ 10♠ A♦ 9♦)
+      note: current winner before play: P2, table pts 0
+    P4 (hard-3) Q♦ [discard] (from 6 legal · alts: 10♥ A♦ K♦ 5♦ 5♦)
+      note: current winner before play: P2, table pts 0
+    P0 (hard-4) 10♥ [discard] (from 6 legal · alts: A♥ Q♥ J♥ J♥ 5♥)
+      note: FLAG point discard: 10♥ (10 pts), zero non-trump alts Q♥ J♥ J♥
+      note: current winner before play: P2, table pts 0
+    P1 (hard-3) 8♥ [discard] (from 6 legal · alts: K♠ 5♠ K♥ K♦ 8♦)
+      note: current winner before play: P2, table pts 10
+    -> WINNER P2 with J♣ · round points 10
+
+  -- Round 9 (led by P2) --
+    P2 (hard-4) 5♣ [lead] (from 5 legal · alts: Q♠ 5♥ Q♣ 8♣)
+    P3 (hard-2) 9♦ [discard] (from 5 legal · alts: K♠ Q♠ 10♠ A♦)
+      note: current winner before play: P2, table pts 5
+    P4 (hard-3) K♦ [discard] (from 5 legal · alts: 10♥ A♦ 5♦ 5♦)
+      note: current winner before play: P2, table pts 5
+    P0 (hard-4) Q♥ [discard] (from 5 legal · alts: A♥ J♥ J♥ 5♥)
+      note: current winner before play: P2, table pts 5
+    P1 (hard-3) 8♦ [discard] (from 5 legal · alts: K♠ 5♠ K♥ K♦)
+      note: current winner before play: P2, table pts 5
+    -> WINNER P2 with 5♣ · round points 5
+
+  -- Round 10 (led by P2) --
+    P2 (hard-4) 8♣ [lead] (from 4 legal · alts: Q♠ 5♥ Q♣)
+    P3 (hard-2) K♠ [discard] (from 4 legal · alts: Q♠ 10♠ A♦)
+      note: current winner before play: P2, table pts 0
+    P4 (hard-3) 5♦ [discard] (from 4 legal · alts: 10♥ A♦ 5♦)
+      note: current winner before play: P2, table pts 0
+    P0 (hard-4) J♥ [discard] (from 4 legal · alts: A♥ J♥ 5♥)
+      note: current winner before play: P2, table pts 5
+    P1 (hard-3) K♠ [discard] (from 4 legal · alts: 5♠ K♥ K♦)
+      note: current winner before play: P2, table pts 5
+    -> WINNER P2 with 8♣ · round points 5
+
+  -- Round 11 (led by P2) --
+    P2 (hard-4) Q♠ [lead] (from 3 legal · alts: 5♥ Q♣)
+    P3 (hard-2) 10♠ [follow] (from 2 legal · alts: Q♠)
+      note: current winner before play: P2, table pts 30
+    P4 (hard-3) 5♦ [discard] (from 3 legal · alts: 10♥ A♦)
+      note: current winner before play: P2, table pts 40
+    P0 (hard-4) 5♥ [discard] (from 3 legal · alts: A♥ J♥)
+      note: FLAG point discard: 5♥ (5 pts), zero non-trump alts J♥
+      note: current winner before play: P2, table pts 45
+    P1 (hard-3) 5♠ [follow] (forced)
+      note: current winner before play: P2, table pts 50
+    -> WINNER P2 with Q♠ · round points 55
+
+  -- Round 12 (led by P2) --
+    P2 (hard-4) 5♥ [lead] (from 2 legal · alts: Q♣)
+    P3 (hard-2) A♦ [discard] (from 2 legal · alts: Q♠)
+      note: current winner before play: P2, table pts 5
+    P4 (hard-3) 10♥ [follow] (forced)
+      note: current winner before play: P2, table pts 20
+    P0 (hard-4) A♥ [follow] (from 2 legal · alts: J♥)
+      note: partner reveal
+      note: current winner before play: P4, table pts 30
+    P1 (hard-3) K♥ [follow] (forced)
+      note: current winner before play: P0, table pts 45
+    -> WINNER P0 with A♥ · round points 45
+
+  -- Round 13 (led by P0) --
+    P0 (hard-4) J♥ [lead] (forced)
+    P1 (hard-3) K♦ [discard] (forced)
+      note: current winner before play: P0, table pts 0
+    P2 (hard-4) Q♣ [TRUMP] (forced)
+      note: current winner before play: P0, table pts 0
+    P3 (hard-2) Q♠ [discard] (forced)
+      note: current winner before play: P2, table pts 0
+    P4 (hard-3) A♦ [discard] (forced)
+      note: current winner before play: P2, table pts 30
+    -> WINNER P2 with Q♣ · round points 45
+
+FINAL:
+  Caller P2 team: P2 P0 P1
+  Captured per seat: P0=45 P1=0 P2=255 P3=0 P4=0
+  Caller-team total: 300, Bid: 245 -> MADE

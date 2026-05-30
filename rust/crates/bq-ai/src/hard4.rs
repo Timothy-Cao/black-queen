@@ -456,22 +456,11 @@ pub fn hard4_play(
     // Approximate by capping iterations proportional to time_ms: ~3 iterations
     // per ms on a typical laptop in release mode. Native paths use real time.
     #[cfg(target_arch = "wasm32")]
-    let mut max_iters = (time_ms.saturating_mul(3)).max(64);
+    let max_iters = (time_ms.saturating_mul(3)).max(64);
     #[cfg(not(target_arch = "wasm32"))]
-    let mut max_iters = 100_000u64;
-
-    // Hard-4B v1: budget REALLOCATION. Same total iterations as Hard-4, but
-    // front-loaded onto early/high-uncertainty tricks (13 cards out → ISMCTS
-    // least reliable; observation iter1 showed the caller's opening lead is the
-    // weak spot) and fewer on the near-solved endgame. factor = 0.5 + h/13 runs
-    // ~1.5× at trick 1 down to ~0.58× at the last trick (avg ≈ 1.04 over a game,
-    // so the per-game total is ≈ unchanged). Equal-budget, principled — NOT a
-    // hand-coded move preference. See docs/hard4b_experiment.md.
-    if hard4b_enabled() {
-        let h = state.hands[self_id as usize].len() as f64; // 13 → 1
-        let factor = 0.5 + h / 13.0;
-        max_iters = (((max_iters as f64) * factor).round() as u64).max(64);
-    }
+    let max_iters = 100_000u64;
+    // (Hard-4B v1 budget-reallocation was +0.68pp / noise — removed so the A/B
+    // isolates the v2 value-players bugfix. See docs/game_traces/...iter1.)
 
     // Value reflects the captured points of OUR TEAM, not just our own pile.
     // For the caller and known partners, we can identify teammates exactly from
@@ -697,9 +686,8 @@ fn compute_value_players(state: &GameState, self_id: PlayerId) -> Vec<PlayerId> 
     let Some(pc) = state.partner_card else { return vec![self_id] };
     let my_hand = &state.hands[self_id as usize];
     let i_hold_pc = my_hand.iter().any(|c| c.suit == pc.suit && c.rank == pc.rank);
-    let i_am_caller_team = self_id == caller || i_hold_pc;
 
-    // Also recognize partners who have already played the partner card.
+    // Recognize partners who have already played the partner card.
     let mut revealed_partners: std::collections::HashSet<PlayerId> = std::collections::HashSet::new();
     revealed_partners.insert(caller);
     if i_hold_pc { revealed_partners.insert(self_id); }
@@ -717,6 +705,19 @@ fn compute_value_players(state: &GameState, self_id: PlayerId) -> Vec<PlayerId> 
             }
         }
     }
+
+    // BUG (original Hard-4): `i_am_caller_team = self==caller || i_hold_pc`. Once a
+    // partner PLAYS its partner card, `i_hold_pc` goes false → it flips to the
+    // opposing team and spends the rest of the game maximizing the ENEMIES' points
+    // (and the enemy-discard guard then treats enemies as allies). Cost a contract
+    // in observation (game 895839 R10: dumped A♠ to an enemy). FIX (Hard-4B): a
+    // player who EVER held/played the partner card stays on the caller's team —
+    // i.e. `revealed_partners.contains(self)`. See docs/game_traces/...iter2.
+    let i_am_caller_team = if hard4b_enabled() {
+        self_id == caller || i_hold_pc || revealed_partners.contains(&self_id)
+    } else {
+        self_id == caller || i_hold_pc
+    };
 
     if i_am_caller_team {
         revealed_partners.insert(self_id);
