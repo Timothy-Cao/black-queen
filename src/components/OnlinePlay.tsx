@@ -45,7 +45,7 @@ export function OnlinePlay({ initialMode, onBack }: { initialMode: "host" | "joi
   const [error, setError] = useState<string | null>(null);
 
   // Host settings.
-  const [shuffleStep, setShuffleStep] = useState(2); // default: Standard
+  const [shuffleStep, setShuffleStep] = useState(1); // default: Fun
   const [turnSeconds, setTurnSeconds] = useState<number | null>(30);
 
   // Admin room browser (join screen).
