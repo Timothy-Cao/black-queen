@@ -12,6 +12,7 @@ import { RoundEnd } from "./RoundEnd";
 import { HelpModal } from "./HelpModal";
 import { legalPlays } from "../game/rules";
 import { legalBidAmount } from "../game/engine";
+import { sortHandByColor } from "../game/handSort";
 import { avatarColor, seatIcon } from "./PlayerSeat";
 import { sfx, setSfxVolume, getSfxVolume } from "../game/sfx";
 import { setMusicVolume, getMusicVolume } from "../game/music";
@@ -32,8 +33,6 @@ interface Props {
   secondsLeft?: number | null; // turn countdown (online)
 }
 
-const SUIT_ORDER: Record<Suit, number> = { S: 0, H: 1, C: 2, D: 3 };
-
 // Hand fan: bigger cards that overlap, so ~8-9 are visible at once (swipe for more).
 const HAND_CARD_W = 80;
 const HAND_OVERLAP = 44; // ~36px of each card shows
@@ -47,11 +46,6 @@ const TRICK_POS: React.CSSProperties[] = [
   { right: "15%", top: "5%" },
   { right: "3%", top: "40%" },
 ];
-
-function sortForHand(hand: Card[], trump?: Suit): Card[] {
-  const rank = (s: Suit) => (s === trump ? -1 : SUIT_ORDER[s]);
-  return hand.slice().sort((a, b) => rank(a.suit) - rank(b.suit) || b.rank - a.rank);
-}
 
 export function MobileGame(p: Props) {
   const { state, me } = p;
@@ -73,7 +67,7 @@ export function MobileGame(p: Props) {
 
   // Opponents in clockwise seat order starting after me.
   const opponents = [1, 2, 3, 4].map((i) => state.players[((me + i) % 5) as PlayerId]);
-  const hand = sortForHand(state.players[me].hand, trump);
+  const hand = sortHandByColor(state.players[me].hand, trump);
   const trickPlays = r.currentTrick?.plays ?? [];
 
   const turnText = (() => {
@@ -102,10 +96,10 @@ export function MobileGame(p: Props) {
   return (
     <div className="w-screen h-[100dvh] felt flex flex-col overflow-hidden select-none">
       {/* Top bar */}
-      <div className="flex items-center gap-2 px-2 py-1.5 text-xs border-b border-white/10 bg-black/20">
-        <button className="glass rounded-full px-2.5 py-1 text-stone-200" onClick={p.onExit}>←</button>
-        <button className="glass rounded-full w-7 h-7 flex items-center justify-center text-stone-200" onClick={() => { sfx.uiClick(); setShowSettings(true); }} title="Settings">⚙</button>
-        {p.banner && <span className="uppercase tracking-widest text-gold-300/90 text-[10px]">{p.banner}</span>}
+      <div className="flex items-center gap-2.5 px-2.5 py-2.5 text-sm border-b border-white/10 bg-black/25">
+        <button className="glass rounded-full w-9 h-9 flex items-center justify-center text-lg text-stone-200 hover:bg-white/10" onClick={p.onExit}>←</button>
+        <button className="glass rounded-full w-9 h-9 flex items-center justify-center text-lg text-stone-200 hover:bg-white/10" onClick={() => { sfx.uiClick(); setShowSettings(true); }} title="Settings">⚙</button>
+        {p.banner && <span className="uppercase tracking-widest text-gold-300/90 text-[11px]">{p.banner}</span>}
         <div className="ml-auto flex items-center gap-2.5 text-[11px] text-stone-300 whitespace-nowrap">
           {r.winningBid != null && <span>Bid <b className="text-gold-300">{r.winningBid}</b></span>}
           {trump && (
@@ -421,7 +415,7 @@ function MobileDeclarePanel({ state, me, onDeclare }: {
       {/* Your hand, for reference while choosing — wrapped so all 13 show */}
       <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Your hand</div>
       <div className="flex flex-wrap gap-1.5 pb-1">
-        {sortForHand(hand, trump).map((c) => <CardView key={c.id} card={c} size={52} staticView />)}
+        {sortHandByColor(hand, trump).map((c) => <CardView key={c.id} card={c} size={52} staticView />)}
       </div>
 
       <div className="mt-auto pt-3">

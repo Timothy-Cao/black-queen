@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Card, GameState, PlayerId, SUIT_GLYPHS } from "../game/types";
 import { legalPlays } from "../game/rules";
+import { sortHandByColor } from "../game/handSort";
 import { CardView } from "./CardView";
 import { sfx } from "../game/sfx";
 
@@ -28,13 +29,13 @@ export function HandStrip({ state, me, onPlay }: Props) {
   const trump = r.trump;
 
   const sorted = useMemo(() => {
-    const order: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
-    // Trump first
-    const trumpOrder = (s: string) => (s === trump ? -1 : order[s] ?? 9);
     if (sortMode === "rank") {
+      const order: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
+      const trumpOrder = (s: string) => (s === trump ? -1 : order[s] ?? 9);
       return hand.slice().sort((a, b) => b.rank - a.rank || trumpOrder(a.suit) - trumpOrder(b.suit));
     }
-    return hand.slice().sort((a, b) => trumpOrder(a.suit) - trumpOrder(b.suit) || b.rank - a.rank);
+    // By suit: alternate colours so the two reds / two blacks don't sit together.
+    return sortHandByColor(hand, trump);
   }, [hand, sortMode, trump]);
 
   // For up to ~13 cards, choose an overlap that lets the rank/suit corner stay readable.
