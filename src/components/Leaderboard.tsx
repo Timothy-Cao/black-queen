@@ -15,7 +15,10 @@ export function Leaderboard({ onBack }: { onBack: () => void }) {
               key={b.bot}
               className="grid grid-cols-[1fr_96px] items-center border-b border-white/5 px-4 py-3 last:border-b-0"
             >
-              <span className="font-semibold text-stone-100 truncate">{b.name}</span>
+              <span className="min-w-0">
+                <span className="font-semibold text-stone-100">{b.name}</span>
+                <span className="ml-2 text-xs text-stone-400">{b.type}</span>
+              </span>
               <span className="text-right font-mono text-gold-400">{b.elo}</span>
             </div>
           ))}

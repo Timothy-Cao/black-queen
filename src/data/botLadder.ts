@@ -11,16 +11,17 @@
 export interface LadderEntry {
   bot: string;
   name: string;
+  type: string;
   elo: number;
 }
 
 // Final K=500 round-robin (docs/elo/elo.json, 2026-05-28).
 // Scale: 1000 Elo = 10x odds (see ELO_PER_DECADE in _elo_rr.ts).
 export const BOT_LADDER: LadderEntry[] = [
-  { bot: "hard-4", name: "Seer", elo: 1220 },
-  { bot: "hard-3", name: "Envoy", elo: 1200 },
-  { bot: "hard-2", name: "Darwin", elo: 1194 },
-  { bot: "hard", name: "Rulebook", elo: 1181 },
-  { bot: "normal", name: "Greedy", elo: 1113 },
-  { bot: "random", name: "random0", elo: 1000 },
+  { bot: "hard-4", name: "Seer", type: "Search + belief", elo: 1220 },
+  { bot: "hard-3", name: "Envoy", type: "Inference + scoring", elo: 1200 },
+  { bot: "hard-2", name: "Darwin", type: "Tuned scoring", elo: 1194 },
+  { bot: "hard", name: "Rulebook", type: "Rule scoring", elo: 1181 },
+  { bot: "normal", name: "Greedy", type: "Greedy", elo: 1113 },
+  { bot: "random", name: "random0", type: "Random play", elo: 1000 },
 ];
