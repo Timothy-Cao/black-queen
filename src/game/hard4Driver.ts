@@ -35,7 +35,6 @@ interface BqApi {
   hard4_declare_json(state_json: string, self_id: number): string;
   hard4_play_json(state_json: string, self_id: number, time_ms: number, seed: bigint): string;
   set_hard4b_wasm?(enabled: boolean): void;
-  set_thrower_wasm?(enabled: boolean): void;
 }
 
 let bq: BqApi | null = null;
@@ -218,11 +217,9 @@ let hard4TimeMs = !isBrowser && typeof (globalThis as any).process !== "undefine
 export function setHard4TimeMs(ms: number): void { hard4TimeMs = ms; }
 export function getHard4TimeMs(): number { return hard4TimeMs; }
 
-function hard4PlayVariant(state: GameState, selfId: PlayerId, hard4b: boolean, thrower = false): Card {
+function hard4PlayVariant(state: GameState, selfId: PlayerId, hard4b: boolean): Card {
   if (!bq) return hardTunedPlay(state, selfId);
-  // Flags are global in WASM; set both per-call (JS is single-threaded/sync).
-  bq.set_hard4b_wasm?.(hard4b);
-  bq.set_thrower_wasm?.(thrower);
+  bq.set_hard4b_wasm?.(hard4b); // global WASM flag set per-call (JS is sync)
   const seed = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
   const result = JSON.parse(
     bq.hard4_play_json(JSON.stringify(toRustState(state)), selfId, hard4TimeMs, seed),
@@ -231,7 +228,7 @@ function hard4PlayVariant(state: GameState, selfId: PlayerId, hard4b: boolean, t
 }
 
 export function hard4Play(state: GameState, selfId: PlayerId): Card {
-  return hard4PlayVariant(state, selfId, false, false);
+  return hard4PlayVariant(state, selfId, false);
 }
 
 // ---- Hard-4B (experiment variant — docs/hard4b_experiment.md) ----
@@ -245,19 +242,5 @@ export function hard4bDeclare(state: GameState, selfId: PlayerId): { trump: Suit
   return hardTunedDeclare(state, selfId);
 }
 export function hard4bPlay(state: GameState, selfId: PlayerId): Card {
-  return hard4PlayVariant(state, selfId, true, false);
-}
-
-// ---- Thrower (experiment — "how low can an AI's Elo go?"; NOT in the rating
-// pool). Play uses Hard-4's full ISMCTS with the value INVERTED (minimize own
-// team's points). Bid: always pass (be a defender, then sabotage on defense).
-// Declare: delegate (rarely reached since it never calls). ----
-export function throwerBid(): { bid: number | "pass" } {
-  return { bid: "pass" };
-}
-export function throwerDeclare(state: GameState, selfId: PlayerId): { trump: Suit; partnerCard: Card } {
-  return hardTunedDeclare(state, selfId);
-}
-export function throwerPlay(state: GameState, selfId: PlayerId): Card {
-  return hard4PlayVariant(state, selfId, false, true);
+  return hard4PlayVariant(state, selfId, true);
 }

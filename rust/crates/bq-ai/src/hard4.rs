@@ -248,9 +248,9 @@ fn discard_guard_enabled() -> bool {
     }
 }
 
-/// Toggle for the follow-side guard added 2026-05-27. Defaults ON.
-/// Native: set via BQ_FOLLOW_GUARD_OFF=1 or `set_follow_guard(false)`.
-/// WASM: set via the `set_follow_guard_wasm` bindgen export (used for A/B).
+// Toggle for the follow-side guard added 2026-05-27. Defaults ON.
+// Native: set via BQ_FOLLOW_GUARD_OFF=1 or `set_follow_guard(false)`.
+// WASM: set via the `set_follow_guard_wasm` bindgen export (used for A/B).
 #[cfg(not(target_arch = "wasm32"))]
 thread_local! {
     static FOLLOW_GUARD_OVERRIDE: std::cell::RefCell<Option<bool>> = const { std::cell::RefCell::new(None) };
@@ -308,36 +308,6 @@ pub fn hard4b_enabled() -> bool {
     {
         if HARD4B_OVERRIDE.with(|c| *c.borrow()) { return true; }
         std::env::var("BQ_HARD4B").ok().filter(|s| !s.is_empty()).is_some()
-    }
-}
-
-// ---------------------------------------------------------------------------
-//  Thrower flag (experiment — "how low can an AI's Elo go?").
-//  When ON, the ISMCTS value signal is INVERTED: the search MINIMIZES its own
-//  team's captured points instead of maximizing them. A competent saboteur —
-//  Hard-4's full search aimed at losing. Measures the skill-floor of throwing.
-// ---------------------------------------------------------------------------
-#[cfg(not(target_arch = "wasm32"))]
-thread_local! {
-    static THROWER_OVERRIDE: std::cell::RefCell<bool> = const { std::cell::RefCell::new(false) };
-}
-#[cfg(target_arch = "wasm32")]
-static THROWER_WASM: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-pub fn set_thrower(enabled: bool) {
-    #[cfg(not(target_arch = "wasm32"))]
-    THROWER_OVERRIDE.with(|c| *c.borrow_mut() = enabled);
-    #[cfg(target_arch = "wasm32")]
-    THROWER_WASM.store(enabled, std::sync::atomic::Ordering::Relaxed);
-}
-
-pub fn thrower_enabled() -> bool {
-    #[cfg(target_arch = "wasm32")]
-    { return THROWER_WASM.load(std::sync::atomic::Ordering::Relaxed); }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        if THROWER_OVERRIDE.with(|c| *c.borrow()) { return true; }
-        std::env::var("BQ_THROWER").ok().filter(|s| !s.is_empty()).is_some()
     }
 }
 
