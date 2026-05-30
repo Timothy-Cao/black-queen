@@ -169,6 +169,7 @@ function mutate(base: HardWeights, sigma: number, seed: number): HardWeights {
     // Soft clip: keep within reasonable ranges per weight type
     if (k === "bidCap") nv = Math.max(180, Math.min(300, nv));
     else if (k === "bidCapExtraordinary") nv = Math.max(220, Math.min(310, nv));
+    else if (k === "bidPartnerCarryFloor") nv = Math.max(0, Math.min(210, nv));
     else if (k.startsWith("trumpProtected") || k.startsWith("trumpUnprotected") || k === "partnerPointHalfWeight" || k === "bidSelfCaptureFromPoints" || k === "bidSelfCaptureFromTrump" || k === "bidSelfCaptureFromTrumpScore" || k === "trumpSpendCostFactor" || k === "qSpadesCommitThreshold") {
       nv = Math.max(0, Math.min(1.5, nv));
     } else if (k === "voidCreateTrumpGate") {

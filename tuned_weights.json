@@ -56,6 +56,7 @@
   "inferSmearStrength": 0.5630736603324848,
   "inferSmearThreshold": 11.494539080362525,
   "inferAllyThreshold": 0.2799206756398075,
+  "bidPartnerCarryFloor": 185,
   "__meta": {
     "generation": 100,
     "fitness": 0.5486666666666666,

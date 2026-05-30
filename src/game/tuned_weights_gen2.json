@@ -50,6 +50,7 @@
   "smearBonusMul": 1.5837057084805701,
   "enemyFeedPenaltyMul": 1.5975895244818905,
   "cheapestWinnerPenaltyFactor": 1.6034060071213898,
+  "bidPartnerCarryFloor": 185,
   "__meta": {
     "generation": 40,
     "fitness": 0.57

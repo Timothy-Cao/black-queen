@@ -316,6 +316,32 @@ that a closed-form bid adjustment cannot move the needle here; only a
 search-based bidder (sample self-hand-consistent worlds, run mini-MCTS
 at each candidate bid level) would.
 
+### Partner-carry bid floor (2026-05-30) — SHIPPED, +EV across all shuffles
+
+User insight: even a points-poor hand should open at the minimum because a hidden
+partner carries ~half the deck, and **defenders score 0** (`engine.ts`: `delta`
+applies only to the caller's team), so passing a weak hand is ~0 EV while opening
+150 is large +EV. Validated empirically (`_bid_floor.ts`, Uniform shuffle): a
+forced open at 150 MAKES IT 86% even on a <35-point hand (team captures ~207);
+EV by open level overall = open150 +119, open170 +106, open185 +82, open200 +49.
+Root cause: gen-3's tuner zeroed `bidSelfCaptureFromPoints`, so the own-hand
+capacity estimate barely reacts to point cards and weak hands fall below the 150
+floor and pass — handing the human cheap 170 wins.
+
+Fix: new weight `bidPartnerCarryFloor` (`aiHard.ts`). `hardBidImpl` raises the bid
+target to `max(capacityTarget, floor)` before the bidCap clamp, so the AI chases
+at least `floor` regardless of own-hand strength. DEFAULT (locked `hard`) = 0
+(unchanged); gen-2/gen-3 JSONs + root `tuned_weights.json` set **185**. Because
+`hard4Bid → hardTunedBid`, hard-4 inherits it too. A/B (`_carry_ab.ts`, floored vs
+unfloored seats in the same games, N=6000): FLOOR − BASE avg net **+1.3pp Chaos /
++2.5 Fun / +6.2 Standard / +6.4 Uniform** — effect grows with uniformity (where
+underbidding was worst), and floored seats win MORE auctions (caller% 28 vs 12 at
+Uniform) AND score more (win+ 48% vs 42%). Sweep showed peak ~180–195; 185 is the
+robust all-intensity pick (210 over-bids and regresses at Uniform). Env override
+`BQ_CARRY_FLOOR=<n>` for experiments. This is the SUCCESSFUL version of the
+partner-aware bidding idea below (a flat carry floor, not an own-hand capacity
+nudge — the latter was null, next).
+
 ### Partner-aware bidding (Hard-5 attempt 3) — null result
 
 User-proposed strategic insight: a player with 0 aces, no Q♠, no kings is

@@ -62,6 +62,12 @@ export interface HardWeights {
   bidRiskBalanced: number;
   bidCap: number;
   bidCapExtraordinary: number;
+  // Minimum bid target the AI is willing to chase regardless of own-hand strength,
+  // reflecting that a hidden partner carries ~half the deck. Empirically even a
+  // points-poor hand makes 150 ~86% of the time and 170 ~77% (defenders score 0,
+  // so passing a weak hand is ~0 EV while opening 150 is ~+119 EV). 0 = disabled
+  // (the locked `hard` baseline keeps the old own-hand-only behavior).
+  bidPartnerCarryFloor: number;
 
   // Move scoring / spend cost
   trumpSpendCostFactor: number;
@@ -136,6 +142,7 @@ export const DEFAULT_HARD_WEIGHTS: HardWeights = {
   bidRiskBalanced: 10,
   bidCap: 240,
   bidCapExtraordinary: 280,
+  bidPartnerCarryFloor: 0,
 
   trumpSpendCostFactor: 0.6,
   trumpSpendCostHigh: 6,
@@ -509,11 +516,23 @@ function hardBidImpl(state: GameState, player: PlayerId, w: HardWeights): { bid:
   const currentHigh = Math.max(0, ...state.round.bids.map((b) => b.amount));
   const required = currentHigh === 0 ? MIN_BID : currentHigh + BID_INCREMENT;
   let target = Math.floor(capacity / 5) * 5;
+  // Partner-carry floor: a hidden partner reliably contributes ~half the deck, so
+  // the AI should chase at least `carryFloor` even on a weak hand instead of
+  // conceding cheap auctions (defenders score 0). See _bid_floor.ts for the EV data.
+  const carryFloor = carryFloorOverride() ?? w.bidPartnerCarryFloor;
+  if (carryFloor > 0) target = Math.max(target, Math.floor(carryFloor / 5) * 5);
   if (target > w.bidCap && capacity < w.bidCapExtraordinary) target = Math.round(w.bidCap);
   if (target > 300) target = 300;
   if (required > target) return { bid: "pass" };
   if (Math.random() < 0.05 && required > MIN_BID) return { bid: "pass" };
   return { bid: required };
+}
+
+// A/B override for the partner-carry floor (CLI experiments only; browser uses the weight).
+function carryFloorOverride(): number | null {
+  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  const v = proc?.env?.BQ_CARRY_FLOOR;
+  return v === undefined ? null : Number(v);
 }
 
 function hardDeclareImpl(state: GameState, player: PlayerId, w: HardWeights): { trump: Suit; partnerCard: Card } {
@@ -775,6 +794,12 @@ export function hardDeclare(state: GameState, player: PlayerId): { trump: Suit; 
 }
 export function hardPlay(state: GameState, player: PlayerId): Card {
   return hardPlayImpl(state, player, DEFAULT_HARD_WEIGHTS);
+}
+
+// Experiment hook: bid with an explicit weight set (used by A/B harnesses to run
+// floored vs unfloored seats in the same game). Not used by the dispatcher.
+export function hardBidWith(state: GameState, player: PlayerId, w: HardWeights): { bid: number | "pass" } {
+  return hardBidImpl(state, player, w);
 }
 
 // Hard-3 (latest tuned generation) — uses activeHardWeights.
