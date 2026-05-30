@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Card, GameState, PlayerId } from "../game/types";
 import { legalPlays } from "../game/rules";
+import { applyPlay } from "../game/engine";
 import { PlayerSeat, type SeatPosition } from "./PlayerSeat";
 import { TableCenter } from "./TableCenter";
 import { TrickArea } from "./TrickArea";
@@ -55,10 +56,32 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
   const changeSfx = (v: number) => { setSfxVolState(v); setSfxVolume(v); try { localStorage.setItem("bq:sfxVol", String(v)); } catch { /* ignore */ } };
   const isMobile = useIsMobile();
 
-  const state = useMemo(
+  // Optimistic play: when I play a card, predict the next state locally and show
+  // it immediately (no waiting on the server round-trip). The authoritative state
+  // arrives via realtime and supersedes it; `base` is the server version we
+  // predicted from, so once the server advances past it we drop the prediction.
+  const [optimistic, setOptimistic] = useState<{ base: number; state: GameState } | null>(null);
+  useEffect(() => {
+    if (optimistic && online.version > optimistic.base) setOptimistic(null);
+  }, [online.version, optimistic]);
+
+  const serverState = useMemo(
     () => (online.gameState ? withOpponentCounts(online.gameState, me) : null),
     [online.gameState, me],
   );
+  const state = optimistic?.state ?? serverState;
+
+  // Send my card AND immediately show it via an optimistic prediction.
+  const playCard = async (c: Card) => {
+    if (sending || !online.gameState) return;
+    let predicted: GameState | null = null;
+    try { predicted = withOpponentCounts(applyPlay(online.gameState, me, c), me); } catch { predicted = null; }
+    if (predicted) setOptimistic({ base: online.version, state: predicted });
+    setSending(true); setErr(null);
+    try { await sendMove(gameId, { type: "play", card: c }); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Move failed"); setOptimistic(null); }
+    setSending(false);
+  };
 
   const seatMap = useMemo(() => {
     const map = {} as Record<PlayerId, SeatPosition>;
@@ -115,7 +138,7 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
         <MobileGame
           state={state}
           me={me}
-          onPlay={(c) => send({ type: "play", card: c })}
+          onPlay={playCard}
           onBid={(amt) => send({ type: "bid", amount: amt })}
           onPass={() => send({ type: "pass" })}
           onDeclare={(t, pc) => send({ type: "declare", trump: t, partnerCard: pc })}
@@ -170,7 +193,7 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
         <PartnerRevealFlash state={state} />
 
         {!showRoundEnd && (
-          <HandStrip state={state} me={me} onPlay={(c) => send({ type: "play", card: c })} />
+          <HandStrip state={state} me={me} onPlay={playCard} />
         )}
 
         {showBidPanel && (

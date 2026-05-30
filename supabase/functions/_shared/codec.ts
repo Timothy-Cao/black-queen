@@ -39,16 +39,20 @@ export function deserializeState(j: Any): GameState {
 
 /** Client-safe projection: strips every hand and the hidden partner list. */
 export function publicProjection(s: GameState): Any {
-  const redact = (r: RoundState): Any => ({
+  // Once the game is over the partner list is no longer secret — reveal it so the
+  // client can show the full caller team + correct captured total on the results
+  // screen. (During play, partners stay hidden except via round.revealedPartners.)
+  const gameOver = s.phase === "round_end" || s.phase === "game_end";
+  const redact = (r: RoundState, reveal: boolean): Any => ({
     ...passedToArray(r),
-    hands: {},          // initial deal — secret
-    partners: undefined, // who the partners are — hidden until each reveals
+    hands: {},                              // initial deal — secret
+    partners: reveal ? r.partners : undefined, // hidden until the game ends
   });
   return {
     ...s,
     players: s.players.map((p) => ({ ...p, hand: [] })),
-    round: redact(s.round),
-    history: (s.history ?? []).map(redact),
+    round: redact(s.round, gameOver),
+    history: (s.history ?? []).map((r) => redact(r, true)), // finished rounds
   };
 }
 
