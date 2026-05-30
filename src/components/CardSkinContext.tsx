@@ -14,15 +14,16 @@ interface Ctx {
   setSkin: (s: CardSkin) => void;
 }
 
-const SkinContext = createContext<Ctx>({ skin: "classic", setSkin: () => {} });
+const SkinContext = createContext<Ctx>({ skin: "poker-qr", setSkin: () => {} });
 
 const STORAGE_KEY = "bq:card-skin";
 
 export function CardSkinProvider({ children }: { children: ReactNode }) {
   const [skin, setSkinState] = useState<CardSkin>(() => {
-    if (typeof window === "undefined") return "classic";
+    if (typeof window === "undefined") return "poker-qr";
     const v = window.localStorage.getItem(STORAGE_KEY);
-    return (v === "svg-classic" || v === "classic" || v === "jorel" || v === "poker-qr") ? v : "classic";
+    // Default to "Modern SVG" (poker-qr) for anyone who hasn't explicitly chosen a deck.
+    return (v === "svg-classic" || v === "classic" || v === "jorel" || v === "poker-qr") ? v : "poker-qr";
   });
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, skin); } catch { /* ignore */ }

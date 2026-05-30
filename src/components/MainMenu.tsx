@@ -1,5 +1,6 @@
 // Top-level main menu: Single Player, Multiplayer (Host/Join), AI Notes, How to Play.
 import { useAuth } from "../auth/AuthContext";
+import { sfx } from "../game/sfx";
 
 interface Props {
   onSinglePlayer: () => void;
@@ -12,6 +13,7 @@ interface Props {
 
 export function MainMenu({ onSinglePlayer, onHost, onJoin, onLeaderboard, onAIInfo, onHowToPlay }: Props) {
   const { configured, user, signOut } = useAuth();
+  const click = (fn: () => void) => () => { sfx.uiClick(); fn(); };
 
   return (
     <div className="w-screen h-screen felt flex items-center justify-center">
@@ -22,23 +24,23 @@ export function MainMenu({ onSinglePlayer, onHost, onJoin, onLeaderboard, onAIIn
         </div>
 
         <div className="mt-7 flex flex-col gap-3">
-          <button className="btn btn-primary w-full py-3 text-base" onClick={onSinglePlayer}>
+          <button className="btn btn-primary w-full py-3 text-base" onClick={click(onSinglePlayer)}>
             Single Player
           </button>
 
           <div className="rounded-xl border border-white/10 bg-black/20 p-3">
             <div className="text-xs uppercase tracking-wider text-stone-400/80 mb-2 px-1">Multiplayer</div>
             <div className="flex gap-3">
-              <button className="btn btn-ghost flex-1 py-2.5" onClick={onHost}>Host</button>
-              <button className="btn btn-ghost flex-1 py-2.5" onClick={onJoin}>Join</button>
+              <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onHost)}>Host</button>
+              <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onJoin)}>Join</button>
             </div>
           </div>
 
-          <button className="btn btn-ghost w-full py-2.5" onClick={onLeaderboard}>🏆 Leaderboard</button>
+          <button className="btn btn-ghost w-full py-2.5" onClick={click(onLeaderboard)}>🏆 Leaderboard</button>
 
           <div className="flex gap-3">
-            <button className="btn btn-ghost flex-1 py-2.5" onClick={onAIInfo}>AI Notes</button>
-            <button className="btn btn-ghost flex-1 py-2.5" onClick={onHowToPlay}>How to Play</button>
+            <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onAIInfo)}>AI Notes</button>
+            <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onHowToPlay)}>How to Play</button>
           </div>
         </div>
 

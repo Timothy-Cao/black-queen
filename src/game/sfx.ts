@@ -9,15 +9,37 @@
 let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
-let muted = false;
+// SFX volume in [0,1]. 0 = silent (acts as mute). Default matches the old fixed gain.
+let sfxVolume = 0.85;
 
 function ensureCtx(): { ctx: AudioContext; master: GainNode } | null {
-  if (muted) return null;
+  if (sfxVolume <= 0) return null;
   if (!ctx) {
     try {
       ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       masterGain = ctx.createGain();
-      masterGain.gain.value = 0.85;
+      masterGain.gain.value = sfxVolume;
+      masterGain.connect(ctx.destination);
+    } catch {
+      return null;
+    }
+  }
+  return { ctx: ctx!, master: masterGain! };
+}
+
+/** Expose the shared AudioContext so the music module can reuse it (one context, clean mute). */
+export function getSharedAudioContext(): AudioContext | null {
+  const e = ensureCtxAllowSilent();
+  return e?.ctx ?? null;
+}
+
+// Like ensureCtx but creates the context even at volume 0 (music may still want it).
+function ensureCtxAllowSilent(): { ctx: AudioContext; master: GainNode } | null {
+  if (!ctx) {
+    try {
+      ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      masterGain = ctx.createGain();
+      masterGain.gain.value = sfxVolume;
       masterGain.connect(ctx.destination);
     } catch {
       return null;
@@ -119,14 +141,17 @@ function chime(c: AudioContext, master: GainNode, freq: number, dur = 0.32, dela
   });
 }
 
-export function setMuted(v: boolean) {
-  muted = v;
-  if (v && ctx) {
-    try { ctx.close(); } catch { /* ignore */ }
-    ctx = null; masterGain = null; noiseBuf = null;
-  }
+/** Set SFX volume in [0,1]. 0 silences SFX (without tearing down the audio graph,
+ *  so the shared music context keeps running). */
+export function setSfxVolume(v: number) {
+  sfxVolume = Math.max(0, Math.min(1, v));
+  if (masterGain) masterGain.gain.value = sfxVolume;
 }
-export function isMuted() { return muted; }
+export function getSfxVolume() { return sfxVolume; }
+
+// Back-compat shim: treat mute as volume 0 / restore to default.
+export function setMuted(v: boolean) { setSfxVolume(v ? 0 : 0.85); }
+export function isMuted() { return sfxVolume <= 0; }
 
 export const sfx = {
   /** Card hitting the felt: short paper "swish" + tiny tap. */
@@ -207,6 +232,36 @@ export const sfx = {
       const e2 = ensureCtx(); if (!e2) return;
       chime(e2.ctx, e2.master, 1046.5, 0.5, 0, 0.10);
     }, 520);
+  },
+  /** Soft two-note rising chime when it becomes your turn to act. */
+  yourTurn: () => {
+    const e = ensureCtx(); if (!e) return;
+    chime(e.ctx, e.master, 659.25, 0.26, 0,    0.065); // E5
+    chime(e.ctx, e.master, 987.77, 0.32, 0.10, 0.07);  // B5
+  },
+  /** Felt-soft UI click for buttons / steppers / toggles. */
+  uiClick: () => {
+    const e = ensureCtx(); if (!e) return;
+    noiseBurst(e.ctx, e.master, { duration: 0.022, filterType: "lowpass", freq: 1100, gain: 0.05 });
+    tone(e.ctx, e.master, { freq: 330, duration: 0.03, type: "sine", gain: 0.035, attack: 0.001 });
+  },
+  /** Dull low "nope" thud when a player attempts an illegal card. */
+  illegalMove: () => {
+    const e = ensureCtx(); if (!e) return;
+    tone(e.ctx, e.master, { freq: 165, duration: 0.11, type: "triangle", gain: 0.10, attack: 0.003, sweepTo: 120 });
+    tone(e.ctx, e.master, { freq: 124, duration: 0.15, type: "triangle", gain: 0.09, attack: 0.003, delay: 0.085, sweepTo: 92 });
+    noiseBurst(e.ctx, e.master, { duration: 0.06, filterType: "lowpass", freq: 320, gain: 0.05 });
+  },
+  /** Somber descending motif for losing the whole game (counterpart to gameWin). */
+  gameLose: () => {
+    const e = ensureCtx(); if (!e) return;
+    const seq = [392.0, 349.23, 293.66]; // G4 F4 D4 — descending, minor feel
+    seq.forEach((f, i) => {
+      tone(e.ctx, e.master, { freq: f,     duration: 0.5,  type: "triangle", gain: 0.085, attack: 0.02, delay: i * 0.18 });
+      tone(e.ctx, e.master, { freq: f / 2, duration: 0.6,  type: "sine",     gain: 0.05,  attack: 0.03, delay: i * 0.18 });
+    });
+    // Low sustained drone underneath for weight.
+    tone(e.ctx, e.master, { freq: 130.81, duration: 1.4, type: "sine", gain: 0.05, attack: 0.2, delay: 0.2 }); // C3
   },
   /** Descending noise + low sine for a failed bid. */
   roundFail: () => {

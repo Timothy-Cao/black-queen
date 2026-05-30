@@ -101,6 +101,7 @@ export function PlayerSeat({
                         : player.aiPersonality === "hard" ? "Hard"
                         : player.aiPersonality === "hard-2" ? "Hard-2"
                         : player.aiPersonality === "hard-3" ? "Hard-3"
+                        : player.aiPersonality === "hard-4" ? "Hard-4"
                         : "Normal"
                       }`
                     : "Human"}

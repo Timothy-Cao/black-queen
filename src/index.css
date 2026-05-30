@@ -117,6 +117,25 @@ html, body, #root {
   100% { transform: translate(0, 0) scale(1); opacity: 1; }
 }
 
+/* Bidding call-to-action: pulsing gold glow when it's the human's turn to bid */
+@keyframes bidGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(245,196,107,0.45), 0 0 16px 2px rgba(245,196,107,0.22);
+    border-color: rgba(245,196,107,0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(245,196,107,0.9), 0 0 34px 8px rgba(245,196,107,0.5);
+    border-color: rgba(245,196,107,0.95);
+  }
+}
+.bid-glow { animation: bidGlow 1.5s ease-in-out infinite; }
+
+@keyframes bidDotPulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+.bid-dot { animation: bidDotPulse 1.5s ease-in-out infinite; }
+
 /* Confetti for game-over */
 @keyframes confettiDrop {
   0%   { transform: translateY(-100vh) rotate(0deg); opacity: 1; }

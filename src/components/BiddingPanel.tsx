@@ -24,9 +24,16 @@ export function BiddingPanel({ state, me, onBid, onPass }: Props) {
   ];
 
   return (
-    <div className="glass rounded-xl p-4 w-72 animate-floatIn shadow-lg">
+    <div className={`glass rounded-xl p-4 w-72 animate-floatIn shadow-lg ${isMyTurn ? "bid-glow" : ""}`}>
       <div className="flex items-baseline justify-between mb-2">
-        <div className="text-xs uppercase tracking-widest text-gold-400">Bidding</div>
+        {isMyTurn ? (
+          <div className="text-xs uppercase tracking-widest text-gold-300 font-bold flex items-center gap-1.5">
+            <span className="bid-dot inline-block w-2 h-2 rounded-full bg-gold-400" />
+            Your bid
+          </div>
+        ) : (
+          <div className="text-xs uppercase tracking-widest text-gold-400">Bidding</div>
+        )}
         <div className="text-[10px] uppercase tracking-wider text-stone-500">Round {r.roundNumber}</div>
       </div>
       <div className="text-sm text-stone-200 mb-3">

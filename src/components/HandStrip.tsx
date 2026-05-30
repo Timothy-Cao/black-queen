@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Card, GameState, PlayerId, SUIT_GLYPHS } from "../game/types";
 import { legalPlays } from "../game/rules";
 import { CardView } from "./CardView";
+import { sfx } from "../game/sfx";
 
 interface Props {
   state: GameState;
@@ -55,8 +56,15 @@ export function HandStrip({ state, me, onPlay }: Props) {
             >
               <CardView
                 card={c}
-                disabled={!myTurn || !isLegal}
-                onClick={() => isLegal && onPlay(c)}
+                // During my turn, illegal cards stay clickable (dimmed) so a click
+                // gives audible "nope" feedback instead of doing nothing.
+                disabled={!myTurn}
+                dim={myTurn && !isLegal}
+                onClick={() => {
+                  if (!myTurn) return;
+                  if (isLegal) onPlay(c);
+                  else sfx.illegalMove();
+                }}
                 highlight={isPartnerCard && r.phase === "playing"}
               />
             </div>

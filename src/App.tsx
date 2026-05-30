@@ -19,6 +19,7 @@ import { useAuth } from "./auth/AuthContext";
 import { PartnerRevealFlash } from "./components/PartnerRevealFlash";
 import { Confetti } from "./components/Confetti";
 import { SettingsBar } from "./components/SettingsBar";
+import { SettingsModal } from "./components/SettingsModal";
 import { CollectionDeck } from "./components/CollectionDeck";
 import { HistoryModal } from "./components/HistoryModal";
 import {
@@ -26,7 +27,8 @@ import {
 } from "./game/engine";
 import { aiBidDecision, aiDeclareDecision, aiPlayDecision } from "./game/ai";
 import { GameState, PlayerId } from "./game/types";
-import { sfx, setMuted } from "./game/sfx";
+import { sfx, setSfxVolume } from "./game/sfx";
+import { playScene, duckMusic, setMusicVolume, resumeAudio } from "./game/music";
 
 const SEAT_POSITIONS: SeatPosition[] = ["bottom", "left", "topLeft", "topRight", "right"];
 
@@ -53,21 +55,63 @@ export default function App() {
   const openAIInfo = () => navigate("/ai");
   const closeAIInfo = () => navigate("/");
   const onAIInfoRoute = route === "/ai";
-  const [muted, setMutedState] = useState<boolean>(() => {
-    try { return localStorage.getItem("bq:muted") === "1"; } catch { return false; }
+  // Audio volumes in [0,1], persisted independently. Migrates the old single
+  // mute flag: if the user had muted, start both at 0.
+  const [musicVol, setMusicVol] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem("bq:musicVol");
+      if (v !== null) return Math.max(0, Math.min(1, parseFloat(v)));
+      return localStorage.getItem("bq:muted") === "1" ? 0 : 0.6;
+    } catch { return 0.6; }
   });
+  const [sfxVol, setSfxVol] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem("bq:sfxVol");
+      if (v !== null) return Math.max(0, Math.min(1, parseFloat(v)));
+      return localStorage.getItem("bq:muted") === "1" ? 0 : 0.85;
+    } catch { return 0.85; }
+  });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(typeof window === "undefined" || window.innerWidth >= 1100);
   const [speed, setSpeed] = useState<"slow" | "normal" | "fast">(() => {
     try { const v = localStorage.getItem("bq:speed"); return v === "slow" || v === "fast" ? v : "normal"; } catch { return "normal"; }
   });
-  // Apply persisted mute to the SFX engine on load; persist mute/speed on change.
-  useEffect(() => { setMuted(muted); }, [muted]);
-  useEffect(() => { try { localStorage.setItem("bq:muted", muted ? "1" : "0"); } catch { /* ignore */ } }, [muted]);
+  // Apply + persist audio volumes and speed.
+  useEffect(() => { setSfxVolume(sfxVol); try { localStorage.setItem("bq:sfxVol", String(sfxVol)); } catch { /* ignore */ } }, [sfxVol]);
+  useEffect(() => { setMusicVolume(musicVol); try { localStorage.setItem("bq:musicVol", String(musicVol)); } catch { /* ignore */ } }, [musicVol]);
   useEffect(() => { try { localStorage.setItem("bq:speed", speed); } catch { /* ignore */ } }, [speed]);
   const speedMul = speed === "slow" ? 1.6 : speed === "fast" ? 0.55 : 1;
   const aiTimerRef = useRef<number | null>(null);
   const lastLogIdRef = useRef<number>(0);
   const lastPhaseRef = useRef<string>("");
+  const prevMyTurnRef = useRef<boolean>(false);
+
+  // ---- Music: crossfade between a menu loop and a gameplay loop. ----
+  const musicScene: "menu" | "game" = state ? "game" : "menu";
+  useEffect(() => { void playScene(musicScene); }, [musicScene]);
+  // Browsers block autoplay until a user gesture; resume on the first one.
+  useEffect(() => {
+    const kick = () => { void resumeAudio(); };
+    window.addEventListener("pointerdown", kick, { once: true });
+    window.addEventListener("keydown", kick, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("keydown", kick);
+    };
+  }, []);
+
+  // ---- "Your turn" cue: chime on the rising edge of the human's actionable turn. ----
+  useEffect(() => {
+    let myTurn = false;
+    if (state && !state.players[me].isAI && !settingsOpen) {
+      const r = state.round;
+      myTurn =
+        (r.phase === "bidding" && r.bidTurn === me) ||
+        (r.phase === "playing" && r.toPlay === me && !r.pendingTrickComplete);
+    }
+    if (myTurn && !prevMyTurnRef.current) sfx.yourTurn();
+    prevMyTurnRef.current = myTurn;
+  }, [state, me, settingsOpen]);
   const [declareHidden, setDeclareHidden] = useState(false);
   const [roundEndHidden, setRoundEndHidden] = useState(false);
 
@@ -93,12 +137,21 @@ export default function App() {
       else if (e.text.includes("bids ")) sfx.bidPlace();
       else if (e.text.includes("passes")) sfx.bidPass();
       else if (e.text.includes("wins the round")) sfx.trickWin();
-      else if (e.text.includes("is the partner")) sfx.partnerReveal();
-      else if (e.text.includes("MADE")) sfx.roundMade();
-      else if (e.text.includes("FAILED")) sfx.roundFail();
+      else if (e.text.includes("is the partner")) { sfx.partnerReveal(); duckMusic(1400); }
+      else if (e.text.includes("MADE")) { sfx.roundMade(); duckMusic(); }
+      else if (e.text.includes("FAILED")) { sfx.roundFail(); duckMusic(); }
     }
     if (state.phase === "game_end" && lastPhaseRef.current !== "game_end") {
-      sfx.gameWin();
+      // Win/lose sting from the human's perspective.
+      const rr = state.round;
+      const teamIds = new Set<PlayerId>([rr.bidder!, ...(rr.partners ?? [])]);
+      const tp = ([0, 1, 2, 3, 4] as PlayerId[])
+        .filter((p) => teamIds.has(p))
+        .reduce<number>((s, p) => s + (rr.roundPoints?.[p] ?? 0), 0);
+      const made = tp >= (rr.winningBid ?? 0);
+      const humanWon = teamIds.has(me) ? made : !made;
+      if (humanWon) sfx.gameWin(); else sfx.gameLose();
+      duckMusic(2600);
     }
     lastPhaseRef.current = state.phase;
     if (state.log.length > 0) lastLogIdRef.current = state.log[state.log.length - 1].id;
@@ -106,6 +159,7 @@ export default function App() {
 
   useEffect(() => {
     if (!state) return;
+    if (settingsOpen) return; // game is paused while the settings overlay is open
     if (state.phase === "game_end" || state.phase === "round_end") return;
     const r = state.round;
 
@@ -143,7 +197,7 @@ export default function App() {
     return () => {
       if (aiTimerRef.current) window.clearTimeout(aiTimerRef.current);
     };
-  }, [state]);
+  }, [state, settingsOpen]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -154,12 +208,17 @@ export default function App() {
         return;
       }
       if (e.key === "Escape") {
+        // Esc closes the topmost overlay, otherwise opens Settings (in game).
+        if (settingsOpen) { setSettingsOpen(false); return; }
         if (showHelp) { setShowHelp(false); return; }
+        if (state) { setSettingsOpen(true); }
+        return;
       }
+      if (settingsOpen) return; // game is paused; ignore play shortcuts
       if (!state || state.players[me].isAI) return;
       const r = state.round;
       if (r.phase === "bidding" && r.bidTurn === me) {
-        if (e.key === "Escape" || e.key.toLowerCase() === "p") {
+        if (e.key.toLowerCase() === "p") {
           setState((s) => s && applyPass(s, me));
         } else if (e.key === "Enter" || e.key === " ") {
           const min = Math.max(0, ...r.bids.map(b => b.amount)) || 0;
@@ -182,7 +241,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [state, me, showHelp]);
+  }, [state, me, showHelp, settingsOpen]);
 
   // Auth is required ONLY for online multiplayer (see the /host & /join branches
   // below). Single player, AI Notes, and How to Play never require sign-in.
@@ -275,12 +334,15 @@ export default function App() {
   const showRoundEnd = state.phase === "round_end" || state.phase === "game_end";
   const meIsAI = state.players[me].isAI;
   const isGameOver = state.phase === "game_end";
-
-  const toggleMute = () => {
-    const next = !muted;
-    setMutedState(next);
-    setMuted(next);
-  };
+  // Perfect game: caller's team captured every point in the deck (300).
+  const callerTeamPoints = (() => {
+    const rr = state.round;
+    const teamIds = new Set<PlayerId>([rr.bidder!, ...(rr.partners ?? [])]);
+    return ([0, 1, 2, 3, 4] as PlayerId[])
+      .filter((p) => teamIds.has(p))
+      .reduce<number>((s, p) => s + (rr.roundPoints?.[p] ?? 0), 0);
+  })();
+  const isPerfect300 = isGameOver && callerTeamPoints === 300;
 
   return (
     <div className="w-screen h-screen overflow-hidden flex">
@@ -394,20 +456,32 @@ export default function App() {
           </button>
         )}
 
-        {isGameOver && <Confetti />}
+        {/* Confetti only on a perfect 300-point game (handled in RoundEnd). */}
+        {isGameOver && isPerfect300 && <Confetti />}
 
         <SettingsBar
-          showHands={showHands}
-          setShowHands={setShowHands}
-          muted={muted}
-          toggleMute={toggleMute}
-          onHelp={() => setShowHelp(true)}
-          onQuit={() => { if (confirm("Quit current game and return to lobby?")) setState(null); }}
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
+          onOpenSettings={() => setSettingsOpen(true)}
           speed={speed}
           setSpeed={setSpeed}
         />
+
+        {settingsOpen && (
+          <SettingsModal
+            onClose={() => setSettingsOpen(false)}
+            musicVol={musicVol}
+            setMusicVol={setMusicVol}
+            sfxVol={sfxVol}
+            setSfxVol={setSfxVol}
+            speed={speed}
+            setSpeed={setSpeed}
+            showHands={showHands}
+            setShowHands={setShowHands}
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            onHelp={() => { setSettingsOpen(false); setShowHelp(true); }}
+            onQuit={() => { setSettingsOpen(false); setState(null); }}
+          />
+        )}
 
         {showHelp && (
           <HelpModal

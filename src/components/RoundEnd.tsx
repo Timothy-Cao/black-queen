@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { GameState, SUIT_GLYPHS, PlayerId, cardPoints } from "../game/types";
 import { CardView } from "./CardView";
+import { sfx } from "../game/sfx";
 
 interface Props {
   state: GameState;
@@ -18,6 +19,8 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
     .filter((p) => teamIds.has(p))
     .reduce<number>((s, p) => s + (r.roundPoints?.[p] ?? 0), 0);
   const made = teamPts >= (r.winningBid ?? 0);
+  // Perfect game: the caller's team captured every point in the deck.
+  const perfect = made && teamPts === 300;
   const teamLabel = [caller, ...partners].map((p) => p.name).join(" + ");
 
   // Did any partner play their card twice (held both copies)?
@@ -33,8 +36,14 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-30 bg-black/60 backdrop-blur-sm">
-      <div className="glass rounded-2xl p-8 w-[680px] max-h-[90vh] overflow-auto animate-floatIn relative ring-2 ring-gold-400/60 shadow-[0_0_60px_rgba(245,196,107,0.3)]">
+    <div className={`fixed inset-0 flex items-center justify-center z-30 ${perfect ? "bg-black/70 backdrop-blur-sm" : "bg-black/70"}`}>
+      <div
+        className={`rounded-2xl p-8 w-[680px] max-w-[94vw] max-h-[90vh] overflow-auto animate-floatIn relative ${
+          perfect
+            ? "glass ring-2 ring-gold-400/80 shadow-[0_0_60px_rgba(245,196,107,0.45)]"
+            : "bg-[#0c1f18]/95 border border-white/10 shadow-xl"
+        }`}
+      >
         {onHide && (
           <button
             className="absolute top-3 right-3 btn btn-ghost text-[11px]"
@@ -44,13 +53,25 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
             Hide
           </button>
         )}
-        <div className="text-xs uppercase tracking-widest text-gold-400">Game complete</div>
-        <h2 className="font-display text-3xl mt-1">
-          <span className={made ? "text-emerald-300" : "text-rose-300"}>
-            {teamLabel}
-          </span>
-          {" "}{made ? "made the bid." : "fell short."}
-        </h2>
+        {perfect ? (
+          <>
+            <div className="text-xs uppercase tracking-[0.3em] text-gold-300 font-bold animate-pulseGlow">★ Perfect Game ★</div>
+            <h2 className="font-display text-4xl mt-1 text-gold-300 drop-shadow-[0_0_18px_rgba(245,196,107,0.5)]">
+              {teamLabel} swept all 300.
+            </h2>
+            <div className="text-sm text-gold-200/80 mt-1">Every point in the deck — flawless.</div>
+          </>
+        ) : (
+          <>
+            <div className="text-xs uppercase tracking-widest text-stone-400">Game complete</div>
+            <h2 className="font-display text-3xl mt-1">
+              <span className={made ? "text-emerald-300" : "text-rose-300"}>
+                {teamLabel}
+              </span>
+              {" "}{made ? "made the bid." : "fell short."}
+            </h2>
+          </>
+        )}
         <div className="mt-3 text-sm text-stone-300">
           Bid <span className="font-semibold">{r.winningBid}</span>
           {" · "}Trump <span className={r.trump==="H"||r.trump==="D"?"text-rose-400":"text-stone-100"}>{r.trump && SUIT_GLYPHS[r.trump]}</span>
@@ -87,8 +108,8 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
                     )}
                   </td>
                   <td className="text-right font-mono">{captured}</td>
-                  <td className={`text-right font-mono ${delta > 0 ? "text-emerald-300" : delta < 0 ? "text-rose-400" : ""}`}>
-                    {delta >= 0 ? "+" : ""}{delta}
+                  <td className={`text-right font-mono ${delta > 0 ? "text-emerald-300" : delta < 0 ? "text-rose-400" : "text-stone-600"}`} title={onTeam ? "Score change this game" : "Defenders' score is unaffected under the current scoring model"}>
+                    {onTeam ? `${delta >= 0 ? "+" : ""}${delta}` : "—"}
                   </td>
                 </tr>
               );
@@ -128,7 +149,7 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
           )}
         </div>
 
-        <button className="btn btn-primary w-full mt-6 text-base" onClick={onNext}>
+        <button className="btn btn-primary w-full mt-6 text-base" onClick={() => { sfx.uiClick(); onNext(); }}>
           Play Again
         </button>
       </div>
