@@ -13,7 +13,7 @@ import { HelpModal } from "./components/HelpModal";
 import { AIInfoPage } from "./components/AIInfoPage";
 import { MainMenu } from "./components/MainMenu";
 import { Leaderboard } from "./components/Leaderboard";
-import { MultiplayerHost, MultiplayerJoin } from "./components/Multiplayer";
+import { OnlinePlay } from "./components/OnlinePlay";
 import { SignIn } from "./components/SignIn";
 import { useAuth } from "./auth/AuthContext";
 import { PartnerRevealFlash } from "./components/PartnerRevealFlash";
@@ -278,9 +278,7 @@ export default function App() {
       if (needsAuthGate) {
         return <SignIn onBack={() => navigate("/")} reason="Sign in with Google to play online." />;
       }
-      return route === "/host"
-        ? <><MultiplayerHost onBack={() => navigate("/")} />{help}</>
-        : <><MultiplayerJoin onBack={() => navigate("/")} />{help}</>;
+      return <><OnlinePlay initialMode={route === "/host" ? "host" : "join"} onBack={() => navigate("/")} />{help}</>;
     }
 
     if (route === "/play") {
