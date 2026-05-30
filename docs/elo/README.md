@@ -41,6 +41,14 @@ Run that produced the current numbers: **500 seed-pairs/matchup (1000 games each
 promoted to production (found via the Hard-4B observe→fix loop, +1.13pp@N=1500).
 Its CI no longer overlaps hard-3 — hard-4 is now clearly #1.
 
+**Thrower (skill-floor-of-losing experiment, NOT in the rating pool):** an
+inverted-ISMCTS saboteur (Hard-4's search minimizing its own team's points,
+always passes). Placed **~991 (CI 981–1001)** — essentially tied with random, not
+below it. A single seat can't sabotage a 5-player team game much more than random
+already does (and this thrower only sabotages on defense). So the achievable
+single-seat range is ~990→1222 — bounded on both ends by the same team-game
+compression. Placeable via `_elo_rr.ts place thrower`.
+
 Ordering matches the independent variance-cancelled mirror-arena evidence
 (hard-4 strongest; the hard-2/3/4 tier is close but hard-4 leads). The hard-3 and
 hard-4 CIs slightly overlap, but hard-4 leads on both this fit and the deeper
