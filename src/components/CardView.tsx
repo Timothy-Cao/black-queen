@@ -6,6 +6,8 @@ interface Props {
   card?: Card;
   faceDown?: boolean;
   small?: boolean;
+  /** Explicit pixel width (height scales to the card aspect). Overrides small. */
+  size?: number;
   disabled?: boolean;
   selected?: boolean;
   highlight?: boolean;
@@ -43,11 +45,11 @@ const SVG_RANK: Record<number, string> = {
 const SVG_SUIT: Record<string, string> = { S: "spade", H: "heart", D: "diamond", C: "club" };
 
 function CardViewImpl({
-  card, faceDown, small, disabled, selected, highlight, onClick, style, className = "", dim, staticView,
+  card, faceDown, small, size, disabled, selected, highlight, onClick, style, className = "", dim, staticView,
 }: Props) {
   const { skin } = useCardSkin();
-  const w = small ? 56 : 84;
-  const h = small ? 80 : 118;
+  const w = size ?? (small ? 56 : 84);
+  const h = size ? Math.round(size * (118 / 84)) : (small ? 80 : 118);
   const sizeStyle: React.CSSProperties = { width: w, height: h };
 
   if (faceDown || !card) {
@@ -212,6 +214,7 @@ export const CardView = memo(CardViewImpl, (a, b) =>
   a.card?.id === b.card?.id &&
   a.faceDown === b.faceDown &&
   a.small === b.small &&
+  a.size === b.size &&
   a.disabled === b.disabled &&
   a.selected === b.selected &&
   a.highlight === b.highlight &&

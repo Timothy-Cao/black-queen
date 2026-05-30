@@ -4,7 +4,7 @@
 // Opponents are compact status chips (avatar · card count · points · role) with
 // no fanned card-backs; the current trick sits in the middle; the local hand
 // fans to fit the screen width with tap-to-select + a confirm to play.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Card, GameState, PlayerId, Suit, Rank } from "../game/types";
 import { SUIT_GLYPHS, SUITS, RANK_LABEL, cardPoints } from "../game/types";
 import { CardView } from "./CardView";
@@ -30,6 +30,16 @@ interface Props {
 
 const SUIT_ORDER: Record<Suit, number> = { S: 0, H: 1, C: 2, D: 3 };
 
+// Where each played card sits on the table, by seat-offset from "me" (0 = me at
+// the bottom, then clockwise: left, top-left, top-right, right).
+const TRICK_POS: React.CSSProperties[] = [
+  { left: "50%", bottom: "6%", transform: "translateX(-50%)" },
+  { left: "3%", top: "40%" },
+  { left: "15%", top: "5%" },
+  { right: "15%", top: "5%" },
+  { right: "3%", top: "40%" },
+];
+
 function sortForHand(hand: Card[], trump?: Suit): Card[] {
   const rank = (s: Suit) => (s === trump ? -1 : SUIT_ORDER[s]);
   return hand.slice().sort((a, b) => rank(a.suit) - rank(b.suit) || b.rank - a.rank);
@@ -45,17 +55,6 @@ export function MobileGame(p: Props) {
   const showDeclare = r.phase === "declaring" && r.bidder === me;
 
   const [selected, setSelected] = useState<string | null>(null);
-  // Measure the hand container directly (robust to any viewport / rotation).
-  const handRef = useRef<HTMLDivElement>(null);
-  const [containerW, setContainerW] = useState<number>(0);
-  useEffect(() => {
-    const el = handRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setContainerW(el.clientWidth));
-    ro.observe(el);
-    setContainerW(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
 
   const legalIds = useMemo(() => {
     if (!myTurnToPlay) return new Set<string>();
@@ -75,15 +74,6 @@ export function MobileGame(p: Props) {
     if (r.phase === "playing") return r.toPlay === me ? "Your turn — pick a card" : `${state.players[r.toPlay].name}'s turn`;
     return null;
   })();
-
-  // Fan geometry: fit all cards within the measured container width. CARD_W
-  // must match CardView's small width (56px) or the fan overflows.
-  const CARD_W = 56;
-  const avail = (containerW > 0 ? containerW : 360) - 8;
-  const step = hand.length > 1
-    ? Math.max(14, Math.min(CARD_W - 4, (avail - CARD_W) / (hand.length - 1)))
-    : CARD_W;
-  const overlap = CARD_W - step;
 
   const selectedCard = hand.find((c) => c.id === selected) ?? null;
 
@@ -153,19 +143,24 @@ export function MobileGame(p: Props) {
         </div>
       )}
 
-      {/* Center: current trick */}
-      <div className="flex-1 min-h-0 flex items-center justify-center px-2">
+      {/* Center: the table + the current trick, positioned around it */}
+      <div className="flex-1 min-h-0 relative">
+        {/* Table surface (behind everything) */}
+        <div className="absolute inset-x-5 inset-y-3 rounded-[50%] border border-white/[0.06] bg-gradient-to-b from-white/[0.025] to-transparent pointer-events-none" />
         {trickPlays.length > 0 ? (
-          <div className="flex justify-center items-end gap-1.5 flex-wrap">
-            {trickPlays.map((tp) => (
-              <div key={`${tp.player}-${tp.card.id}`} className="flex flex-col items-center gap-0.5">
-                <span className="text-[9px] text-stone-400 truncate max-w-[48px]">{state.players[tp.player].name}</span>
-                <CardView card={tp.card} small staticView />
+          trickPlays.map((tp) => {
+            const rel = (tp.player - me + 5) % 5;
+            return (
+              <div key={`${tp.player}-${tp.card.id}`} className="absolute z-10 flex flex-col items-center" style={TRICK_POS[rel]}>
+                <span className="text-[10px] text-stone-200/85 mb-0.5 max-w-[68px] truncate">{state.players[tp.player].name}</span>
+                <CardView card={tp.card} size={72} staticView />
               </div>
-            ))}
-          </div>
+            );
+          })
         ) : (
-          <div className="text-stone-500 text-xs italic">{r.phase === "playing" ? "Waiting for the lead…" : ""}</div>
+          <div className="absolute inset-0 flex items-center justify-center text-stone-500 text-sm italic">
+            {r.phase === "playing" ? "Waiting for the lead…" : ""}
+          </div>
         )}
       </div>
 
@@ -189,23 +184,25 @@ export function MobileGame(p: Props) {
         </div>
       )}
 
-      {/* My hand (fanned to fit width, tap to select) */}
+      {/* My hand — swipeable strip of bigger cards (scroll left/right) */}
       {!showRoundEnd && (
-        <div ref={handRef} className="w-full pb-2 pt-1 flex justify-center items-end" style={{ minHeight: 92 }}>
-          {hand.map((c, i) => {
-            const isLegal = legalIds.has(c.id);
-            const isSel = c.id === selected;
-            return (
-              <div
-                key={c.id}
-                style={{ marginLeft: i === 0 ? 0 : -overlap, zIndex: isSel ? 100 : i, transform: isSel ? "translateY(-14px)" : undefined }}
-                className="transition-transform"
-                onClick={() => tapCard(c)}
-              >
-                <CardView card={c} small dim={myTurnToPlay && !isLegal} selected={isSel} />
-              </div>
-            );
-          })}
+        <div className="w-full overflow-x-auto overflow-y-hidden no-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="flex gap-2 px-3 py-2 items-end justify-center" style={{ minWidth: "100%", width: "max-content" }}>
+            {hand.map((c) => {
+              const isSel = c.id === selected;
+              const dimmed = myTurnToPlay && !legalIds.has(c.id);
+              return (
+                <div
+                  key={c.id}
+                  role="button"
+                  onClick={() => tapCard(c)}
+                  className={`shrink-0 rounded-lg transition ${isSel ? "ring-2 ring-gold-400" : ""} ${dimmed ? "opacity-35" : ""}`}
+                >
+                  <CardView card={c} size={72} />
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
