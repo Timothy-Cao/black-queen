@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CardView } from "./CardView";
 import { Card, AIPersonality } from "../game/types";
 import { botProfile } from "../data/botProfiles";
+import { botElo } from "../data/botLadder";
 
 // AI choices in the Lobby dropdown (strongest-first display order; ranking is
 // the Elo ladder, this is just menu order). hard-4b is experimental, omitted.
@@ -115,7 +116,8 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
                   >
                     {AI_OPTIONS.map((id) => {
                       const pr = botProfile(id);
-                      return <option key={id} value={id} className="text-black">{pr.codename} · {pr.tech}</option>;
+                      const elo = botElo(id);
+                      return <option key={id} value={id} className="text-black">{pr.codename}{elo !== null ? ` (${elo})` : ""}</option>;
                     })}
                   </select>
                 ) : (

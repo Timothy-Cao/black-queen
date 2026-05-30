@@ -3,9 +3,49 @@
 // header and tab strip stay pinned at the top.
 
 import { useEffect, useState } from "react";
+import { BOT_LADDER } from "../data/botLadder";
+import { botProfile } from "../data/botProfiles";
 
 interface Props {
   onBack: () => void;
+}
+
+// Roster legend: ties the player-facing codenames (used in the lobby + leaderboard)
+// to the technical "Hard-N" generation names this paper refers to, plus their Elo.
+function RosterLegend() {
+  return (
+    <div className="mt-6 rounded-lg border border-white/10 overflow-hidden">
+      <div className="px-4 py-2 text-[10px] uppercase tracking-widest text-gold-400/80 bg-white/5">
+        Roster — codename ⇄ generation
+      </div>
+      <table className="w-full text-[12px]">
+        <thead>
+          <tr className="text-stone-500 uppercase text-[10px] tracking-wider border-b border-white/10">
+            <th className="text-left font-medium px-4 py-1.5">Codename</th>
+            <th className="text-left font-medium px-2 py-1.5">Generation</th>
+            <th className="text-right font-medium px-2 py-1.5">Elo</th>
+            <th className="text-left font-medium px-4 py-1.5">How it thinks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {BOT_LADDER.map((e) => {
+            const pr = botProfile(e.bot);
+            return (
+              <tr key={e.bot} className="border-b border-white/5 last:border-0">
+                <td className="px-4 py-1.5 text-gold-300 font-medium">{pr.codename}</td>
+                <td className="px-2 py-1.5 font-mono text-stone-400">{pr.tech}</td>
+                <td className="px-2 py-1.5 text-right font-mono text-stone-200">{e.elo}</td>
+                <td className="px-4 py-1.5 text-stone-400">{pr.tagline}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="px-4 py-2 text-[10px] text-stone-500 bg-white/[0.02]">
+        This paper refers to agents by their <span className="text-stone-300">generation</span> (Hard-N); the lobby and leaderboard use the <span className="text-gold-300/80">codename</span>. Same agents.
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -246,8 +286,9 @@ export function AIInfoPage({ onBack }: Props) {
             <div className="mt-4 flex gap-x-5 gap-y-1 flex-wrap text-[11px] text-stone-500 font-mono">
               <span>Game: 5-player · 65-card deck · 300 pts</span>
               <span>·</span>
-              <span>Strongest agent: Hard-4 · +3.92pp over Hard-3</span>
+              <span>Strongest agent: Seer (Hard-4) · 1220 Elo</span>
             </div>
+            <RosterLegend />
           </header>
 
           {tab === "overview" && <OverviewTab />}

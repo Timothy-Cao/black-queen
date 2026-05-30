@@ -25,3 +25,8 @@ export const BOT_LADDER: LadderEntry[] = [
   { bot: "normal", name: "Greedy", type: "Greedy", elo: 1113 },
   { bot: "random", name: "random0", type: "Random play", elo: 1000 },
 ];
+
+/** Elo rating for a personality id, or null if it isn't on the ladder. */
+export function botElo(bot: string): number | null {
+  return BOT_LADDER.find((x) => x.bot === bot)?.elo ?? null;
+}
