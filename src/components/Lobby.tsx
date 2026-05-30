@@ -93,9 +93,8 @@ const TARGET_SCORE = 300; // Always 300 — matches total points in the 65-card 
 
 export function Lobby({ onStart, onOpenAIInfo }: Props) {
   const [players, setPlayers] = useState<Cfg[]>(DEFAULTS);
-  // Shuffle is chosen from 4 discrete stops (see SHUFFLE_STOPS). Index 0 = Chaos
-  // (the original "light" default, most biased hands).
-  const [shuffleStep, setShuffleStep] = useState<number>(0);
+  // Shuffle is chosen from 4 discrete stops (see SHUFFLE_STOPS). Default = Standard.
+  const [shuffleStep, setShuffleStep] = useState<number>(2);
   // When checked, intensity is re-rolled uniformly at random for every dealt round.
   const [randomizeShuffle, setRandomizeShuffle] = useState<boolean>(false);
   return (

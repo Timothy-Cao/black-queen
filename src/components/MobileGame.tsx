@@ -156,10 +156,8 @@ export function MobileGame(p: Props) {
         </div>
       )}
 
-      {/* Center: the play area + the current round's cards, around the table */}
+      {/* Center: the current round's cards, positioned around the table */}
       <div className="flex-1 min-h-0 relative">
-        {/* Card play area — rounded rectangle, behind everything */}
-        <div className="absolute inset-x-4 inset-y-5 rounded-3xl border border-white/[0.08] bg-white/[0.02] pointer-events-none" />
         {trickPlays.length > 0 ? (
           trickPlays.map((tp, idx) => {
             const rel = (tp.player - me + 5) % 5;

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { GameState, SUIT_GLYPHS, PlayerId, cardPoints } from "../game/types";
 import { CardView } from "./CardView";
 import { sfx } from "../game/sfx";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface Props {
   state: GameState;
@@ -13,6 +14,7 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
   const [showTricks, setShowTricks] = useState(false);
   // Focus a single player to highlight only their cards across the review.
   const [focusPlayer, setFocusPlayer] = useState<PlayerId | null>(null);
+  const isMobile = useIsMobile();
   const r = state.round;
   const caller = state.players[r.bidder!];
   const partners = (r.partners ?? []).map((id) => state.players[id]);
@@ -37,8 +39,63 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
     }
   }
 
+  // Shared review pieces (used inline on desktop, full-screen on mobile).
+  const filterRow = (
+    <div className="flex flex-wrap gap-1.5">
+      {state.players.map((pl) => (
+        <button
+          key={pl.id}
+          onClick={() => setFocusPlayer((f) => (f === pl.id ? null : pl.id))}
+          className={`text-[11px] px-2 py-1 rounded-md transition-colors ${focusPlayer === pl.id ? "bg-gold-500/30 text-gold-200" : "bg-white/5 text-stone-400 hover:bg-white/10"}`}
+        >
+          {pl.name}
+        </button>
+      ))}
+      {focusPlayer !== null && (
+        <button onClick={() => setFocusPlayer(null)} className="text-[11px] px-2 py-1 rounded-md text-stone-400 hover:text-stone-100">clear</button>
+      )}
+    </div>
+  );
+  const roundsList = (cardSize?: number) => (
+    <div className="space-y-2">
+      {r.tricks.map((t, i) => {
+        const winner = t.winner !== undefined ? state.players[t.winner] : undefined;
+        return (
+          <div key={`round-${i}`} className="flex items-center gap-2 text-xs">
+            <div className="text-stone-500 w-8">#{i + 1}</div>
+            <div className="flex gap-0.5">
+              {t.plays.map((tp) => {
+                const dimmed = focusPlayer !== null && tp.player !== focusPlayer;
+                return (
+                  <div key={`r${i}-${tp.player}-${tp.card.id}`} className={`rounded-md transition ${tp.player === t.winner ? "ring-1 ring-gold-400" : ""} ${dimmed ? "opacity-25 grayscale" : ""}`}>
+                    <CardView card={tp.card} small={!cardSize} size={cardSize} staticView />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="ml-auto text-right">
+              <div className="text-stone-300">{winner?.name}</div>
+              <div className="text-gold-400 font-mono">+{t.points}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className={`fixed inset-0 flex items-center justify-center z-30 ${perfect ? "bg-black/70 backdrop-blur-sm" : "bg-black/70"}`}>
+      {/* Mobile: full-screen round review */}
+      {showTricks && isMobile && (
+        <div className="fixed inset-0 z-50 bg-[#0c1f18] flex flex-col p-4 animate-floatIn">
+          <div className="flex items-center justify-between mb-3">
+            <div className="font-display text-xl text-gold-400">Round review</div>
+            <button className="text-stone-400 text-3xl leading-none w-9 h-9 rounded-full hover:bg-white/10" onClick={() => setShowTricks(false)}>×</button>
+          </div>
+          {filterRow}
+          <div className="flex-1 overflow-auto mt-3 pr-1">{roundsList(56)}</div>
+        </div>
+      )}
       <div
         className={`rounded-2xl p-8 w-[680px] max-w-[94vw] max-h-[90vh] overflow-auto animate-floatIn relative ${
           perfect
@@ -122,55 +179,15 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
         <div className="mt-5">
           <button
             className="text-xs uppercase tracking-wider text-gold-400 hover:text-gold-500"
-            onClick={() => setShowTricks((v) => !v)}
+            onClick={() => { sfx.uiClick(); setShowTricks((v) => !v); }}
           >
-            {showTricks ? "▼" : "▶"} Review {r.tricks.length} rounds
+            {!isMobile && showTricks ? "▼" : "▶"} Review {r.tricks.length} rounds
           </button>
-          {showTricks && (
-            <>
-              {/* Tap a player to spotlight only their cards across every round. */}
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {state.players.map((pl) => (
-                  <button
-                    key={pl.id}
-                    onClick={() => setFocusPlayer((f) => (f === pl.id ? null : pl.id))}
-                    className={`text-[11px] px-2 py-1 rounded-md transition-colors ${focusPlayer === pl.id ? "bg-gold-500/30 text-gold-200" : "bg-white/5 text-stone-400 hover:bg-white/10"}`}
-                  >
-                    {pl.name}
-                  </button>
-                ))}
-                {focusPlayer !== null && (
-                  <button onClick={() => setFocusPlayer(null)} className="text-[11px] px-2 py-1 rounded-md text-stone-400 hover:text-stone-100">clear</button>
-                )}
-              </div>
-              <div className="mt-2 space-y-2 max-h-72 overflow-auto pr-1">
-                {r.tricks.map((t, i) => {
-                  const winner = t.winner !== undefined ? state.players[t.winner] : undefined;
-                  return (
-                    <div key={`round-${i}`} className="flex items-center gap-2 text-xs">
-                      <div className="text-stone-500 w-8">#{i + 1}</div>
-                      <div className="flex gap-0.5">
-                        {t.plays.map((tp) => {
-                          const dimmed = focusPlayer !== null && tp.player !== focusPlayer;
-                          return (
-                            <div
-                              key={`r${i}-${tp.player}-${tp.card.id}`}
-                              className={`rounded-md transition ${tp.player === t.winner ? "ring-1 ring-gold-400" : ""} ${dimmed ? "opacity-25 grayscale" : ""}`}
-                            >
-                              <CardView card={tp.card} small staticView />
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="ml-auto text-right">
-                        <div className="text-stone-300">{winner?.name}</div>
-                        <div className="text-gold-400 font-mono">+{t.points}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+          {showTricks && !isMobile && (
+            <div className="mt-3">
+              {filterRow}
+              <div className="mt-2 max-h-72 overflow-auto pr-1">{roundsList()}</div>
+            </div>
           )}
         </div>
 
