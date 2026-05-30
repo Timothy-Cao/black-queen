@@ -104,9 +104,13 @@ function knownCallerTeam(state: GameState, player: PlayerId): Set<PlayerId> | nu
 
   const hand = r.hands[player];
   const iAmBidder = player === r.bidder;
+  // A player is a partner if they hold the partner card OR have already played
+  // it (i.e. revealed). Checking only the current hand was a bug: once a partner
+  // plays the partner card it stopped recognizing itself as caller-team, so the
+  // enemy-discard guard skipped. Same class as the hard-4 value-players bugfix.
   const iAmPartner = hand.some(
     (c) => c.suit === r.partnerCard!.suit && c.rank === r.partnerCard!.rank,
-  );
+  ) || r.revealedPartners.includes(player);
 
   if (iAmBidder) {
     // The caller knows themselves + every partner who has revealed so far.
