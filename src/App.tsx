@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Lobby } from "./components/Lobby";
 import { PlayerSeat, SeatPosition } from "./components/PlayerSeat";
 import { TrickArea } from "./components/TrickArea";
@@ -13,7 +13,9 @@ import { HelpModal } from "./components/HelpModal";
 import { AIInfoPage } from "./components/AIInfoPage";
 import { MainMenu } from "./components/MainMenu";
 import { Leaderboard } from "./components/Leaderboard";
-import { OnlinePlay } from "./components/OnlinePlay";
+// Code-split: the online-multiplayer bundle (+ realtime) loads only when a
+// user actually opens Host/Join, keeping the single-player path lean.
+const OnlinePlay = lazy(() => import("./components/OnlinePlay").then((m) => ({ default: m.OnlinePlay })));
 import { SignIn } from "./components/SignIn";
 import { useAuth } from "./auth/AuthContext";
 import { PartnerRevealFlash } from "./components/PartnerRevealFlash";
@@ -278,7 +280,18 @@ export default function App() {
       if (needsAuthGate) {
         return <SignIn onBack={() => navigate("/")} reason="Sign in with Google to play online." />;
       }
-      return <><OnlinePlay initialMode={route === "/host" ? "host" : "join"} onBack={() => navigate("/")} />{help}</>;
+      return (
+        <>
+          <Suspense fallback={
+            <div className="w-screen h-screen felt flex items-center justify-center">
+              <div className="glass rounded-2xl px-6 py-4 text-stone-300/80 animate-floatIn">Loading…</div>
+            </div>
+          }>
+            <OnlinePlay initialMode={route === "/host" ? "host" : "join"} onBack={() => navigate("/")} />
+          </Suspense>
+          {help}
+        </>
+      );
     }
 
     if (route === "/play") {

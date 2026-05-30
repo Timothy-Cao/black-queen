@@ -103,6 +103,10 @@ export function OnlinePlay({ initialMode, onBack }: { initialMode: "host" | "joi
           </>
         )}
         {error && <p className="mt-4 text-[12px] text-rose-300">{error}</p>}
+        <div className="mt-5 pt-4 border-t border-white/5 flex items-center gap-2 text-[11px] text-stone-500">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+          Signed in as <span className="text-stone-300">{displayName}</span>
+        </div>
       </div>
     </div>
   );

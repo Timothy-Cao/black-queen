@@ -74,13 +74,16 @@ export function MainMenu({
         </div>
 
         <div className="mt-6 flex items-center justify-between text-[11px] text-stone-400/70">
-          <span className="truncate max-w-[60%]">
-            {configured && user
-              ? `Signed in as ${user.email ?? user.user_metadata?.name ?? "player"}`
-              : "Offline / practice mode"}
+          <span className="flex items-center gap-1.5 truncate max-w-[65%]">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${configured && user ? "bg-emerald-400/80" : "bg-stone-500/60"}`} />
+            <span className="truncate">
+              {configured && user
+                ? `Signed in as ${user.email ?? user.user_metadata?.name ?? "player"}`
+                : "Offline · practice mode"}
+            </span>
           </span>
           {configured && user && (
-            <button className="hover:text-stone-100 underline" onClick={signOut}>Sign out</button>
+            <button className="hover:text-stone-100 underline shrink-0" onClick={() => { sfx.uiClick(); signOut(); }}>Sign out</button>
           )}
         </div>
 
