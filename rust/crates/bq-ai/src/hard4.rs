@@ -311,6 +311,36 @@ pub fn hard4b_enabled() -> bool {
     }
 }
 
+// ---------------------------------------------------------------------------
+//  Thrower flag (experiment — "how low can an AI's Elo go?").
+//  When ON, the ISMCTS value signal is INVERTED: the search MINIMIZES its own
+//  team's captured points instead of maximizing them. A competent saboteur —
+//  Hard-4's full search aimed at losing. Measures the skill-floor of throwing.
+// ---------------------------------------------------------------------------
+#[cfg(not(target_arch = "wasm32"))]
+thread_local! {
+    static THROWER_OVERRIDE: std::cell::RefCell<bool> = const { std::cell::RefCell::new(false) };
+}
+#[cfg(target_arch = "wasm32")]
+static THROWER_WASM: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_thrower(enabled: bool) {
+    #[cfg(not(target_arch = "wasm32"))]
+    THROWER_OVERRIDE.with(|c| *c.borrow_mut() = enabled);
+    #[cfg(target_arch = "wasm32")]
+    THROWER_WASM.store(enabled, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn thrower_enabled() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    { return THROWER_WASM.load(std::sync::atomic::Ordering::Relaxed); }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if THROWER_OVERRIDE.with(|c| *c.borrow()) { return true; }
+        std::env::var("BQ_THROWER").ok().filter(|s| !s.is_empty()).is_some()
+    }
+}
+
 /// Decide trump suit and partner card.
 ///
 /// Trump: the suit our hand evaluator picks as strongest (not just longest).
@@ -426,9 +456,22 @@ pub fn hard4_play(
     // Approximate by capping iterations proportional to time_ms: ~3 iterations
     // per ms on a typical laptop in release mode. Native paths use real time.
     #[cfg(target_arch = "wasm32")]
-    let max_iters = (time_ms.saturating_mul(3)).max(64);
+    let mut max_iters = (time_ms.saturating_mul(3)).max(64);
     #[cfg(not(target_arch = "wasm32"))]
-    let max_iters = 100_000u64;
+    let mut max_iters = 100_000u64;
+
+    // Hard-4B v1: budget REALLOCATION. Same total iterations as Hard-4, but
+    // front-loaded onto early/high-uncertainty tricks (13 cards out → ISMCTS
+    // least reliable; observation iter1 showed the caller's opening lead is the
+    // weak spot) and fewer on the near-solved endgame. factor = 0.5 + h/13 runs
+    // ~1.5× at trick 1 down to ~0.58× at the last trick (avg ≈ 1.04 over a game,
+    // so the per-game total is ≈ unchanged). Equal-budget, principled — NOT a
+    // hand-coded move preference. See docs/hard4b_experiment.md.
+    if hard4b_enabled() {
+        let h = state.hands[self_id as usize].len() as f64; // 13 → 1
+        let factor = 0.5 + h / 13.0;
+        max_iters = (((max_iters as f64) * factor).round() as u64).max(64);
+    }
 
     // Value reflects the captured points of OUR TEAM, not just our own pile.
     // For the caller and known partners, we can identify teammates exactly from
