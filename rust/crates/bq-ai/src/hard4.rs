@@ -706,18 +706,16 @@ fn compute_value_players(state: &GameState, self_id: PlayerId) -> Vec<PlayerId> 
         }
     }
 
-    // BUG (original Hard-4): `i_am_caller_team = self==caller || i_hold_pc`. Once a
-    // partner PLAYS its partner card, `i_hold_pc` goes false → it flips to the
-    // opposing team and spends the rest of the game maximizing the ENEMIES' points
-    // (and the enemy-discard guard then treats enemies as allies). Cost a contract
-    // in observation (game 895839 R10: dumped A♠ to an enemy). FIX (Hard-4B): a
-    // player who EVER held/played the partner card stays on the caller's team —
-    // i.e. `revealed_partners.contains(self)`. See docs/game_traces/...iter2.
-    let i_am_caller_team = if hard4b_enabled() {
-        self_id == caller || i_hold_pc || revealed_partners.contains(&self_id)
-    } else {
-        self_id == caller || i_hold_pc
-    };
+    // BUGFIX (promoted to production 2026-05-28, found via the Hard-4B observe→fix
+    // loop): the original `i_am_caller_team = self==caller || i_hold_pc` derived
+    // team membership from the CURRENT hand. Once a partner PLAYS its partner card,
+    // `i_hold_pc` went false → it flipped to the opposing team and spent the rest
+    // of the game maximizing the ENEMIES' points (and the enemy-discard guard then
+    // treated enemies as allies). Cost a contract in observation (game 895839 R10:
+    // dumped A♠ to an enemy). A player who EVER held/played the partner card stays
+    // on the caller's team. A/B: +1.13pp at N=1500 mirror. See docs/game_traces/
+    // 2026-05-28__d850ab2__hard4b-iter2/review.md.
+    let i_am_caller_team = self_id == caller || i_hold_pc || revealed_partners.contains(&self_id);
 
     if i_am_caller_team {
         revealed_partners.insert(self_id);
