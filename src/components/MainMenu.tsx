@@ -49,7 +49,6 @@ export function MainMenu({
       <div className="glass rounded-2xl p-8 w-[min(94vw,480px)] animate-floatIn">
         <div className="text-center">
           <h1 className="text-4xl font-semibold text-gold-400 tracking-wide">Black Queen</h1>
-          <p className="mt-1 text-sm text-stone-300/70">5-player trick-taking · hidden partners</p>
         </div>
 
         <div className="mt-7 flex flex-col gap-3">
@@ -57,15 +56,18 @@ export function MainMenu({
             Single Player
           </button>
 
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="text-xs uppercase tracking-wider text-stone-400/80 mb-2 px-1">Multiplayer</div>
-            <div className="flex gap-3">
-              <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onHost)}>Host</button>
-              <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onJoin)}>Join</button>
-            </div>
+          <div className="flex gap-3">
+            <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onHost)}>Host</button>
+            <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onJoin)}>Join</button>
           </div>
 
-          <button className="btn btn-ghost w-full py-2.5" onClick={click(onLeaderboard)}>🏆 Leaderboard</button>
+          <button
+            className="btn btn-ghost w-full py-2.5 btn-disabled"
+            disabled
+            title="Coming soon"
+          >
+            🏆 ELO Ladder
+          </button>
 
           <div className="flex gap-3">
             <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onAIInfo)}>AI Notes</button>
@@ -73,19 +75,15 @@ export function MainMenu({
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-between text-[11px] text-stone-400/70">
-          <span className="flex items-center gap-1.5 truncate max-w-[65%]">
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${configured && user ? "bg-emerald-400/80" : "bg-stone-500/60"}`} />
-            <span className="truncate">
-              {configured && user
-                ? `Signed in as ${user.email ?? user.user_metadata?.name ?? "player"}`
-                : "Offline · practice mode"}
+        {configured && user && (
+          <div className="mt-6 flex items-center justify-between text-[11px] text-stone-400/70">
+            <span className="flex items-center gap-1.5 truncate max-w-[65%]">
+              <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400/80" />
+              <span className="truncate">Signed in as {user.email ?? user.user_metadata?.name ?? "player"}</span>
             </span>
-          </span>
-          {configured && user && (
             <button className="hover:text-stone-100 underline shrink-0" onClick={() => { sfx.uiClick(); signOut(); }}>Sign out</button>
-          )}
-        </div>
+          </div>
+        )}
         {authError && (
           <p className="mt-2 text-[11px] text-rose-300 break-words">Sign-in failed: {authError}</p>
         )}
