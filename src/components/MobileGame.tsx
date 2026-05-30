@@ -103,9 +103,22 @@ export function MobileGame(p: Props) {
       <div className="flex items-center gap-2 px-2 py-1.5 text-xs border-b border-white/10 bg-black/20">
         <button className="glass rounded-full px-2.5 py-1 text-stone-200" onClick={p.onExit}>←</button>
         {p.banner && <span className="uppercase tracking-widest text-gold-300/90 text-[10px]">{p.banner}</span>}
-        <div className="ml-auto flex items-center gap-2 text-[11px] text-stone-300">
+        <div className="ml-auto flex items-center gap-2.5 text-[11px] text-stone-300 whitespace-nowrap">
           {r.winningBid != null && <span>Bid <b className="text-gold-300">{r.winningBid}</b></span>}
-          {trump && <span className={trump === "H" || trump === "D" ? "text-rose-400" : "text-stone-100"}>{SUIT_GLYPHS[trump]}</span>}
+          {trump && (
+            <span className="flex items-center gap-1">
+              <span className="text-stone-500">trump</span>
+              <span className={`text-base leading-none ${trump === "H" || trump === "D" ? "text-rose-400" : "text-stone-100"}`}>{SUIT_GLYPHS[trump]}</span>
+            </span>
+          )}
+          {r.partnerCard && (
+            <span className="flex items-center gap-1">
+              <span className="text-stone-500">call</span>
+              <span className={`font-semibold ${r.partnerCard.suit === "H" || r.partnerCard.suit === "D" ? "text-rose-300" : "text-stone-100"}`}>
+                {RANK_LABEL[r.partnerCard.rank]}{SUIT_GLYPHS[r.partnerCard.suit]}
+              </span>
+            </span>
+          )}
         </div>
       </div>
 
