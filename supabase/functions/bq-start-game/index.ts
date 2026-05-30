@@ -31,8 +31,9 @@ Deno.serve(async (req) => {
   const pers = aiPersonality || "hard-4";
   const newAi: Record<string, unknown>[] = [];
   const configs: { name: string; isAI: boolean; aiPersonality?: string }[] = [];
-  // Random unique AI names for the filled seats.
-  const namePool = [...AI_NAME_POOL].sort(() => Math.random() - 0.5);
+  // Random unique AI names for the filled seats, avoiding any human's name.
+  const humanNames = new Set((players ?? []).filter((pl) => pl.user_id).map((pl) => pl.display_name));
+  const namePool = [...AI_NAME_POOL].filter((n) => !humanNames.has(n)).sort(() => Math.random() - 0.5);
   let nameIdx = 0;
 
   for (let seat = 0; seat < 5; seat++) {

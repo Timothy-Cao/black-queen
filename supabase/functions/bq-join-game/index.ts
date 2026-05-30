@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
   if (game.status !== "lobby") return err("That game has already started", 409);
 
   const { data: players } = await db.from("bq_game_players")
-    .select("seat,user_id").eq("game_id", game.id);
+    .select("seat,user_id,display_name").eq("game_id", game.id);
 
   const mine = (players ?? []).find((p) => p.user_id === uid);
   if (mine) return json({ gameId: game.id, seat: mine.seat }); // already in
@@ -31,9 +31,13 @@ Deno.serve(async (req) => {
   for (let s = 0; s < 5; s++) if (!taken.has(s)) { seat = s; break; }
   if (seat < 0) return err("That game is full", 409);
 
+  // Disambiguate duplicate display names within the room ("Tim" → "Tim 2").
+  const usedNames = new Set((players ?? []).map((p) => p.display_name));
+  let name = String(displayName || "Player").slice(0, 24);
+  if (usedNames.has(name)) { let i = 2; while (usedNames.has(`${name} ${i}`)) i++; name = `${name} ${i}`; }
+
   await db.from("bq_game_players").insert({
-    game_id: game.id, seat, user_id: uid, is_ai: false,
-    display_name: String(displayName || "Player").slice(0, 24),
+    game_id: game.id, seat, user_id: uid, is_ai: false, display_name: name,
   });
 
   return json({ gameId: game.id, seat });

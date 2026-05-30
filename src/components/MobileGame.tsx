@@ -4,14 +4,13 @@
 // Opponents are compact status chips (avatar · card count · points · role) with
 // no fanned card-backs; the current trick sits in the middle; the local hand
 // fans to fit the screen width with tap-to-select + a confirm to play.
-import { useEffect, useMemo, useState } from "react";
-import type { Card, GameState, PlayerId, Suit } from "../game/types";
-import { SUIT_GLYPHS, cardPoints } from "../game/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Card, GameState, PlayerId, Suit, Rank } from "../game/types";
+import { SUIT_GLYPHS, SUITS, RANK_LABEL, cardPoints } from "../game/types";
 import { CardView } from "./CardView";
-import { BiddingPanel } from "./BiddingPanel";
-import { DeclarePanel } from "./DeclarePanel";
 import { RoundEnd } from "./RoundEnd";
 import { legalPlays } from "../game/rules";
+import { legalBidAmount } from "../game/engine";
 import { avatarColor, seatIcon } from "./PlayerSeat";
 import { sfx } from "../game/sfx";
 
@@ -46,11 +45,16 @@ export function MobileGame(p: Props) {
   const showDeclare = r.phase === "declaring" && r.bidder === me;
 
   const [selected, setSelected] = useState<string | null>(null);
-  const [width, setWidth] = useState<number>(() => (typeof window !== "undefined" ? window.innerWidth : 380));
+  // Measure the hand container directly (robust to any viewport / rotation).
+  const handRef = useRef<HTMLDivElement>(null);
+  const [containerW, setContainerW] = useState<number>(0);
   useEffect(() => {
-    const onResize = () => setWidth(window.innerWidth);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const el = handRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setContainerW(el.clientWidth));
+    ro.observe(el);
+    setContainerW(el.clientWidth);
+    return () => ro.disconnect();
   }, []);
 
   const legalIds = useMemo(() => {
@@ -72,11 +76,12 @@ export function MobileGame(p: Props) {
     return null;
   })();
 
-  // Fan geometry: fit all cards within the screen width.
-  const CARD_W = 52;
-  const avail = Math.min(width, 560) - 16;
+  // Fan geometry: fit all cards within the measured container width. CARD_W
+  // must match CardView's small width (56px) or the fan overflows.
+  const CARD_W = 56;
+  const avail = (containerW > 0 ? containerW : 360) - 8;
   const step = hand.length > 1
-    ? Math.max(16, Math.min(CARD_W - 6, (avail - CARD_W) / (hand.length - 1)))
+    ? Math.max(14, Math.min(CARD_W - 4, (avail - CARD_W) / (hand.length - 1)))
     : CARD_W;
   const overlap = CARD_W - step;
 
@@ -158,12 +163,8 @@ export function MobileGame(p: Props) {
         </div>
       )}
 
-      {/* Bidding panel */}
-      {showBidPanel && (
-        <div className="px-2 pb-2 flex justify-center">
-          <BiddingPanel state={state} me={me} onBid={p.onBid} onPass={p.onPass} />
-        </div>
-      )}
+      {/* Bidding panel (compact) */}
+      {showBidPanel && <MobileBidPanel state={state} me={me} onBid={p.onBid} onPass={p.onPass} />}
 
       {/* Confirm-play bar */}
       {myTurnToPlay && selectedCard && (
@@ -177,7 +178,7 @@ export function MobileGame(p: Props) {
 
       {/* My hand (fanned to fit width, tap to select) */}
       {!showRoundEnd && (
-        <div className="pb-2 pt-1 flex justify-center items-end" style={{ minHeight: 92 }}>
+        <div ref={handRef} className="w-full pb-2 pt-1 flex justify-center items-end" style={{ minHeight: 92 }}>
           {hand.map((c, i) => {
             const isLegal = legalIds.has(c.id);
             const isSel = c.id === selected;
@@ -195,12 +196,8 @@ export function MobileGame(p: Props) {
         </div>
       )}
 
-      {/* Declare overlay */}
-      {showDeclare && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-2 overflow-auto">
-          <DeclarePanel state={state} me={me} onDeclare={p.onDeclare} />
-        </div>
-      )}
+      {/* Declare overlay (compact, two-step) */}
+      {showDeclare && <MobileDeclarePanel state={state} me={me} onDeclare={p.onDeclare} />}
 
       {/* Round / game end */}
       {showRoundEnd && <RoundEnd state={state} onNext={p.onRoundNext ?? p.onExit} />}
@@ -210,4 +207,114 @@ export function MobileGame(p: Props) {
 
 function rankLabel(rank: number): string {
   return rank === 14 ? "A" : rank === 13 ? "K" : rank === 12 ? "Q" : rank === 11 ? "J" : rank === 10 ? "10" : String(rank);
+}
+
+// ── Compact mobile bidding panel ───────────────────────────────────────────
+function MobileBidPanel({ state, me, onBid, onPass }: {
+  state: GameState; me: PlayerId; onBid: (n: number) => void; onPass: () => void;
+}) {
+  const r = state.round;
+  const { min, max } = legalBidAmount(r);
+  const isMyTurn = r.bidTurn === me;
+  const highest = Math.max(0, ...r.bids.map((b) => b.amount));
+  const last = r.bids[r.bids.length - 1];
+  const lastBidder = highest > 0 && last ? state.players[last.player].name : null;
+  const opts = [min, min + 5, min + 10, min + 15].filter((v) => v <= max).filter((v, i, a) => a.indexOf(v) === i);
+  return (
+    <div className="px-3 pb-2">
+      <div className="glass rounded-xl px-3 py-2.5">
+        <div className="text-[11px] text-center text-stone-300 mb-2">
+          {highest > 0
+            ? <>Highest <b className="text-gold-300">{highest}</b>{lastBidder ? ` by ${lastBidder}` : ""}</>
+            : <>No bids yet · opens at {min}</>}
+        </div>
+        {isMyTurn ? (
+          <div className="flex gap-1.5 justify-center flex-wrap">
+            <button className="btn btn-ghost px-3 py-1.5 text-sm" onClick={() => { sfx.uiClick(); onPass(); }}>Pass</button>
+            {opts.map((v) => (
+              <button key={v} className="btn btn-primary px-3 py-1.5 text-sm font-bold" onClick={() => { sfx.uiClick(); onBid(v); }}>{v}</button>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs text-stone-400 italic text-center">Waiting on {state.players[r.bidTurn ?? me]?.name}…</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Compact mobile declare sheet (trump → partner suit → partner rank) ──────
+const DECLARE_RANKS: Rank[] = [14, 13, 12, 11, 10, 9, 8, 7, 5];
+
+function MobileDeclarePanel({ state, me, onDeclare }: {
+  state: GameState; me: PlayerId; onDeclare: (trump: Suit, partnerCard: Card) => void;
+}) {
+  const [trump, setTrump] = useState<Suit | undefined>();
+  const [pSuit, setPSuit] = useState<Suit | undefined>();
+  const [pRank, setPRank] = useState<Rank | undefined>();
+  const hand = state.players[me].hand;
+  const counts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const c of hand) m[`${c.suit}${c.rank}`] = (m[`${c.suit}${c.rank}`] || 0) + 1;
+    return m;
+  }, [hand]);
+  const totalCopies = (s: Suit, r: Rank) => (s === "S" && r === 7 ? 1 : 2);
+  const ownsAll = (s: Suit, r: Rank) => (counts[`${s}${r}`] || 0) >= totalCopies(s, r);
+  const ranksFor = (s: Suit) => DECLARE_RANKS.filter((r) => r !== 7 || s === "S");
+  const can = trump && pSuit && pRank && !ownsAll(pSuit, pRank);
+
+  const SuitBtn = ({ s, active, onClick }: { s: Suit; active: boolean; onClick: () => void }) => {
+    const red = s === "H" || s === "D";
+    return (
+      <button
+        onClick={() => { sfx.uiClick(); onClick(); }}
+        className={`text-2xl w-14 h-12 rounded-lg border transition ${active ? "bg-gold-500 text-stone-900 border-gold-500" : `bg-white/5 border-white/10 ${red ? "text-rose-300" : "text-stone-100"}`}`}
+      >{SUIT_GLYPHS[s]}</button>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col bg-[#0c1f18] p-4 overflow-auto">
+      <div className="text-xs uppercase tracking-widest text-gold-400">Declare</div>
+      <div className="text-sm text-stone-200 mt-1 mb-4">
+        You won at <b className="text-gold-400">{state.round.winningBid}</b>. Pick trump and call a partner card.
+      </div>
+
+      <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Trump suit</div>
+      <div className="flex gap-2 mb-5">{SUITS.map((s) => <SuitBtn key={s} s={s} active={trump === s} onClick={() => setTrump(s)} />)}</div>
+
+      <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Partner card · suit</div>
+      <div className="flex gap-2 mb-5">{SUITS.map((s) => <SuitBtn key={s} s={s} active={pSuit === s} onClick={() => { setPSuit(s); setPRank(undefined); }} />)}</div>
+
+      {pSuit && (
+        <>
+          <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Partner card · rank <span className="text-stone-600">(dimmed = you own all copies)</span></div>
+          <div className="flex gap-1.5 flex-wrap mb-5">
+            {ranksFor(pSuit).map((r) => {
+              const blocked = ownsAll(pSuit, r);
+              const sel = pRank === r;
+              return (
+                <button
+                  key={r}
+                  disabled={blocked}
+                  onClick={() => { sfx.uiClick(); setPRank(r); }}
+                  className={`w-9 h-11 rounded-md text-sm transition ${sel ? "bg-gold-500 text-stone-900 font-bold" : blocked ? "bg-white/5 text-stone-600 border border-rose-700/30" : "bg-white/5 text-stone-200 border border-white/10"}`}
+                >{RANK_LABEL[r]}</button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <div className="mt-auto pt-3">
+        <button
+          className="btn btn-primary w-full py-3"
+          disabled={!can}
+          onClick={() => { if (can && trump && pSuit && pRank) { sfx.uiClick(); onDeclare(trump, { suit: pSuit, rank: pRank, id: `${pSuit}${pRank}_0` }); } }}
+        >
+          {can && pSuit && pRank ? `Declare ${RANK_LABEL[pRank]}${SUIT_GLYPHS[pSuit]} · trump ${SUIT_GLYPHS[trump!]}` : "Pick trump + partner card"}
+        </button>
+      </div>
+    </div>
+  );
 }
