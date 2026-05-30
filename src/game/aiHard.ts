@@ -468,7 +468,7 @@ function chooseBestPartnerCard(hand: Card[], trump: Suit, w: HardWeights): Card 
   return candidates[0]?.card ?? { suit: trump, rank: 14, id: `${trump}14_0` };
 }
 
-function estimateBidCapacity(hand: Card[], w: HardWeights): number {
+export function estimateBidCapacity(hand: Card[], w: HardWeights): number {
   const { suit: trump, score: trumpScore } = chooseBestTrump(hand, w);
   const myPoints = handPoints(hand);
   let selfCapture = myPoints * w.bidSelfCaptureFromPoints;

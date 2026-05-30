@@ -342,6 +342,16 @@ robust all-intensity pick (210 over-bids and regresses at Uniform). Env override
 partner-aware bidding idea below (a flat carry floor, not an own-hand capacity
 nudge — the latter was null, next).
 
+**Additive-carry variant tried & REJECTED:** instead of a flat floor, add K to the
+own-hand capacity (`target = capacity + K`, scales with hand strength so weak hands
+bid lower, strong hands higher). `_bid_model_ab.ts` (exports `estimateBidCapacity`
+so the policy lives entirely in the harness). At N=3000 ADD(50) looked +1.74 vs
+FLOOR(185) at Uniform, but at N=8000 it was **−3.2 / −0.8 / −4.1pp** (Fun / Standard
+/ Uniform). The additive model wins MORE auctions (caller% ~27 vs ~13) but at higher
+prices, so it fails at higher stakes and nets less. Flat floor is both better and
+more robust (ADD regresses fast: ADD70 −4.9, ADD90 −13 at Uniform). Lesson again:
+N<5000 bid A/Bs are noise — the +1.74 reversed sign at N=8000.
+
 ### Partner-aware bidding (Hard-5 attempt 3) — null result
 
 User-proposed strategic insight: a player with 0 aces, no Q♠, no kings is

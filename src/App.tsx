@@ -63,8 +63,8 @@ export default function App() {
   // Audio volumes in [0,1], persisted independently. Migrates the old single
   // mute flag: if the user had muted, start both at 0.
   const [musicVol, setMusicVol] = useState<number>(() => {
-    // Default music is quieter on phones (5%) than desktop (30%).
-    const dflt = typeof window !== "undefined" && window.innerWidth < 768 ? 0.05 : 0.3;
+    // Default music volume is 10% (subtle by default; users can raise it).
+    const dflt = 0.1;
     try {
       const v = localStorage.getItem("bq:musicVol");
       if (v !== null) return Math.max(0, Math.min(1, parseFloat(v)));
