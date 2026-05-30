@@ -35,7 +35,12 @@ await warmWasm();
 const BOTS: AIPersonality[] = ["random", "normal", "hard", "hard-2", "hard-3", "hard-4"];
 const ANCHOR_BOT: AIPersonality = "random";
 const ANCHOR_ELO = 1000;
-const SCALE = 400 / Math.log(10);
+// Points per 10× odds. Standard chess uses 400; we use 1000 for a wider, more
+// granular spread (a given win-rate gap maps to a 2.5× larger Elo gap). MUST be
+// used consistently everywhere ratings are computed/updated (fit + placement +
+// future human updates) or the scales won't match.
+const ELO_PER_DECADE = 1000;
+const SCALE = ELO_PER_DECADE / Math.log(10);
 
 function mulberry32(seed: number) {
   let t = seed >>> 0;
@@ -201,8 +206,8 @@ if (!placeMode) {
       let g = 0, h = 0;
       for (const d of live) {
         const nGames = d.nw + d.rw;
-        const pExp = 1 / (1 + Math.pow(10, -(r - d.elo) / 400));
-        const c = Math.log(10) / 400;
+        const pExp = 1 / (1 + Math.pow(10, -(r - d.elo) / ELO_PER_DECADE));
+        const c = Math.log(10) / ELO_PER_DECADE;
         g += c * (d.nw - nGames * pExp);
         h += -c * c * nGames * pExp * (1 - pExp);
       }

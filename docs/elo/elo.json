@@ -2,106 +2,24 @@
   "method": "round-robin paired-seed mirror + Bradley-Terry + bootstrap",
   "seedPairsPerMatchup": 500,
   "bootstrapSamples": 600,
+  "eloPerDecade": 1000,
   "hard4TimeMs": "80",
   "anchor": "random=1000",
+  "note": "Elo scale: 1000 points = 10x odds (wider/more granular than chess's 400). Ladder values are the K=500 fit rendered on this scale.",
   "ladder": [
-    {
-      "bot": "hard-4",
-      "elo": 1083,
-      "ci95": [
-        1079,
-        1088
-      ]
-    },
-    {
-      "bot": "hard-3",
-      "elo": 1079,
-      "ci95": [
-        1074,
-        1083
-      ]
-    },
-    {
-      "bot": "hard-2",
-      "elo": 1077,
-      "ci95": [
-        1073,
-        1082
-      ]
-    },
-    {
-      "bot": "hard",
-      "elo": 1072,
-      "ci95": [
-        1068,
-        1076
-      ]
-    },
-    {
-      "bot": "normal",
-      "elo": 1045,
-      "ci95": [
-        1040,
-        1049
-      ]
-    },
-    {
-      "bot": "random",
-      "elo": 1000,
-      "ci95": [
-        1000,
-        1000
-      ]
-    }
+    { "bot": "hard-4", "elo": 1208, "ci95": [1198, 1220] },
+    { "bot": "hard-3", "elo": 1198, "ci95": [1185, 1208] },
+    { "bot": "hard-2", "elo": 1193, "ci95": [1183, 1205] },
+    { "bot": "hard", "elo": 1180, "ci95": [1170, 1190] },
+    { "bot": "normal", "elo": 1113, "ci95": [1100, 1123] },
+    { "bot": "random", "elo": 1000, "ci95": [1000, 1000] }
   ],
   "pairwiseWinRate": {
-    "random": {
-      "random": null,
-      "normal": 0.411,
-      "hard": 0.396,
-      "hard-2": 0.399,
-      "hard-3": 0.391,
-      "hard-4": 0.398
-    },
-    "normal": {
-      "random": 0.589,
-      "normal": null,
-      "hard": 0.462,
-      "hard-2": 0.449,
-      "hard-3": 0.431,
-      "hard-4": 0.443
-    },
-    "hard": {
-      "random": 0.604,
-      "normal": 0.538,
-      "hard": null,
-      "hard-2": 0.5,
-      "hard-3": 0.487,
-      "hard-4": 0.479
-    },
-    "hard-2": {
-      "random": 0.601,
-      "normal": 0.551,
-      "hard": 0.5,
-      "hard-2": null,
-      "hard-3": 0.511,
-      "hard-4": 0.491
-    },
-    "hard-3": {
-      "random": 0.609,
-      "normal": 0.569,
-      "hard": 0.513,
-      "hard-2": 0.489,
-      "hard-3": null,
-      "hard-4": 0.487
-    },
-    "hard-4": {
-      "random": 0.602,
-      "normal": 0.557,
-      "hard": 0.521,
-      "hard-2": 0.509,
-      "hard-3": 0.513,
-      "hard-4": null
-    }
+    "random": { "random": null, "normal": 0.411, "hard": 0.396, "hard-2": 0.399, "hard-3": 0.391, "hard-4": 0.398 },
+    "normal": { "random": 0.589, "normal": null, "hard": 0.462, "hard-2": 0.449, "hard-3": 0.431, "hard-4": 0.443 },
+    "hard": { "random": 0.604, "normal": 0.538, "hard": null, "hard-2": 0.5, "hard-3": 0.487, "hard-4": 0.479 },
+    "hard-2": { "random": 0.601, "normal": 0.551, "hard": 0.5, "hard-2": null, "hard-3": 0.511, "hard-4": 0.491 },
+    "hard-3": { "random": 0.609, "normal": 0.569, "hard": 0.513, "hard-2": 0.489, "hard-3": null, "hard-4": 0.487 },
+    "hard-4": { "random": 0.602, "normal": 0.557, "hard": 0.521, "hard-2": 0.509, "hard-3": 0.513, "hard-4": null }
   }
 }

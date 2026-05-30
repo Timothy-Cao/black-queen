@@ -17,12 +17,13 @@ export interface LadderEntry {
 }
 
 // Final K=500 round-robin (docs/elo/elo.json, 2026-05-28).
+// Scale: 1000 Elo = 10x odds (see ELO_PER_DECADE in _elo_rr.ts).
 export const BOT_LADDER: LadderEntry[] = [
-  { bot: "hard-4", name: "Hard-4", elo: 1083, ci95: [1079, 1088], blurb: "Information-Set MCTS + belief & intent inference. Strongest." },
-  { bot: "hard-3", name: "Hard-3", elo: 1079, ci95: [1074, 1083], blurb: "Tuned weights + alliance inference + void creation." },
-  { bot: "hard-2", name: "Hard-2", elo: 1077, ci95: [1073, 1082], blurb: "First evolutionary-tuned generation." },
-  { bot: "hard",   name: "Hard",   elo: 1072, ci95: [1068, 1076], blurb: "Locked rule-based scoring baseline." },
-  { bot: "normal", name: "Normal", elo: 1045, ci95: [1040, 1049], blurb: "Greedy bidding + smear-to-ally heuristic." },
+  { bot: "hard-4", name: "Hard-4", elo: 1208, ci95: [1198, 1220], blurb: "Information-Set MCTS + belief & intent inference. Strongest." },
+  { bot: "hard-3", name: "Hard-3", elo: 1198, ci95: [1185, 1208], blurb: "Tuned weights + alliance inference + void creation." },
+  { bot: "hard-2", name: "Hard-2", elo: 1193, ci95: [1183, 1205], blurb: "First evolutionary-tuned generation." },
+  { bot: "hard",   name: "Hard",   elo: 1180, ci95: [1170, 1190], blurb: "Locked rule-based scoring baseline." },
+  { bot: "normal", name: "Normal", elo: 1113, ci95: [1100, 1123], blurb: "Greedy bidding + smear-to-ally heuristic." },
   { bot: "random", name: "Random", elo: 1000, ci95: [1000, 1000], blurb: "Plays a random legal card. The floor." },
 ];
 

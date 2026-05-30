@@ -15,6 +15,11 @@ Calibrated strength ratings for the Black Queen AI personalities. Source data:
   drives the outcome instead of being diluted by unrelated bots.
 - **Bradley-Terry** (the pairwise model Elo is built on) fit by the MM algorithm
   on per-seat win counts → Elo scale, **anchored: random = 1000**.
+- **Elo scale: 1000 points = 10× odds** (`ELO_PER_DECADE = 1000` in `_elo_rr.ts`),
+  vs chess's 400. Chosen for a wider, more granular spread — a given win-rate gap
+  maps to a 2.5× larger Elo gap. Expected score for a gap D is `1/(1+10^(−D/1000))`.
+  The same constant MUST be used wherever ratings are computed/updated (fit,
+  placement, and future human updates) or the scales won't match.
 - **Bootstrap** (resample seed-pairs, refit) → 95% confidence intervals.
 
 Run that produced the current numbers: **500 seed-pairs/matchup (1000 games each),
@@ -24,12 +29,14 @@ Run that produced the current numbers: **500 seed-pairs/matchup (1000 games each
 
 | Rank | Bot | Elo | 95% CI |
 |---|---|---:|---:|
-| 1 | hard-4 | 1083 | 1079–1088 |
-| 2 | hard-3 | 1079 | 1074–1083 |
-| 3 | hard-2 | 1077 | 1073–1082 |
-| 4 | hard | 1072 | 1068–1076 |
-| 5 | normal | 1045 | 1040–1049 |
+| 1 | hard-4 | 1208 | 1198–1220 |
+| 2 | hard-3 | 1198 | 1185–1208 |
+| 3 | hard-2 | 1193 | 1183–1205 |
+| 4 | hard | 1180 | 1170–1190 |
+| 5 | normal | 1113 | 1100–1123 |
 | 6 | random | 1000 | 1000–1000 |
+
+(Scale: 1000 = 10× odds. Spread ≈ 208 points random→hard-4.)
 
 Ordering matches the independent variance-cancelled mirror-arena evidence
 (hard-4 strongest; the hard-2/3/4 tier is close but hard-4 leads). The hard-3 and
@@ -52,8 +59,11 @@ bot head-to-head (all > .500 in its row), and everyone crushes random (~.60).
 
 ## Honest note on spread
 
-The spread is modest (~83 Elo from random to hard-4) **and that is correct, not a
-measurement artifact.** Black Queen is a 5-player hidden-team game where any single
+The spread is ~208 Elo from random to hard-4 (on the 1000-per-decade scale; it
+would be ~83 on chess's 400 scale). The *information* is the same either way —
+the scale constant is a display choice. The underlying point stands: skill→outcome
+in this 5-player team game is compressed (win rates only span ~40–60%), so the
+gaps are genuinely small. **That is correct, not a measurement artifact.** Black Queen is a 5-player hidden-team game where any single
 seat is only 20% of the table — even a perfect bot among weak ones can't dominate
 the way 1500-beats-1000 does in chess. So skill→outcome is compressed. Stretching
 the scale would be cosmetic; what matters is the **reliable ordering + tight CIs**,
