@@ -36,9 +36,6 @@ export function SignIn({ onBack, reason }: { onBack?: () => void; reason?: strin
             Sign-in failed: {authError}
           </p>
         )}
-        <p className="mt-4 text-[11px] text-stone-400/70">
-          We use your Google account only to identify you in games. No posting, no spam.
-        </p>
         {onBack && (
           <button className="mt-4 text-xs text-stone-300/80 hover:text-stone-100 underline" onClick={onBack}>
             ← Back to menu
