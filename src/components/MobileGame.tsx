@@ -9,10 +9,14 @@ import type { Card, GameState, PlayerId, Suit, Rank } from "../game/types";
 import { SUIT_GLYPHS, SUITS, RANK_LABEL, cardPoints } from "../game/types";
 import { CardView } from "./CardView";
 import { RoundEnd } from "./RoundEnd";
+import { HelpModal } from "./HelpModal";
 import { legalPlays } from "../game/rules";
 import { legalBidAmount } from "../game/engine";
 import { avatarColor, seatIcon } from "./PlayerSeat";
-import { sfx } from "../game/sfx";
+import { sfx, setSfxVolume, getSfxVolume } from "../game/sfx";
+import { setMusicVolume, getMusicVolume } from "../game/music";
+import { useCardSkin, CARD_SKINS, type CardSkin } from "./CardSkinContext";
+import { useHandLayout } from "./HandLayoutContext";
 
 interface Props {
   state: GameState;
@@ -59,6 +63,8 @@ export function MobileGame(p: Props) {
   const showDeclare = r.phase === "declaring" && r.bidder === me;
 
   const [selected, setSelected] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const { layout } = useHandLayout();
 
   const legalIds = useMemo(() => {
     if (!myTurnToPlay) return new Set<string>();
@@ -98,6 +104,7 @@ export function MobileGame(p: Props) {
       {/* Top bar */}
       <div className="flex items-center gap-2 px-2 py-1.5 text-xs border-b border-white/10 bg-black/20">
         <button className="glass rounded-full px-2.5 py-1 text-stone-200" onClick={p.onExit}>←</button>
+        <button className="glass rounded-full w-7 h-7 flex items-center justify-center text-stone-200" onClick={() => { sfx.uiClick(); setShowSettings(true); }} title="Settings">⚙</button>
         {p.banner && <span className="uppercase tracking-widest text-gold-300/90 text-[10px]">{p.banner}</span>}
         <div className="ml-auto flex items-center gap-2.5 text-[11px] text-stone-300 whitespace-nowrap">
           {r.winningBid != null && <span>Bid <b className="text-gold-300">{r.winningBid}</b></span>}
@@ -207,8 +214,21 @@ export function MobileGame(p: Props) {
         </div>
       )}
 
-      {/* My hand — overlapped fan, swipeable (scroll left/right for the rest) */}
-      {!showRoundEnd && (
+      {/* My hand — "compact" shows every card wrapped; "swipe" is a bigger fan */}
+      {!showRoundEnd && (layout === "compact" ? (
+        <div className="flex flex-wrap justify-center gap-1 px-2 py-2">
+          {hand.map((c) => {
+            const isSel = c.id === selected;
+            const dimmed = myTurnToPlay && !legalIds.has(c.id);
+            return (
+              <div key={c.id} role="button" onClick={() => tapCard(c)}
+                className={`rounded-md transition ${isSel ? "ring-2 ring-gold-400" : ""} ${dimmed ? "opacity-35" : ""}`}>
+                <CardView card={c} size={50} />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
         <div className="w-full overflow-x-auto overflow-y-hidden no-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
           <div className="flex px-3 py-2 items-end" style={{ minWidth: "100%", width: "max-content", justifyContent: "safe center" as "center" }}>
             {hand.map((c, i) => {
@@ -228,13 +248,73 @@ export function MobileGame(p: Props) {
             })}
           </div>
         </div>
-      )}
+      ))}
 
       {/* Declare overlay (compact, two-step) */}
       {showDeclare && <MobileDeclarePanel state={state} me={me} onDeclare={p.onDeclare} />}
 
       {/* Round / game end */}
       {showRoundEnd && <RoundEnd state={state} onNext={p.onRoundNext ?? p.onExit} />}
+
+      {/* Settings */}
+      {showSettings && <MobileSettingsSheet onClose={() => setShowSettings(false)} onExit={p.onExit} />}
+    </div>
+  );
+}
+
+// ── Full-screen mobile settings (self-contained) ───────────────────────────
+function MobileSettingsSheet({ onClose, onExit }: { onClose: () => void; onExit: () => void }) {
+  const { skin, setSkin } = useCardSkin();
+  const { layout, setLayout } = useHandLayout();
+  const [music, setMusic] = useState(() => Math.round(getMusicVolume() * 100));
+  const [sfxVol, setSfxVol] = useState(() => Math.round(getSfxVolume() * 100));
+  const [showHelp, setShowHelp] = useState(false);
+  const changeMusic = (pct: number) => { setMusic(pct); setMusicVolume(pct / 100); try { localStorage.setItem("bq:musicVol", String(pct / 100)); } catch { /**/ } };
+  const changeSfx = (pct: number) => { setSfxVol(pct); setSfxVolume(pct / 100); try { localStorage.setItem("bq:sfxVol", String(pct / 100)); } catch { /**/ } };
+
+  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="mb-5">
+      <div className="text-[11px] uppercase tracking-widest text-gold-400/80 mb-2">{label}</div>
+      <div className="flex items-center gap-2">{children}</div>
+    </div>
+  );
+  const Seg = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button onClick={() => { sfx.uiClick(); onClick(); }} className={`flex-1 text-sm py-2 rounded-lg transition-colors ${active ? "bg-gold-500/25 text-gold-200" : "bg-white/5 text-stone-400"}`}>{children}</button>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#0c1f18] p-5 overflow-auto animate-floatIn">
+      <div className="flex items-center justify-between mb-5">
+        <div className="font-display text-2xl text-gold-400">Settings</div>
+        <button className="text-stone-400 text-3xl leading-none w-9 h-9 rounded-full hover:bg-white/10" onClick={onClose}>×</button>
+      </div>
+
+      <Row label="Hand layout">
+        <Seg active={layout === "swipe"} onClick={() => setLayout("swipe")}>Big · swipe</Seg>
+        <Seg active={layout === "compact"} onClick={() => setLayout("compact")}>Compact · all</Seg>
+      </Row>
+
+      <Row label="Music">
+        <input type="range" min={0} max={100} value={music} onChange={(e) => changeMusic(+e.target.value)} className="accent-gold-500 flex-1" />
+        <span className="text-[11px] font-mono text-stone-400 w-9 text-right">{music}%</span>
+      </Row>
+      <Row label="Sound FX">
+        <input type="range" min={0} max={100} value={sfxVol} onChange={(e) => changeSfx(+e.target.value)} onTouchEnd={() => sfx.cardPlay()} onMouseUp={() => sfx.cardPlay()} className="accent-gold-500 flex-1" />
+        <span className="text-[11px] font-mono text-stone-400 w-9 text-right">{sfxVol}%</span>
+      </Row>
+
+      <Row label="Card design">
+        <select value={skin} onChange={(e) => { sfx.uiClick(); setSkin(e.target.value as CardSkin); }} className="text-sm bg-white/5 rounded-md px-2 py-1.5 text-stone-100 border border-white/10 outline-none flex-1">
+          {CARD_SKINS.map((s) => <option key={s.value} value={s.value} className="text-black">{s.label}</option>)}
+        </select>
+      </Row>
+
+      <div className="mt-auto pt-4 flex gap-2">
+        <button className="btn btn-ghost flex-1 py-2.5 text-sm" onClick={() => { sfx.uiClick(); setShowHelp(true); }}>How to play</button>
+        <button className="flex-1 py-2.5 rounded-lg text-rose-300 bg-rose-500/10 text-sm" onClick={onExit}>Leave game</button>
+      </div>
+
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>
   );
 }
@@ -340,12 +420,10 @@ function MobileDeclarePanel({ state, me, onDeclare }: {
         </>
       )}
 
-      {/* Your hand, for reference while choosing */}
+      {/* Your hand, for reference while choosing — wrapped so all 13 show */}
       <div className="text-[11px] uppercase tracking-wider text-stone-400 mb-1.5">Your hand</div>
-      <div className="overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
-        <div className="flex gap-1 w-max">
-          {sortForHand(hand, trump).map((c) => <CardView key={c.id} card={c} size={50} staticView />)}
-        </div>
+      <div className="flex flex-wrap gap-1.5 pb-1">
+        {sortForHand(hand, trump).map((c) => <CardView key={c.id} card={c} size={52} staticView />)}
       </div>
 
       <div className="mt-auto pt-3">

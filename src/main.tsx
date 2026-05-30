@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import { CardSkinProvider } from "./components/CardSkinContext";
+import { HandLayoutProvider } from "./components/HandLayoutContext";
 import { AuthProvider } from "./auth/AuthContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DEFAULT_HARD_WEIGHTS, setActiveHardWeights, setGen2HardWeights } from "./game/aiHard";
@@ -39,7 +40,9 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <AuthProvider>
         <CardSkinProvider>
-          <App />
+          <HandLayoutProvider>
+            <App />
+          </HandLayoutProvider>
         </CardSkinProvider>
       </AuthProvider>
     </ErrorBoundary>
