@@ -18,7 +18,7 @@ export function TurnHint({ state, me }: Props) {
     else text = `${state.players[r.bidder!].name} is choosing trump & partner...`;
   } else if (r.phase === "playing") {
     if (r.pendingTrickComplete) text = null;
-    else if (r.toPlay === me) text = "Your turn — play a card";
+    else if (r.toPlay === me) text = "Your turn to play a card";
     else text = `Waiting on ${state.players[r.toPlay].name}...`;
   }
   if (!text) return null;

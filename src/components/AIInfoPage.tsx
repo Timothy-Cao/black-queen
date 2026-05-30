@@ -16,7 +16,7 @@ function RosterLegend() {
   return (
     <div className="mt-6 rounded-lg border border-white/10 overflow-hidden">
       <div className="px-4 py-2 text-[10px] uppercase tracking-widest text-gold-400/80 bg-white/5">
-        Roster — codename ⇄ generation
+        Roster · codename ⇄ generation
       </div>
       <table className="w-full text-[12px]">
         <thead>

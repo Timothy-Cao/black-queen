@@ -3,6 +3,64 @@ import { CardView } from "./CardView";
 import { Card, AIPersonality } from "../game/types";
 import { botProfile } from "../data/botProfiles";
 import { botElo } from "../data/botLadder";
+import { sfx } from "../game/sfx";
+
+// Discrete shuffle settings, from most biased to a true uniform shuffle.
+// Lower intensity = more clumped, dramatic hands; 1 = perfectly random.
+const SHUFFLE_STOPS = [
+  { label: "Chaos",    intensity: 0,    desc: "Wildly biased hands. Points clump together and the swings are huge." },
+  { label: "Fun",      intensity: 0.33, desc: "Lively hands with a strong tilt toward the action." },
+  { label: "Standard", intensity: 0.66, desc: "A gentle bias, close to an ordinary shuffle." },
+  { label: "Uniform",  intensity: 1,    desc: "A perfectly random, real world shuffle." },
+];
+
+function ShuffleStepper({ step, setStep, disabled }: { step: number; setStep: (n: number) => void; disabled?: boolean }) {
+  const last = SHUFFLE_STOPS.length - 1;
+  return (
+    <div className={disabled ? "opacity-40 pointer-events-none select-none" : "select-none"}>
+      {/* Track + nodes */}
+      <div className="relative flex justify-between items-center h-4 px-1.5">
+        <div className="absolute left-1.5 right-1.5 top-1/2 -translate-y-1/2 h-1 rounded-full bg-white/10" />
+        <div
+          className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1 rounded-full bg-gold-500/70 transition-all"
+          style={{ width: `${(step / last) * 100}%` }}
+        />
+        {SHUFFLE_STOPS.map((s, i) => {
+          const active = i === step;
+          const filled = i <= step;
+          return (
+            <button
+              key={s.label}
+              type="button"
+              aria-label={s.label}
+              onClick={() => { sfx.uiClick(); setStep(i); }}
+              className="relative z-10 rounded-full transition-all"
+              style={{
+                width: active ? 16 : 11,
+                height: active ? 16 : 11,
+                background: filled ? "#e0a93a" : "rgba(255,255,255,0.18)",
+                boxShadow: active ? "0 0 0 4px rgba(224,169,58,0.25)" : "none",
+              }}
+            />
+          );
+        })}
+      </div>
+      {/* Labels */}
+      <div className="flex justify-between mt-2">
+        {SHUFFLE_STOPS.map((s, i) => (
+          <button
+            key={s.label}
+            type="button"
+            onClick={() => { sfx.uiClick(); setStep(i); }}
+            className={`text-[10px] uppercase tracking-wide transition-colors ${i === step ? "text-gold-300 font-semibold" : "text-stone-500 hover:text-stone-300"}`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // AI choices in the Lobby dropdown (strongest-first display order; ranking is
 // the Elo ladder, this is just menu order). hard-4b is experimental, omitted.
@@ -35,8 +93,9 @@ const TARGET_SCORE = 300; // Always 300 — matches total points in the 65-card 
 
 export function Lobby({ onStart, onOpenAIInfo }: Props) {
   const [players, setPlayers] = useState<Cfg[]>(DEFAULTS);
-  // Continuous shuffle intensity 0..1. 0 = light (current default, biased hands), 1 = full random.
-  const [shuffleIntensity, setShuffleIntensity] = useState<number>(0);
+  // Shuffle is chosen from 4 discrete stops (see SHUFFLE_STOPS). Index 0 = Chaos
+  // (the original "light" default, most biased hands).
+  const [shuffleStep, setShuffleStep] = useState<number>(0);
   // When checked, intensity is re-rolled uniformly at random for every dealt round.
   const [randomizeShuffle, setRandomizeShuffle] = useState<boolean>(false);
   return (
@@ -126,42 +185,32 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
               </div>
             ))}
           </div>
-          <div className="mb-6 flex items-center gap-3 flex-wrap">
-            <label className="text-sm text-stone-300 w-14 shrink-0">Shuffle</label>
-            <input
-              type="range"
-              autoComplete="off"
-              min={0}
-              max={100}
-              step={5}
-              value={Math.round(shuffleIntensity * 100)}
-              onChange={(e) => setShuffleIntensity(parseInt(e.target.value, 10) / 100)}
-              disabled={randomizeShuffle}
-              className={`accent-gold-500 w-44 ${randomizeShuffle ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-              aria-label="Shuffle intensity"
-            />
-            <span className="text-[10px] uppercase tracking-wider text-gold-400/70 font-mono w-10 text-center shrink-0">
-              {randomizeShuffle ? "rand"
-                : shuffleIntensity <= 0.025 ? "light"
-                : shuffleIntensity >= 0.975 ? "full"
-                : `${Math.round(shuffleIntensity * 100)}%`}
-            </span>
-            <label className="flex items-center gap-1.5 ml-auto text-xs text-stone-300 select-none cursor-pointer shrink-0">
-              <input
-                type="checkbox"
-                autoComplete="off"
-                checked={randomizeShuffle}
-                onChange={(e) => setRandomizeShuffle(e.target.checked)}
-                className="accent-gold-500"
-              />
-              <span>Randomize</span>
-            </label>
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2.5">
+              <label className="text-sm text-stone-300">Shuffle</label>
+              <label className="flex items-center gap-1.5 text-xs text-stone-300 select-none cursor-pointer">
+                <input
+                  type="checkbox"
+                  autoComplete="off"
+                  checked={randomizeShuffle}
+                  onChange={(e) => setRandomizeShuffle(e.target.checked)}
+                  className="accent-gold-500"
+                />
+                <span>Randomize each round</span>
+              </label>
+            </div>
+            <ShuffleStepper step={shuffleStep} setStep={setShuffleStep} disabled={randomizeShuffle} />
+            <div className="mt-2 text-[11px] text-stone-400 leading-snug min-h-[2.2em]">
+              {randomizeShuffle
+                ? "A different shuffle strength is rolled every round."
+                : SHUFFLE_STOPS[shuffleStep].desc}
+            </div>
           </div>
           <button
             className="btn btn-primary w-full text-lg py-3"
             onClick={() => onStart(
               players, TARGET_SCORE,
-              randomizeShuffle ? Math.random() : shuffleIntensity,
+              randomizeShuffle ? Math.random() : SHUFFLE_STOPS[shuffleStep].intensity,
               randomizeShuffle,
             )}
           >

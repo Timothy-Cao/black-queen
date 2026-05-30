@@ -189,7 +189,7 @@ function SeatCollection({ player, topCard, capturedPts, width, height, onHoverCh
         className="glass rounded-l-xl border-r-0 flex items-center justify-center"
         style={{ width, height }}
       >
-        <span className="text-stone-500 text-[10px]">—</span>
+        <span className="text-stone-500 text-[10px]">·</span>
       </div>
     );
   }

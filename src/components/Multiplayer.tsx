@@ -15,7 +15,7 @@ function BackBar({ onBack, title }: { onBack: () => void; title: string }) {
 
 const COMING_SOON =
   "Online multiplayer is being wired up (server-authoritative rooms with hidden hands). " +
-  "The flow below is the intended UX — it activates once the backend ships.";
+  "The flow below is the intended UX. It activates once the backend ships.";
 
 export function MultiplayerHost({ onBack }: { onBack: () => void }) {
   return (

@@ -116,10 +116,10 @@ export function DeclarePanel({ state, me, onDeclare, onHide }: Props) {
                     }`}
                     title={
                       blocked
-                        ? "You own all copies — illegal"
+                        ? "You own all copies (illegal)"
                         : count > 0
-                        ? `You own ${count} copy — partner has the other`
-                        : `Both copies held by opponents — 1 or 2 partners`
+                        ? `You own ${count} copy, so the partner holds the other`
+                        : `Both copies held by opponents (1 or 2 partners)`
                     }
                   >
                     {RANK_LABEL[rank]}

@@ -44,7 +44,7 @@ export function BiddingPanel({ state, me, onBid, onPass }: Props) {
             <span className="text-stone-400"> by {lastBidder}</span>
           </>
         ) : (
-          <span className="text-stone-400 italic">No bids yet — opening at {min}</span>
+          <span className="text-stone-400 italic">No bids yet. Opening at {min}</span>
         )}
       </div>
 

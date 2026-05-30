@@ -102,7 +102,7 @@ function Overview() {
     <div className="space-y-5">
       <Lead>
         5 players. One wins the <b>bid</b> and secretly teams up with whoever holds a
-        card they call — together they race to capture enough <b>points</b> hidden in
+        card they call. Together they race to capture enough <b>points</b> hidden in
         the cards. Everyone else tries to stop them.
       </Lead>
 
@@ -146,12 +146,12 @@ function Bid() {
       <Bullets
         items={[
           <>Opening bid is at least <b>150</b>; each raise is <b>+5</b>.</>,
-          <>Highest possible bid is <b>300</b> — every point in the deck.</>,
+          <>Highest possible bid is <b>300</b>, every point in the deck.</>,
           <><b>Pass</b> and you're out of the bidding for good.</>,
           <>Last player still in wins and becomes the <b className="text-gold-300">Caller</b>.</>,
         ]}
       />
-      <p className="text-[12px] text-stone-400">Bid high and you control the hand — but you have to deliver.</p>
+      <p className="text-[12px] text-stone-400">Bid high and you control the hand, but you have to deliver.</p>
     </div>
   );
 }
@@ -164,7 +164,7 @@ function Declare() {
         items={[
           <>Choose the <b>trump</b> suit (it beats all other suits).</>,
           <>Name a <b>partner card</b> by rank + suit, e.g. <span className="text-gold-300">A♠</span>. Whoever holds a copy is secretly on your team.</>,
-          <>There can be <b>1 or 2 partners</b> — and nobody announces it.</>,
+          <>There can be <b>1 or 2 partners</b>, and nobody announces it.</>,
           <>You can’t call a card you hold <i>every</i> copy of.</>,
         ]}
       />
@@ -188,7 +188,7 @@ function Play() {
       <Lead>13 tricks. Each player plays one card per trick.</Lead>
       <Bullets
         items={[
-          <><b>Follow the led suit</b> if you can. If you can’t, play anything — including trump.</>,
+          <><b>Follow the led suit</b> if you can. If you can’t, play anything, including trump.</>,
           <>Winner = highest <b>trump</b>; if no trump, highest card of the <b>led suit</b>.</>,
           <>The winner leads the next trick.</>,
         ]}
@@ -231,7 +231,7 @@ function Score() {
       </div>
       <Bullets
         items={[
-          <>Defenders win by holding the team under its bid — they need <b>301 − bid</b> points.</>,
+          <>Defenders win by holding the team under its bid. They need <b>301 − bid</b> points.</>,
           <>Capture all <b>300</b> for a perfect game.</>,
         ]}
       />

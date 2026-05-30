@@ -36,7 +36,7 @@ function partnerCardPlays(state: GameState, playerId: PlayerId): number {
 export function Sidebar({ state, onHelp, onHistory }: Props) {
   const r = state.round;
   const callerId = r.bidder;
-  const callerName = callerId !== undefined ? state.players[callerId].name : "—";
+  const callerName = callerId !== undefined ? state.players[callerId].name : "·";
   // Revealed teammates (caller + every revealed partner) share a team color.
   const teamIds = new Set<PlayerId>();
   if (callerId !== undefined) teamIds.add(callerId);
@@ -92,16 +92,16 @@ export function Sidebar({ state, onHelp, onHistory }: Props) {
       <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         <div className="text-stone-400">Dealer</div><div>{state.players[r.dealer].name}</div>
         <div className="text-stone-400">Caller</div><div>{callerName}</div>
-        <div className="text-stone-400">Bid</div><div>{r.winningBid ?? "—"}</div>
+        <div className="text-stone-400">Bid</div><div>{r.winningBid ?? "·"}</div>
         <div className="text-stone-400">Trump</div>
-        <div>{r.trump ? <span className={r.trump==="H"||r.trump==="D"?"text-rose-400":"text-stone-200"}>{SUIT_GLYPHS[r.trump]}</span> : "—"}</div>
+        <div>{r.trump ? <span className={r.trump==="H"||r.trump==="D"?"text-rose-400":"text-stone-200"}>{SUIT_GLYPHS[r.trump]}</span> : "·"}</div>
         <div className="text-stone-400">Called card</div>
         <div>
           {r.partnerCard ? (
             <span className={r.partnerCard.suit==="H"||r.partnerCard.suit==="D"?"text-rose-400":"text-stone-200"}>
               {RANK_LABEL[r.partnerCard.rank]}{SUIT_GLYPHS[r.partnerCard.suit]}
             </span>
-          ) : "—"}
+          ) : "·"}
         </div>
       </div>
 

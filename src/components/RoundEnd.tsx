@@ -59,7 +59,7 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
             <h2 className="font-display text-4xl mt-1 text-gold-300 drop-shadow-[0_0_18px_rgba(245,196,107,0.5)]">
               {teamLabel} swept all 300.
             </h2>
-            <div className="text-sm text-gold-200/80 mt-1">Every point in the deck — flawless.</div>
+            <div className="text-sm text-gold-200/80 mt-1">Every point in the deck. Flawless.</div>
           </>
         ) : (
           <>
@@ -109,7 +109,7 @@ export function RoundEnd({ state, onNext, onHide }: Props) {
                   </td>
                   <td className="text-right font-mono">{captured}</td>
                   <td className={`text-right font-mono ${delta > 0 ? "text-emerald-300" : delta < 0 ? "text-rose-400" : "text-stone-600"}`} title={onTeam ? "Score change this game" : "Defenders' score is unaffected under the current scoring model"}>
-                    {onTeam ? `${delta >= 0 ? "+" : ""}${delta}` : "—"}
+                    {onTeam ? `${delta >= 0 ? "+" : ""}${delta}` : "·"}
                   </td>
                 </tr>
               );
