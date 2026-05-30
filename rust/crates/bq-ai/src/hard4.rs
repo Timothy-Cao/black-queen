@@ -300,7 +300,7 @@ pub fn set_hard4b(enabled: bool) {
     HARD4B_WASM.store(enabled, std::sync::atomic::Ordering::Relaxed);
 }
 
-#[allow(dead_code)] // read by future Hard-4B iterations; scaffold is a no-op.
+#[allow(dead_code)] // hard4b currently == hard4 (its value-players fix was promoted); kept for future iterations.
 pub fn hard4b_enabled() -> bool {
     #[cfg(target_arch = "wasm32")]
     { return HARD4B_WASM.load(std::sync::atomic::Ordering::Relaxed); }

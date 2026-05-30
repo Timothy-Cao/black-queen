@@ -67,6 +67,13 @@ pub fn set_hard4b_wasm(enabled: bool) {
     bq_ai::hard4::set_hard4b(enabled);
 }
 
+/// Thrower toggle — inverts the ISMCTS value (search to MINIMIZE own team's
+/// points). Experiment-only; never in the rating pool. Set per-decision.
+#[wasm_bindgen]
+pub fn set_thrower_wasm(enabled: bool) {
+    bq_ai::hard4::set_thrower(enabled);
+}
+
 /// A/B selector for ISMCTS rollout policy. 0=Tactical, 1=Greedy (default), 2=Random.
 #[wasm_bindgen]
 pub fn set_rollout_policy_wasm(policy: u8) {

@@ -8,7 +8,7 @@ import {
   hardTunedBid, hardTunedDeclare, hardTunedPlay,
   hard2Bid, hard2Declare, hard2Play,
 } from "./aiHard";
-import { hard4Bid, hard4Declare, hard4Play, hard4bBid, hard4bDeclare, hard4bPlay } from "./hard4Driver";
+import { hard4Bid, hard4Declare, hard4Play, hard4bBid, hard4bDeclare, hard4bPlay, throwerBid, throwerDeclare, throwerPlay } from "./hard4Driver";
 
 // =============================================================================
 // PUBLIC DISPATCH — chooses behavior based on player's AIPersonality
@@ -22,6 +22,7 @@ export function aiBidDecision(state: GameState, player: PlayerId): { bid: number
   if (personality === "hard-3") return hardTunedBid(state, player);
   if (personality === "hard-4") return hard4Bid(state, player);
   if (personality === "hard-4b") return hard4bBid(state, player);
+  if (personality === "thrower") return throwerBid();
   return normalBid(state, player);
 }
 
@@ -33,6 +34,7 @@ export function aiDeclareDecision(state: GameState, player: PlayerId): { trump: 
   if (personality === "hard-3") return hardTunedDeclare(state, player);
   if (personality === "hard-4") return hard4Declare(state, player);
   if (personality === "hard-4b") return hard4bDeclare(state, player);
+  if (personality === "thrower") return throwerDeclare(state, player);
   return normalDeclare(state, player);
 }
 
@@ -44,6 +46,7 @@ export function aiPlayDecision(state: GameState, player: PlayerId): Card {
   if (personality === "hard-3") return avoidKnownEnemyPointDump(state, player, hardTunedPlay(state, player));
   if (personality === "hard-4") return hard4Play(state, player);
   if (personality === "hard-4b") return hard4bPlay(state, player);
+  if (personality === "thrower") return throwerPlay(state, player);
   return greedyPlay(state, player);
 }
 

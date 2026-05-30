@@ -9,6 +9,7 @@ export const set_follow_guard_wasm: (a: number) => void;
 export const set_hard4b_wasm: (a: number) => void;
 export const set_puct_wasm: (a: number, b: number, c: number) => void;
 export const set_rollout_policy_wasm: (a: number) => void;
+export const set_thrower_wasm: (a: number) => void;
 export const set_tree_ismcts_wasm: (a: number, b: number) => void;
 export const set_ucb_c_wasm: (a: number) => void;
 export const version: () => [number, number];

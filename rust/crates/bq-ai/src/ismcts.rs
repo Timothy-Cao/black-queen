@@ -181,7 +181,9 @@ pub fn ismcts_play(
 
     // Endgame escape hatch: when ≤3 tricks remain, every determinization can be
     // solved exactly via minimax. Vote across samples to pick the consensus best.
-    if should_solve_endgame(state) {
+    // (Skipped for the thrower — the solver MAXIMIZES our team, the wrong direction;
+    // the inverted-value ISMCTS handles the endgame instead.)
+    if should_solve_endgame(state) && !crate::hard4::thrower_enabled() {
         return ismcts_endgame(state, belief, rng, params, &candidates);
     }
 
@@ -272,6 +274,9 @@ pub fn ismcts_play(
         } else {
             captured as f64 / 300.0
         };
+        // Thrower: INVERT the value so UCB maximizes the move that MINIMIZES our
+        // own team's captured points (a competent saboteur). value ∈ [0,1].
+        let value = if crate::hard4::thrower_enabled() { 1.0 - value } else { value };
         let s = stats.get_mut(&chosen).unwrap();
         s.visits += 1;
         s.total_value += value;

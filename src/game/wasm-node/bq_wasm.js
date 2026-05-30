@@ -134,6 +134,16 @@ function set_rollout_policy_wasm(policy) {
 exports.set_rollout_policy_wasm = set_rollout_policy_wasm;
 
 /**
+ * Thrower toggle — inverts the ISMCTS value (search to MINIMIZE own team's
+ * points). Experiment-only; never in the rating pool. Set per-decision.
+ * @param {boolean} enabled
+ */
+function set_thrower_wasm(enabled) {
+    wasm.set_thrower_wasm(enabled);
+}
+exports.set_thrower_wasm = set_thrower_wasm;
+
+/**
  * A/B toggle for tree-structured ISMCTS (SO-ISMCTS). depth = max tree depth in plays.
  * @param {boolean} enabled
  * @param {number} depth
