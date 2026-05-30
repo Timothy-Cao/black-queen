@@ -1,0 +1,37 @@
+// POST { roomCode, displayName } → { gameId, seat }
+// Joins a lobby by code, taking the next free seat.
+import { corsHeaders, json, err } from "../_shared/cors.ts";
+import { admin, getUserId } from "../_shared/supa.ts";
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const uid = await getUserId(req);
+  if (!uid) return err("Not signed in", 401);
+
+  const { roomCode, displayName } = await req.json().catch(() => ({}));
+  if (!roomCode) return err("Missing room code");
+  const db = admin();
+
+  const { data: game } = await db.from("bq_games")
+    .select("id,status").eq("room_code", String(roomCode).toUpperCase()).maybeSingle();
+  if (!game) return err("No game with that code", 404);
+  if (game.status !== "lobby") return err("That game has already started", 409);
+
+  const { data: players } = await db.from("bq_game_players")
+    .select("seat,user_id").eq("game_id", game.id);
+
+  const mine = (players ?? []).find((p) => p.user_id === uid);
+  if (mine) return json({ gameId: game.id, seat: mine.seat }); // already in
+
+  const taken = new Set((players ?? []).map((p) => p.seat));
+  let seat = -1;
+  for (let s = 0; s < 5; s++) if (!taken.has(s)) { seat = s; break; }
+  if (seat < 0) return err("That game is full", 409);
+
+  await db.from("bq_game_players").insert({
+    game_id: game.id, seat, user_id: uid, is_ai: false,
+    display_name: String(displayName || "Player").slice(0, 24),
+  });
+
+  return json({ gameId: game.id, seat });
+});
