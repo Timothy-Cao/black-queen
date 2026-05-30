@@ -211,9 +211,13 @@ const outDir = argv[5] ?? "docs/game_traces";
 mkdirSync(outDir, { recursive: true });
 
 const index: string[] = [`# Mixed hard-AI trace batch`, "", `baseSeed=${baseSeed}`, `pool=${pool.join(",")}`, ""];
+// BQ_FIXED_SEATS=1 with a 5-token pool uses the pool AS the seat layout (seat i
+// = pool[i]) instead of random assignment — guarantees a focal bot is seated.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fixedSeats = !!(globalThis as any).process?.env?.BQ_FIXED_SEATS && pool.length === 5;
 for (let i = 0; i < count; i++) {
   const seed = baseSeed + i * 7919;
-  const seats = randomSeats(seed ^ 0x9E3779B9, pool);
+  const seats = fixedSeats ? (pool.slice() as AIPersonality[]) : randomSeats(seed ^ 0x9E3779B9, pool);
   const trace = playOneTrace(seats, seed);
   const path = `${outDir}/mixed_hard_${seed}.txt`;
   writeFileSync(path, trace, "utf8");
