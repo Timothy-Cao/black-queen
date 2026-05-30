@@ -13,18 +13,31 @@ export function admin(): SupabaseClient {
   });
 }
 
-/** Resolve the calling user from the request's Authorization: Bearer <jwt>.
- *  Returns the user id (auth.uid) or null if unauthenticated. */
-export async function getUserId(req: Request): Promise<string | null> {
+export interface Caller { id: string; email: string | null; }
+
+/** Resolve the calling user (id + email) from Authorization: Bearer <jwt>. */
+export async function getUser(req: Request): Promise<Caller | null> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return null;
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  // A client scoped to the caller's JWT lets us validate + read the user.
   const scoped = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data, error } = await scoped.auth.getUser();
   if (error || !data.user) return null;
-  return data.user.id;
+  return { id: data.user.id, email: data.user.email ?? null };
+}
+
+/** Resolve just the caller's user id (auth.uid) or null. */
+export async function getUserId(req: Request): Promise<string | null> {
+  return (await getUser(req))?.id ?? null;
+}
+
+/** True if the email is in the ADMIN_EMAILS secret (comma-separated). */
+export function isAdmin(email: string | null): boolean {
+  if (!email) return false;
+  const list = (Deno.env.get("ADMIN_EMAILS") ?? "")
+    .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  return list.includes(email.toLowerCase());
 }

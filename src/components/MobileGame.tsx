@@ -26,6 +26,7 @@ interface Props {
   onRoundNext?: () => void;    // RoundEnd primary action
   onExit: () => void;          // leave / back
   banner?: string;             // room code (online)
+  secondsLeft?: number | null; // turn countdown (online)
 }
 
 const SUIT_ORDER: Record<Suit, number> = { S: 0, H: 1, C: 2, D: 3 };
@@ -128,7 +129,10 @@ export function MobileGame(p: Props) {
 
       {/* Turn banner */}
       {turnText && (
-        <div className="text-center text-[11px] uppercase tracking-widest text-gold-400/90 py-1">{turnText}</div>
+        <div className="text-center text-[11px] uppercase tracking-widest text-gold-400/90 py-1">
+          {turnText}
+          {p.secondsLeft != null && <span className={`ml-2 font-mono ${p.secondsLeft <= 5 ? "text-rose-400" : "text-stone-300"}`}>{p.secondsLeft}s</span>}
+        </div>
       )}
 
       {/* Center: current trick */}

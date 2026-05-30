@@ -14,17 +14,18 @@ Deno.serve(async (req) => {
   const uid = await getUserId(req);
   if (!uid) return err("Not signed in", 401);
 
-  const { gameId, aiPersonality, shuffleIntensity } = await req.json().catch(() => ({}));
+  const { gameId, aiPersonality, shuffleIntensity, turnSeconds } = await req.json().catch(() => ({}));
   const db = admin();
 
   const { data: game } = await db.from("bq_games")
-    .select("id,host_user_id,status").eq("id", gameId).maybeSingle();
+    .select("id,status").eq("id", gameId).maybeSingle();
   if (!game) return err("Game not found", 404);
-  if (game.host_user_id !== uid) return err("Only the host can start the game", 403);
   if (game.status !== "lobby") return err("Game already started", 409);
 
   const { data: players } = await db.from("bq_game_players")
     .select("seat,user_id,display_name,is_ai").eq("game_id", gameId);
+  // Any human member can start the room (the UI only offers it to the host seat).
+  if (!(players ?? []).some((pl) => pl.user_id === uid)) return err("You are not in this game", 403);
   const bySeat = new Map((players ?? []).map((p) => [p.seat, p]));
 
   const pers = aiPersonality || "hard-4";
@@ -53,6 +54,11 @@ Deno.serve(async (req) => {
 
   const seatUser: Record<number, string | null> = {};
   for (let seat = 0; seat < 5; seat++) seatUser[seat] = bySeat.get(seat)?.user_id ?? null;
+
+  // Persist the per-player turn limit (null/0 = unlimited; clamp 10..60).
+  const ts = Number(turnSeconds);
+  const turn_seconds = Number.isFinite(ts) && ts >= 10 ? Math.min(60, Math.round(ts)) : null;
+  await db.from("bq_games").update({ turn_seconds }).eq("id", gameId);
 
   const status = state.phase === "game_end" ? "done" : "playing";
   await saveState(db, gameId, state, seatUser, status, 1);

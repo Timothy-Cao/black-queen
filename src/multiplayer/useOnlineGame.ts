@@ -18,6 +18,7 @@ export interface OnlineState {
   roster: RosterEntry[];
   gameState: GameState | null;
   version: number;
+  turnSeconds: number | null;
 }
 
 // deno-lint-ignore-file no-explicit-any
@@ -35,7 +36,7 @@ function revivePublic(ps: any): GameState | null {
 
 export function useOnlineGame(gameId: string | null, mySeat: number | null): OnlineState {
   const [state, setState] = useState<OnlineState>({
-    status: "loading", roster: [], gameState: null, version: 0,
+    status: "loading", roster: [], gameState: null, version: 0, turnSeconds: null,
   });
   const psRef = useRef<any>(null);
   const handRef = useRef<Card[]>([]);
@@ -60,7 +61,7 @@ export function useOnlineGame(gameId: string | null, mySeat: number | null): Onl
       if (!supa || !alive) return;
 
       const [{ data: game }, { data: players }, { data: hand }] = await Promise.all([
-        supa.from("bq_games").select("public_state,status,version").eq("id", gameId).maybeSingle(),
+        supa.from("bq_games").select("public_state,status,version,turn_seconds").eq("id", gameId).maybeSingle(),
         supa.from("bq_game_players").select("seat,user_id,is_ai,display_name,connected").eq("game_id", gameId).order("seat"),
         supa.from("bq_hands").select("cards").eq("game_id", gameId).eq("seat", mySeat ?? -1).maybeSingle(),
       ]);
@@ -72,6 +73,7 @@ export function useOnlineGame(gameId: string | null, mySeat: number | null): Onl
         roster: (players as RosterEntry[]) ?? [],
         gameState: assemble(),
         version: game?.version ?? 0,
+        turnSeconds: (game?.turn_seconds as number | null) ?? null,
       });
 
       channel = supa.channel(`bqgame:${gameId}`)
@@ -79,7 +81,7 @@ export function useOnlineGame(gameId: string | null, mySeat: number | null): Onl
           { event: "*", schema: "public", table: "bq_games", filter: `id=eq.${gameId}` },
           (p: any) => {
             psRef.current = p.new.public_state;
-            setState((s) => ({ ...s, status: p.new.status, version: p.new.version, gameState: assemble() }));
+            setState((s) => ({ ...s, status: p.new.status, version: p.new.version, gameState: assemble(), turnSeconds: p.new.turn_seconds ?? null }));
           })
         .on("postgres_changes",
           { event: "*", schema: "public", table: "bq_game_players", filter: `game_id=eq.${gameId}` },

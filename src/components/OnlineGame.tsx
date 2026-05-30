@@ -1,8 +1,9 @@
 // Renders a live online game from server state. The board components are reused
 // from single-player; my actions are sent to the bq-move Edge Function instead
 // of a local reducer (the server is authoritative and pushes the new state).
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Card, GameState, PlayerId } from "../game/types";
+import { legalPlays } from "../game/rules";
 import { PlayerSeat, type SeatPosition } from "./PlayerSeat";
 import { TableCenter } from "./TableCenter";
 import { TrickArea } from "./TrickArea";
@@ -41,6 +42,7 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
   const me = mySeat as PlayerId;
   const [err, setErr] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const isMobile = useIsMobile();
 
   const state = useMemo(
@@ -54,14 +56,6 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
     return map;
   }, [me]);
 
-  if (!state) {
-    return (
-      <div className="w-screen h-screen felt flex items-center justify-center">
-        <div className="glass rounded-2xl px-6 py-4 text-stone-300/80 animate-floatIn">Loading game…</div>
-      </div>
-    );
-  }
-
   const send = async (action: unknown) => {
     if (sending) return;
     setSending(true); setErr(null);
@@ -69,6 +63,41 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
     catch (e) { setErr(e instanceof Error ? e.message : "Move failed"); }
     setSending(false);
   };
+
+  // Per-turn timer: count down the local player's actionable turn; on timeout
+  // auto-pass (bidding) or auto-play the first legal card (playing).
+  const rNow = state?.round;
+  const myActionable = !!rNow && (
+    (rNow.phase === "bidding" && rNow.bidTurn === me) ||
+    (rNow.phase === "playing" && rNow.toPlay === me && !rNow.pendingTrickComplete)
+  );
+  useEffect(() => {
+    if (!state || !myActionable || !online.turnSeconds) { setSecondsLeft(null); return; }
+    let rem = online.turnSeconds;
+    setSecondsLeft(rem);
+    const iv = setInterval(() => {
+      rem -= 1; setSecondsLeft(rem);
+      if (rem <= 0) {
+        clearInterval(iv);
+        const rr = state.round;
+        if (rr.phase === "bidding") void send({ type: "pass" });
+        else {
+          const legal = legalPlays(state.players[me].hand, rr.currentTrick);
+          if (legal.length) void send({ type: "play", card: legal[0] });
+        }
+      }
+    }, 1000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myActionable, online.turnSeconds, online.version]);
+
+  if (!state) {
+    return (
+      <div className="w-screen h-screen felt flex items-center justify-center">
+        <div className="glass rounded-2xl px-6 py-4 text-stone-300/80 animate-floatIn">Loading game…</div>
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (
@@ -83,6 +112,7 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
           onExit={onLeave}
           onRoundNext={onLeave}
           banner={`Room ${roomCode}`}
+          secondsLeft={secondsLeft}
         />
         {err && (
           <div className="fixed bottom-2 left-1/2 -translate-x-1/2 z-50 glass rounded-lg px-4 py-2 text-sm text-rose-300">{err}</div>
@@ -105,6 +135,9 @@ export function OnlineGame({ gameId, mySeat, online, roomCode, onLeave }: {
         <div className="absolute top-2 left-2 z-30 flex items-center gap-2">
           <button className="glass rounded-full px-3 h-9 text-sm text-stone-200 hover:bg-white/10" onClick={onLeave}>← Leave</button>
           <div className="glass rounded-full px-3 h-9 flex items-center text-xs uppercase tracking-widest text-gold-300/90">Room {roomCode}</div>
+          {secondsLeft != null && (
+            <div className={`glass rounded-full px-3 h-9 flex items-center text-sm font-mono ${secondsLeft <= 5 ? "text-rose-400" : "text-stone-200"}`}>⏱ {secondsLeft}s</div>
+          )}
         </div>
 
         {state.players.map((p) => (

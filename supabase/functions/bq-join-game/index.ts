@@ -8,12 +8,15 @@ Deno.serve(async (req) => {
   const uid = await getUserId(req);
   if (!uid) return err("Not signed in", 401);
 
-  const { roomCode, displayName } = await req.json().catch(() => ({}));
-  if (!roomCode) return err("Missing room code");
+  const { roomCode, gameId, displayName } = await req.json().catch(() => ({}));
+  if (!roomCode && !gameId) return err("Missing room code");
   const db = admin();
 
-  const { data: game } = await db.from("bq_games")
-    .select("id,status").eq("room_code", String(roomCode).toUpperCase()).maybeSingle();
+  // Resolve by id (admin room browser) or by room code (normal join).
+  const query = db.from("bq_games").select("id,status");
+  const { data: game } = await (gameId
+    ? query.eq("id", gameId).maybeSingle()
+    : query.eq("room_code", String(roomCode).toUpperCase()).maybeSingle());
   if (!game) return err("No game with that code", 404);
   if (game.status !== "lobby") return err("That game has already started", 409);
 

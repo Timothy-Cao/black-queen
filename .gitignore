@@ -27,3 +27,4 @@ dist-ssr
 rust/target/
 **/*.rs.bk
 rust/Cargo.lock
+supabase/.temp/

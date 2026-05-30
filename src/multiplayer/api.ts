@@ -20,6 +20,7 @@ async function call<T>(fn: string, body: unknown): Promise<T> {
       apikey: ANON,
     },
     body: JSON.stringify(body),
+    keepalive: true, // let a leave request survive a tab close
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.error || `Request failed (${res.status}).`);
@@ -28,6 +29,7 @@ async function call<T>(fn: string, body: unknown): Promise<T> {
 
 export interface CreateResult { gameId: string; roomCode: string; seat: number; }
 export interface JoinResult { gameId: string; seat: number; }
+export interface RoomSummary { id: string; roomCode: string; status: string; humans: number; total: number; }
 
 export const createGame = (displayName: string) =>
   call<CreateResult>("bq-create-game", { displayName });
@@ -35,11 +37,19 @@ export const createGame = (displayName: string) =>
 export const joinGame = (roomCode: string, displayName: string) =>
   call<JoinResult>("bq-join-game", { roomCode, displayName });
 
-export const startGame = (gameId: string, aiPersonality = "hard-4", shuffleIntensity = 0) =>
-  call<{ ok: boolean }>("bq-start-game", { gameId, aiPersonality, shuffleIntensity });
+export const joinById = (gameId: string, displayName: string) =>
+  call<JoinResult>("bq-join-game", { gameId, displayName });
+
+export interface StartOpts { shuffleIntensity?: number; turnSeconds?: number | null; aiPersonality?: string; }
+export const startGame = (gameId: string, opts: StartOpts = {}) =>
+  call<{ ok: boolean }>("bq-start-game", { gameId, aiPersonality: "hard-4", ...opts });
 
 export const sendMove = (gameId: string, action: unknown) =>
   call<{ ok: boolean; version: number }>("bq-move", { gameId, action });
 
 export const leaveGame = (gameId: string) =>
   call<{ ok: boolean }>("bq-leave-game", { gameId });
+
+// Admin-only (server enforces ADMIN_EMAILS; non-admins get 403).
+export const listRooms = () => call<{ rooms: RoomSummary[] }>("bq-list-rooms", {});
+export const deleteRoom = (gameId: string) => call<{ ok: boolean }>("bq-delete-room", { gameId });
