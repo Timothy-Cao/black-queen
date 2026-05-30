@@ -115,6 +115,20 @@ Current strength ordering (mirror-replay verified):
 
 Hard-4 is the strongest AI. Decisive lever was opponent-intent Bayesian inference (Session 2) — without it, Hard-4 ≈ Hard-3.
 
+**Value-players bugfix (2026-05-28, in production):** `compute_value_players`
+derived team membership from the *current* hand, so once a partner PLAYED its
+partner card it flipped to the opposing team and spent the rest of the game
+maximizing the ENEMIES' points (the enemy-discard guard then treated enemies as
+allies). Found via the Hard-4B observe→fix loop (game 895839 dumped A♠ to an enemy
+→ failed by 5). Fixed: a player who ever held/played the partner card stays on the
+caller's team. A/B +1.13pp@N=1500; lifted hard-4 on the bot Elo ladder 1208→1222
+(now clearly #1, CI no longer overlaps hard-3). `hard-4b` == `hard-4` now (its only
+diff was this fix); kept as the experiment vehicle. Bot Elo ladder + leaderboard:
+`docs/elo/`, `_elo_rr.ts`, `src/data/botLadder.ts`. Codenames (Seer/Envoy/Darwin/
+Rulebook/Greedy/Wildcard) in `src/data/botProfiles.ts` decouple identity from the
+Hard-N order; Elo is the live ranking. `thrower` personality = inverted-ISMCTS
+saboteur (experiment-only, not in the rating pool; `_elo_rr.ts place thrower`).
+
 **Greedy rollout tried & REVERTED (2026-05-27 → 28):** briefly defaulted hard-4's
 ISMCTS rollout to `greedy` on a +0.78pp A/B vs hard-3. Re-measurement exposed it
 as **matchup-dependent, not a real gain**: at equal budget tactical beats greedy

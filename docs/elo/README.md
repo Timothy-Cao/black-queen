@@ -27,16 +27,19 @@ Run that produced the current numbers: **500 seed-pairs/matchup (1000 games each
 
 ## Ladder
 
-| Rank | Bot | Elo | 95% CI |
-|---|---|---:|---:|
-| 1 | hard-4 | 1208 | 1198–1220 |
-| 2 | hard-3 | 1198 | 1185–1208 |
-| 3 | hard-2 | 1193 | 1183–1205 |
-| 4 | hard | 1180 | 1170–1190 |
-| 5 | normal | 1113 | 1100–1123 |
-| 6 | random | 1000 | 1000–1000 |
+| Rank | Codename | Bot | Elo | 95% CI |
+|---|---|---|---:|---:|
+| 1 | Seer | hard-4 | **1222** | 1210–1233 |
+| 2 | Envoy | hard-3 | 1198 | 1187–1208 |
+| 3 | Darwin | hard-2 | 1193 | 1182–1204 |
+| 4 | Rulebook | hard | 1182 | 1172–1193 |
+| 5 | Greedy | normal | 1110 | 1099–1121 |
+| 6 | Wildcard | random | 1000 | 1000–1000 |
 
-(Scale: 1000 = 10× odds. Spread ≈ 208 points random→hard-4.)
+(Scale: 1000 = 10× odds. Spread ≈ 222 points random→hard-4.)
+**Update 2026-05-28:** hard-4 rose 1208→1222 after the value-players bugfix was
+promoted to production (found via the Hard-4B observe→fix loop, +1.13pp@N=1500).
+Its CI no longer overlaps hard-3 — hard-4 is now clearly #1.
 
 Ordering matches the independent variance-cancelled mirror-arena evidence
 (hard-4 strongest; the hard-2/3/4 tier is close but hard-4 leads). The hard-3 and
