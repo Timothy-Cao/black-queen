@@ -325,6 +325,10 @@ export default function App() {
           onLeaderboard={() => navigate("/leaderboard")}
           onAIInfo={openAIInfo}
           onHowToPlay={() => setShowHelp(true)}
+          musicVol={musicVol}
+          setMusicVol={setMusicVol}
+          sfxVol={sfxVol}
+          setSfxVol={setSfxVol}
         />
         {help}
       </>

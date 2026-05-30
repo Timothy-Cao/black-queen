@@ -7,17 +7,24 @@ interface Props {
   setMusicVol: (v: number) => void;
   sfxVol: number;
   setSfxVol: (v: number) => void;
-  speed: "slow" | "normal" | "fast";
-  setSpeed: (s: "slow" | "normal" | "fast") => void;
-  showHands: boolean;
-  setShowHands: (v: boolean | ((p: boolean) => boolean)) => void;
-  onHelp: () => void;
-  onQuit: () => void;
+  // Subtitle under the "Settings" title (e.g. "Game paused").
+  subtitle?: string;
+  // Game-only controls. Omit on the menu to render an audio + display variant.
+  speed?: "slow" | "normal" | "fast";
+  setSpeed?: (s: "slow" | "normal" | "fast") => void;
+  showHands?: boolean;
+  setShowHands?: (v: boolean | ((p: boolean) => boolean)) => void;
+  onHelp?: () => void;
+  onQuit?: () => void;
 }
 
-// Full-screen, game-pausing Settings overlay. The table is blurred behind it.
+// Full-screen Settings overlay. Used both in-game (pauses the table) and on the
+// menu (audio + display only — game-specific props omitted).
 export function SettingsModal(p: Props) {
   const { skin, setSkin } = useCardSkin();
+  const showGameplay = p.speed !== undefined && p.setSpeed !== undefined;
+  const showAdvanced = p.showHands !== undefined && p.setShowHands !== undefined;
+  const showFooter = p.onHelp !== undefined || p.onQuit !== undefined;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-md animate-floatIn"
@@ -28,7 +35,7 @@ export function SettingsModal(p: Props) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div>
             <div className="font-display text-2xl text-gold-400 leading-none">Settings</div>
-            <div className="text-[11px] uppercase tracking-widest text-stone-500 mt-1">Game paused</div>
+            <div className="text-[11px] uppercase tracking-widest text-stone-500 mt-1">{p.subtitle ?? "Game paused"}</div>
           </div>
           <button
             className="text-stone-400 hover:text-stone-100 text-2xl leading-none w-8 h-8 rounded-full hover:bg-white/10"
@@ -55,22 +62,24 @@ export function SettingsModal(p: Props) {
             />
           </Section>
 
-          {/* Gameplay */}
-          <Section title="Gameplay">
-            <Field label="AI speed">
-              <div className="flex gap-1">
-                {(["slow", "normal", "fast"] as const).map((s) => (
-                  <button
-                    key={s}
-                    className={`text-[11px] uppercase px-2.5 py-1 rounded-md transition-colors ${p.speed === s ? "bg-gold-500/25 text-gold-300" : "text-stone-400 hover:bg-white/5"}`}
-                    onClick={() => { sfx.uiClick(); p.setSpeed(s); }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </Field>
-          </Section>
+          {/* Gameplay (in-game only) */}
+          {showGameplay && (
+            <Section title="Gameplay">
+              <Field label="AI speed">
+                <div className="flex gap-1">
+                  {(["slow", "normal", "fast"] as const).map((s) => (
+                    <button
+                      key={s}
+                      className={`text-[11px] uppercase px-2.5 py-1 rounded-md transition-colors ${p.speed === s ? "bg-gold-500/25 text-gold-300" : "text-stone-400 hover:bg-white/5"}`}
+                      onClick={() => { sfx.uiClick(); p.setSpeed!(s); }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            </Section>
+          )}
 
           {/* Appearance */}
           <Section title="Appearance">
@@ -90,29 +99,37 @@ export function SettingsModal(p: Props) {
             </div>
           </Section>
 
-          {/* Advanced */}
-          <Section title="Advanced">
-            <Field label={<span className="text-stone-400 text-[12px]">Reveal hands (debug)</span>}>
-              <Toggle on={p.showHands} onClick={() => p.setShowHands((v) => !v)} onLabel="On" offLabel="Off" danger />
-            </Field>
-          </Section>
+          {/* Advanced (in-game only) */}
+          {showAdvanced && (
+            <Section title="Advanced">
+              <Field label={<span className="text-stone-400 text-[12px]">Reveal hands (debug)</span>}>
+                <Toggle on={p.showHands!} onClick={() => p.setShowHands!((v) => !v)} onLabel="On" offLabel="Off" danger />
+              </Field>
+            </Section>
+          )}
         </div>
 
         {/* Footer actions */}
-        <div className="px-6 py-4 border-t border-white/10 flex gap-2">
-          <button
-            className="btn btn-ghost flex-1 text-sm py-2"
-            onClick={() => { sfx.uiClick(); p.onHelp(); }}
-          >
-            How to play
-          </button>
-          <button
-            className="flex-1 text-sm py-2 rounded-lg text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 transition-colors"
-            onClick={() => { sfx.uiClick(); p.onQuit(); }}
-          >
-            Quit to menu
-          </button>
-        </div>
+        {showFooter && (
+          <div className="px-6 py-4 border-t border-white/10 flex gap-2">
+            {p.onHelp && (
+              <button
+                className="btn btn-ghost flex-1 text-sm py-2"
+                onClick={() => { sfx.uiClick(); p.onHelp!(); }}
+              >
+                How to play
+              </button>
+            )}
+            {p.onQuit && (
+              <button
+                className="flex-1 text-sm py-2 rounded-lg text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 transition-colors"
+                onClick={() => { sfx.uiClick(); p.onQuit!(); }}
+              >
+                Quit to menu
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

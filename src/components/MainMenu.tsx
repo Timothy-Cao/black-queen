@@ -1,6 +1,8 @@
 // Top-level main menu: Single Player, Multiplayer (Host/Join), AI Notes, How to Play.
+import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { sfx } from "../game/sfx";
+import { SettingsModal } from "./SettingsModal";
 
 interface Props {
   onSinglePlayer: () => void;
@@ -9,14 +11,41 @@ interface Props {
   onLeaderboard: () => void;
   onAIInfo: () => void;
   onHowToPlay: () => void;
+  musicVol: number;
+  setMusicVol: (v: number) => void;
+  sfxVol: number;
+  setSfxVol: (v: number) => void;
 }
 
-export function MainMenu({ onSinglePlayer, onHost, onJoin, onLeaderboard, onAIInfo, onHowToPlay }: Props) {
+export function MainMenu({
+  onSinglePlayer, onHost, onJoin, onLeaderboard, onAIInfo, onHowToPlay,
+  musicVol, setMusicVol, sfxVol, setSfxVol,
+}: Props) {
   const { configured, user, signOut } = useAuth();
   const click = (fn: () => void) => () => { sfx.uiClick(); fn(); };
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div className="w-screen h-screen felt flex items-center justify-center">
+      {/* Settings gear — audio + display, reachable before a game starts. */}
+      <button
+        className="fixed top-3 right-3 z-40 glass rounded-full w-9 h-9 flex items-center justify-center text-stone-200 hover:bg-white/10"
+        onClick={() => { sfx.uiClick(); setSettingsOpen(true); }}
+        title="Settings"
+      >
+        ⚙
+      </button>
+      {settingsOpen && (
+        <SettingsModal
+          subtitle="Music & display"
+          onClose={() => setSettingsOpen(false)}
+          musicVol={musicVol}
+          setMusicVol={setMusicVol}
+          sfxVol={sfxVol}
+          setSfxVol={setSfxVol}
+          onHelp={() => { setSettingsOpen(false); onHowToPlay(); }}
+        />
+      )}
       <div className="glass rounded-2xl p-8 w-[min(94vw,480px)] animate-floatIn">
         <div className="text-center">
           <h1 className="text-4xl font-semibold text-gold-400 tracking-wide">Black Queen</h1>
