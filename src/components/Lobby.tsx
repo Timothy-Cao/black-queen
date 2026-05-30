@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { CardView } from "./CardView";
 import { Card, AIPersonality } from "../game/types";
+import { botProfile } from "../data/botProfiles";
+
+// AI choices in the Lobby dropdown (strongest-first display order; ranking is
+// the Elo ladder, this is just menu order). hard-4b is experimental, omitted.
+const AI_OPTIONS: AIPersonality[] = ["hard-4", "hard-3", "hard-2", "hard", "normal", "random"];
 
 type Cfg = { name: string; isAI: boolean; aiPersonality?: AIPersonality };
 
@@ -95,7 +100,7 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
                 </label>
                 {p.isAI ? (
                   <select
-                    className="text-xs bg-white/5 rounded px-2 py-1.5 text-stone-100 border border-white/10 outline-none focus:border-gold-500 w-24"
+                    className="text-xs bg-white/5 rounded px-2 py-1.5 text-stone-100 border border-white/10 outline-none focus:border-gold-500 w-32"
                     value={p.aiPersonality ?? "normal"}
                     onChange={(e) => {
                       const a = players.slice();
@@ -103,12 +108,10 @@ export function Lobby({ onStart, onOpenAIInfo }: Props) {
                       setPlayers(a);
                     }}
                   >
-                    <option value="hard-4" className="text-black">Hard-4</option>
-                    <option value="hard-3" className="text-black">Hard-3</option>
-                    <option value="hard-2" className="text-black">Hard-2</option>
-                    <option value="hard" className="text-black">Hard</option>
-                    <option value="normal" className="text-black">Normal</option>
-                    <option value="random" className="text-black">Random</option>
+                    {AI_OPTIONS.map((id) => {
+                      const pr = botProfile(id);
+                      return <option key={id} value={id} className="text-black">{pr.codename} · {pr.tech}</option>;
+                    })}
                   </select>
                 ) : (
                   <div className="w-24" />

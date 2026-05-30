@@ -1,6 +1,7 @@
 // In-game Elo leaderboard. AI-only for now (hardcoded from docs/elo/elo.json);
 // becomes the live human board once multiplayer + accounts land.
 import { BOT_LADDER, LADDER_META } from "../data/botLadder";
+import { botProfile } from "../data/botProfiles";
 
 const MEDAL = ["🥇", "🥈", "🥉"];
 
@@ -23,6 +24,7 @@ export function Leaderboard({ onBack }: { onBack: () => void }) {
         <div className="space-y-2">
           {BOT_LADDER.map((b, i) => {
             const pct = ((b.elo - min) / span) * 100;
+            const p = botProfile(b.bot);
             return (
               <div key={b.bot} className="glass rounded-xl p-3 flex items-center gap-3 animate-floatIn">
                 <div className="w-8 text-center text-lg font-semibold text-stone-300 shrink-0">
@@ -30,7 +32,10 @@ export function Leaderboard({ onBack }: { onBack: () => void }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-semibold text-stone-100 truncate">{b.name}</span>
+                    <span className="font-semibold text-stone-100 truncate">
+                      {p.codename}
+                      <span className="ml-1.5 text-[11px] font-normal text-stone-400/70">{p.tech}</span>
+                    </span>
                     <span className="font-mono text-gold-400 text-lg shrink-0">{b.elo}</span>
                   </div>
                   {/* relative-strength bar */}
@@ -38,7 +43,7 @@ export function Leaderboard({ onBack }: { onBack: () => void }) {
                     <div className="h-full rounded-full bg-gold-500/70" style={{ width: `${Math.max(6, pct)}%` }} />
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-stone-400/80 truncate">{b.blurb}</span>
+                    <span className="text-[11px] text-stone-400/80 truncate">{p.tagline}</span>
                     <span className="text-[10px] font-mono text-stone-500 shrink-0">±{Math.round((b.ci95[1] - b.ci95[0]) / 2)}</span>
                   </div>
                 </div>
