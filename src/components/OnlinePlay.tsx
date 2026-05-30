@@ -82,10 +82,7 @@ export function OnlinePlay({ initialMode, onBack }: { initialMode: "host" | "joi
         <BackBar onBack={onBack} title={initialMode === "host" ? "Host a game" : "Join a game"} />
         {initialMode === "host" ? (
           <>
-            <p className="text-sm text-stone-300/80">
-              Create a private room and share the code. Empty seats are filled with AI; if a player drops, the AI takes over their seat.
-            </p>
-            <button className="btn btn-primary w-full py-3 mt-6" disabled={busy} onClick={doCreate}>
+            <button className="btn btn-primary w-full py-3 mt-2" disabled={busy} onClick={doCreate}>
               {busy ? "Creating…" : "Create room"}
             </button>
           </>
