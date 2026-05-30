@@ -57,8 +57,18 @@ export function MainMenu({
           </button>
 
           <div className="flex gap-3">
-            <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onHost)}>Host</button>
-            <button className="btn btn-ghost flex-1 py-2.5" onClick={click(onJoin)}>Join</button>
+            <button
+              className="btn flex-1 py-2.5 bg-emerald-500/15 text-emerald-200 border border-emerald-400/30 hover:bg-emerald-500/25 transition-colors"
+              onClick={click(onHost)}
+            >
+              Host
+            </button>
+            <button
+              className="btn flex-1 py-2.5 bg-sky-500/15 text-sky-200 border border-sky-400/30 hover:bg-sky-500/25 transition-colors"
+              onClick={click(onJoin)}
+            >
+              Join
+            </button>
           </div>
 
           <button
