@@ -53,6 +53,15 @@ Client (React)                         Supabase
 
 - [x] **Do JOINERS sign in too? → YES. Everyone (hosts + joiners) signs in with Google for v1.** (LOCKED 2026-05-28.) RLS hand-secrecy requires every player to have an `auth.uid()` identity; universal Google sign-in is the simplest way to guarantee it. Anonymous-joiner auth was the lower-friction alt — deferred, can add later.
 
+**DECISIONS ADDED 2026-05-30 (shared Supabase project + open sign-in):**
+
+- [x] **Shared Supabase project** with the `timi-and-jam` app (free-tier 2-project cap). Our objects are all prefixed `bq_`. Verified safe: timi-and-jam gates every table with `current_user_allowed()` (email allowlist), so random Black Queen users cannot touch their data; our `bq_` RLS (own-hand-only, member reads, no client writes) protects ours.
+- [x] **Open sign-in:** any Google account may play (publish the shared OAuth consent screen). Not a data risk given the two RLS walls above. Branding caveat: the consent screen shows "Timi & Jam" (one shared OAuth client).
+- [x] **Abuse caps (enforced server-side in Edge Functions):**
+  - Max **3 concurrent games** (`status in ('lobby','playing')`); `create_game` rejects beyond that.
+  - **Empty-lobby teardown:** when the last *human* leaves a game, delete the `bq_games` row (cascades to hands/players/moves).
+  - **AFK handling:** idle past a timeout → in a running game, the seat is taken over by AI; in a lobby, the player is removed. (Aligns with the existing "disconnector replaced by AI" decision.)
+
 ## Phase 1 — Supabase project setup (YOU)
 
 - [ ] Create a Supabase project (note the region — pick closest to most users).
